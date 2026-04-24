@@ -259,6 +259,24 @@ The key insight: development communication is **highly structured** — the same
 
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
+## 📜 Version History (Changelog)
+
+### v0.3.0 (Next-Gen Features)
+- **Global CLI Tool (`npx glyph-compress`)**: Added the ability to compress and copy code directly from your terminal.
+- **Multi-Language Ultra Parser**: Extended the "Ultra" semantic codeblock compressor to support Python, Rust, Go, Java, and C# natively.
+- **Persistent Telemetry**: Added `globalState` tracking in VS Code to calculate *Lifetime Savings* across all sessions.
+
+### v0.2.0 (Advanced Edition)
+- **Dynamic Dictionary (Auto-Tuning)**: Implemented runtime frequency analysis to map repeated long variable/class names to single greek letters (`α`, `β`).
+- **"Ultra" Compression Level**: Introduced lossy semantic stripping that completely removes `console.log()` calls and inline/block comments before compression.
+- **Anthropic Prompt Caching**: Added native support for Claude's `cache_control: { type: 'ephemeral' }` to drastically reduce the codebook cost in long chat sessions.
+- **Antigravity Support**: Verified full compatibility with the Google Antigravity platform.
+
+### v0.1.0 (Initial Release)
+- **Glyph Protocol v0.1**: Defined the core 96-symbol dictionary mapping tech stacks, domains, and common actions to Unicode symbols.
+- **Codeblock Summarizer**: Introduced the `[imp:3 ƒ:2 44L]` structural summary format for code blocks.
+- **Middleware API**: Created wrappers for OpenAI and Anthropic SDKs to automatically inject the codebook and compress user messages.
+
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
