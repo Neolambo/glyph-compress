@@ -14,10 +14,12 @@ const { GlyphCompressor, CODEBOOK_PROMPT, DOMAIN_GLYPHS } = require('./glyph-mid
 let compressor;
 let statusBarItem;
 let outputChannel;
+let globalState;
 
 function activate(context) {
   outputChannel = vscode.window.createOutputChannel('GlyphCompress');
   outputChannel.appendLine('GlyphCompress activated');
+  globalState = context.globalState;
 
   // Initialize compressor with user settings
   const config = vscode.workspace.getConfiguration('glyphCompress');
@@ -57,11 +59,14 @@ function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('glyphCompress.showStats', () => {
       const stats = compressor.getStats();
+      const lifetimeSaved = globalState.get('lifetimeTokensSaved', 0);
+      const lifetimeCost = `$${(lifetimeSaved * (3 / 1000000)).toFixed(2)}`;
+      
       const panel = vscode.window.createWebviewPanel(
         'glyphStats', 'GlyphCompress Stats', vscode.ViewColumn.Beside,
         { enableScripts: false }
       );
-      panel.webview.html = generateStatsHTML(stats);
+      panel.webview.html = generateStatsHTML(stats, lifetimeSaved, lifetimeCost);
     })
   );
 
@@ -164,6 +169,11 @@ function updateStatusBar() {
   if (!statusBarItem || !compressor.enabled) return;
   const stats = compressor.getStats();
   if (stats.messagesProcessed > 0) {
+    // Update lifetime stats
+    let lifetime = globalState.get('lifetimeTokensSaved', 0);
+    // Since we don't have hooks into individual requests easily, 
+    // we can track a baseline in the extension lifecycle
+    
     statusBarItem.text = `$(zap) GC: ${stats.overallRatio} | -${stats.totalSavedTokens} tok`;
     statusBarItem.tooltip = [
       `GlyphCompress Stats`,
@@ -176,25 +186,25 @@ function updateStatusBar() {
   }
 }
 
-function generateStatsHTML(stats) {
+function generateStatsHTML(stats, lifetimeSaved, lifetimeCost) {
   return `<!DOCTYPE html>
 <html>
 <head>
   <style>
     body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
     h1 { color: #569cd6; font-size: 24px; }
+    h2 { color: #c586c0; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #3c3c3c; padding-bottom: 5px; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
     .stat-card { background: #252526; border: 1px solid #3c3c3c; border-radius: 8px; padding: 16px; }
     .stat-value { font-size: 32px; font-weight: bold; color: #4ec9b0; }
+    .stat-value.gold { color: #d7ba7d; }
     .stat-label { font-size: 12px; color: #808080; text-transform: uppercase; margin-top: 4px; }
-    .glyph-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    .glyph-table td, .glyph-table th { padding: 8px; border: 1px solid #3c3c3c; }
-    .glyph-table th { background: #252526; color: #569cd6; }
-    .glyph { font-size: 20px; text-align: center; }
   </style>
 </head>
 <body>
   <h1>⚡ GlyphCompress Stats</h1>
+  
+  <h2>Current Session</h2>
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-value">${stats.overallRatio}</div>
@@ -212,13 +222,17 @@ function generateStatsHTML(stats) {
       <div class="stat-value">${stats.estimatedCostSaved}</div>
       <div class="stat-label">Cost Saved (est.)</div>
     </div>
+  </div>
+
+  <h2>Lifetime Savings (All Sessions)</h2>
+  <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-value">${stats.messagesProcessed}</div>
-      <div class="stat-label">Messages Processed</div>
+      <div class="stat-value gold">${lifetimeSaved + stats.totalSavedTokens}</div>
+      <div class="stat-label">Total Tokens Saved</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${stats.sessionDuration}</div>
-      <div class="stat-label">Session Duration</div>
+      <div class="stat-value gold">$${((lifetimeSaved + stats.totalSavedTokens) * (3 / 1000000)).toFixed(2)}</div>
+      <div class="stat-label">Total Cost Saved (est.)</div>
     </div>
   </div>
 </body>
@@ -228,6 +242,10 @@ function generateStatsHTML(stats) {
 function deactivate() {
   if (outputChannel) {
     const stats = compressor.getStats();
+    // Persist final session stats
+    const lifetime = globalState.get('lifetimeTokensSaved', 0);
+    globalState.update('lifetimeTokensSaved', lifetime + stats.totalSavedTokens);
+    
     outputChannel.appendLine(`\nSession ended. Final stats:`);
     outputChannel.appendLine(JSON.stringify(stats, null, 2));
   }
