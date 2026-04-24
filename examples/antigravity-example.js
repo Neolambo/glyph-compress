@@ -15,6 +15,8 @@ const gc = new GlyphCompressor({ level: 'ultra' });
 const projectContext = `
 Please analyze this code and fix the bugs.
 src/services/AuthenticationManager.ts
+
+\`\`\`typescript
 import { DatabaseConnection } from '../db';
 import { UserProfile } from '../types';
 
@@ -29,6 +31,7 @@ export class AuthenticationManager {
     return user;
   }
 }
+\`\`\`
 Warning: 'DatabaseConnection' is deprecated.
 `;
 
