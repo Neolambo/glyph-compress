@@ -265,7 +265,12 @@ The key insight: development communication is **highly structured** — the same
 
 ## 📜 Version History (Changelog)
 
-### v0.3.0 (Next-Gen Features)
+### v0.3.2 (Current Release)
+- **Monetization & Legal**: Migrated to Dual Licensing model (AGPL-3.0 for open source, Enterprise for commercial).
+- **Marketplace Publishing**: Added official support and documentation for the Visual Studio Code Marketplace.
+- **Funding Support**: Enabled GitHub Sponsors and NPM funding links natively.
+
+### v0.3.0 & v0.3.1 (Next-Gen Features)
 - **Global CLI Tool (`npx glyph-compress`)**: Added the ability to compress and copy code directly from your terminal.
 - **Multi-Language Ultra Parser**: Extended the "Ultra" semantic codeblock compressor to support Python, Rust, Go, Java, and C# natively.
 - **Persistent Telemetry**: Added `globalState` tracking in VS Code to calculate *Lifetime Savings* across all sessions.
