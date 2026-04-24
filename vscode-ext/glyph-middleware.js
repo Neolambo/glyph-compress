@@ -86,9 +86,11 @@ Respond normally. Context below uses these glyphs for brevity.
 class GlyphCompressor {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    this.level = options.level || 'standard'; // light | standard | aggressive
+    this.level = options.level || 'standard'; // light | standard | aggressive | ultra
     this.fileIndex = new Map();
     this.fileCounter = 0;
+    this.dynamicDict = new Map();
+    this.dynamicCounter = 0;
     this.stats = {
       totalOriginalTokens: 0,
       totalCompressedTokens: 0,
@@ -109,6 +111,10 @@ class GlyphCompressor {
    */
   compressMessages(messages, provider = 'auto') {
     if (!this.enabled) return { messages, stats: this.stats };
+
+    // Build dynamic dictionary from user messages
+    const allUserText = messages.filter(m => m.role === 'user').map(m => m.content).join('\n');
+    this._buildDynamicDictionary(allUserText);
 
     const compressed = [];
     let codebookInjected = false;
@@ -170,6 +176,7 @@ class GlyphCompressor {
   compressText(text) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
 
+    this._buildDynamicDictionary(text);
     const compressed = this._compressUserMessage(text);
     const origTokens = this._estimateTokens([{ content: text }]);
     const compTokens = this._estimateTokens([{ content: compressed }]);
@@ -240,8 +247,14 @@ class GlyphCompressor {
     // Don't double-inject
     if (systemPrompt.includes('[GLYPH PROTOCOL')) return systemPrompt;
 
+    let modifiedCodebook = CODEBOOK_PROMPT;
+    if (this.dynamicDict.size > 0) {
+      const dyn = [...this.dynamicDict].map(([w, g]) => `${g}=${w}`).join(' | ');
+      modifiedCodebook = modifiedCodebook.replace('[/GLYPH]', `DYN: ${dyn}\n[/GLYPH]`);
+    }
+
     // Prepend codebook (it's small: ~150 tokens)
-    return CODEBOOK_PROMPT + '\n\n' + systemPrompt;
+    return modifiedCodebook + '\n\n' + systemPrompt;
   }
 
   _compressUserMessage(content) {
@@ -249,8 +262,13 @@ class GlyphCompressor {
 
     let c = content;
 
+    // Ultra level: remove redundancy before processing
+    if (this.level === 'ultra') {
+      c = this._stripRedundancy(c);
+    }
+
     // Level 3 first: Aggressive — compress code blocks BEFORE tech name substitution
-    if (this.level === 'aggressive') {
+    if (this.level === 'aggressive' || this.level === 'ultra') {
       c = this._compressCodeBlocks(c);
     }
 
@@ -258,14 +276,59 @@ class GlyphCompressor {
     c = this._compressPrompt(c);
     c = this._compressTechNames(c);
 
-    if (this.level === 'light') return c;
+    if (this.level === 'light') {
+      return this._applyDynamicDictionary(c);
+    }
 
     // Level 2: Standard — compress file paths and errors
     c = this._compressFilePaths(c);
     c = this._compressErrors(c);
     c = this._compressDiagnostics(c);
 
+    // Apply dynamic dictionary LAST so regexes expecting \w+ still work
+    c = this._applyDynamicDictionary(c);
+
     return c;
+  }
+
+  _stripRedundancy(text) {
+    return text
+      .replace(/\/\*(?!\*)[^]*?\*\//g, '') // remove block comments (except JSDoc)
+      .replace(/(?<![:"'])\/\/(?!\/).*/g, '') // remove inline comments
+      .replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, ''); // remove logs
+  }
+
+  _buildDynamicDictionary(text) {
+    if (!text || this.dynamicDict.size >= 20) return;
+
+    // Find words > 5 chars that look like class/var names (camelCase/PascalCase)
+    const words = text.match(/\b[A-Za-z]+[A-Z][a-z]+[A-Za-z]*\b/g) || [];
+    const counts = new Map();
+    for (const w of words) {
+      if (w.length > 5) {
+        counts.set(w, (counts.get(w) || 0) + 1);
+      }
+    }
+
+    const sorted = [...counts.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]);
+    
+    for (const [word] of sorted) {
+      if (!this.dynamicDict.has(word) && this.dynamicCounter < 20) {
+        this.dynamicCounter++;
+        // Use greek letters for dynamic dictionary
+        const greek = ['α','β','γ','δ','ε','ζ','η','θ','ι','κ','λ','μ','ν','ξ','ο','π','ρ','σ','τ','υ'];
+        this.dynamicDict.set(word, greek[this.dynamicCounter - 1]);
+      }
+    }
+  }
+
+  _applyDynamicDictionary(text) {
+    let result = text;
+    for (const [word, glyph] of this.dynamicDict) {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      result = result.replace(regex, glyph);
+    }
+    return result;
   }
 
   _compressPrompt(text) {
@@ -430,8 +493,16 @@ function wrapAnthropic(client, options = {}) {
   client.messages.create = async function (params) {
     // Anthropic uses a separate 'system' field
     const allMessages = [];
-    if (params.system) {
-      allMessages.push({ role: 'system', content: params.system });
+    
+    let origSystemStr = '';
+    if (typeof params.system === 'string') {
+      origSystemStr = params.system;
+    } else if (Array.isArray(params.system)) {
+      origSystemStr = params.system.map(s => s.text).join('\n');
+    }
+    
+    if (origSystemStr) {
+      allMessages.push({ role: 'system', content: origSystemStr });
     }
     allMessages.push(...params.messages);
 
@@ -441,9 +512,21 @@ function wrapAnthropic(client, options = {}) {
     const systemMsg = compressed.find(m => m.role === 'system');
     const otherMsgs = compressed.filter(m => m.role !== 'system');
 
+    // For prompt caching in Anthropic, send system as an array with cache_control
+    let systemParam = params.system;
+    if (systemMsg) {
+      systemParam = [
+        {
+          type: 'text',
+          text: systemMsg.content,
+          cache_control: { type: 'ephemeral' }
+        }
+      ];
+    }
+
     const result = await originalCreate({
       ...params,
-      system: systemMsg?.content || params.system,
+      system: systemParam,
       messages: otherMsgs,
     });
 

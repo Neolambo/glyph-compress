@@ -1,104 +1,134 @@
-/**
- * GlyphCompress — LLM API Middleware
- * 
- * Intercepts and compresses messages for OpenAI, Anthropic Claude,
- * and Antigravity. Injects codebook into system prompt, compresses
- * user context, and tracks token savings.
- * 
- * Works as:
- * 1. VS Code extension middleware
- * 2. Standalone proxy
- * 3. Antigravity skill
- */
-
-// ═══════════════════════════════════════════════════════════
-// RADICAL ALPHABET (embedded — no external dependencies)
-// ═══════════════════════════════════════════════════════════
-
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var glyph_middleware_exports = {};
+__export(glyph_middleware_exports, {
+  CODEBOOK_PROMPT: () => CODEBOOK_PROMPT,
+  DOMAIN_GLYPHS: () => DOMAIN_GLYPHS,
+  GlyphCompressor: () => GlyphCompressor,
+  TECH_GLYPHS: () => TECH_GLYPHS,
+  wrapAnthropic: () => wrapAnthropic,
+  wrapOpenAI: () => wrapOpenAI
+});
+module.exports = __toCommonJS(glyph_middleware_exports);
 const DOMAIN_GLYPHS = {
-  frontend: '◈', ai_ml: '◉', devops: '◊', database: '◆',
-  language: '◇', automation: '⊕', architecture: '⊗', mobile: '⊙',
-  cloud: '⊘', data: '⊚', testing: '⊛', backend: '⊜',
-  security: '⊝', documentation: '⊞', optimization: '⊟', networking: '⊠',
+  frontend: "\u25C8",
+  ai_ml: "\u25C9",
+  devops: "\u25CA",
+  database: "\u25C6",
+  language: "\u25C7",
+  automation: "\u2295",
+  architecture: "\u2297",
+  mobile: "\u2299",
+  cloud: "\u2298",
+  data: "\u229A",
+  testing: "\u229B",
+  backend: "\u229C",
+  security: "\u229D",
+  documentation: "\u229E",
+  optimization: "\u229F",
+  networking: "\u22A0"
 };
-
 const TECH_GLYPHS = {
-  typescript: 'ᵗ', javascript: 'ʲˢ', python: 'ᵖ', rust: 'ʳ',
-  go: 'ᵍ', java: 'ʲ', csharp: 'ᶜ', swift: 'ˢ', ruby: 'ᵇ',
-  react: 'ℜ', nextjs: 'ℕ', vue: '𝕍', angular: '𝔸',
-  svelte: '𝕊', django: '𝔻', rails: 'ℝ', express: '𝔼ˣ',
-  fastapi: '𝔽', docker: '𝒟', kubernetes: '𝒦', terraform: '𝒯',
-  postgres: 'ℙ', mysql: 'ℳ', mongodb: 'ₘ', redis: 'ᵣ',
-  llm: 'ℒ', agent: 'α', prompt: 'π',
+  typescript: "\u1D57",
+  javascript: "\u02B2\u02E2",
+  python: "\u1D56",
+  rust: "\u02B3",
+  go: "\u1D4D",
+  java: "\u02B2",
+  csharp: "\u1D9C",
+  swift: "\u02E2",
+  ruby: "\u1D47",
+  react: "\u211C",
+  nextjs: "\u2115",
+  vue: "\u{1D54D}",
+  angular: "\u{1D538}",
+  svelte: "\u{1D54A}",
+  django: "\u{1D53B}",
+  rails: "\u211D",
+  express: "\u{1D53C}\u02E3",
+  fastapi: "\u{1D53D}",
+  docker: "\u{1D49F}",
+  kubernetes: "\u{1D4A6}",
+  terraform: "\u{1D4AF}",
+  postgres: "\u2119",
+  mysql: "\u2133",
+  mongodb: "\u2098",
+  redis: "\u1D63",
+  llm: "\u2112",
+  agent: "\u03B1",
+  prompt: "\u03C0"
 };
-
 const ERROR_PATTERNS = [
-  [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'∉$2"],
-  [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1∉→$2"],
-  [/Cannot find (?:name|module) '([^']+)'/g, "∅'$1'"],
-  [/Argument of type '(\w+)' is not assignable/g, "arg:$1∉"],
-  [/Expected (\d+) arguments?, but got (\d+)/g, "args:$1≠$2"],
-  [/Object is possibly '(null|undefined)'/g, "∅?"],
-  [/Parameter '(\w+)' implicitly has an 'any' type/g, "$1:∅type"],
-  [/Unexpected token/g, "∅token"],
-  [/No overload matches this call/g, "∉overload"],
-  [/Module '([^']+)' has no exported member '(\w+)'/g, "$1∅exp:$2"],
-  [/Cannot use import statement outside a module/g, "∅ESM"],
-  [/is declared but its value is never read/g, "⚠unused"],
-  [/is defined but never used/g, "⚠unused"],
+  [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'\u2209$2"],
+  [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1\u2209\u2192$2"],
+  [/Cannot find (?:name|module) '([^']+)'/g, "\u2205'$1'"],
+  [/Argument of type '(\w+)' is not assignable/g, "arg:$1\u2209"],
+  [/Expected (\d+) arguments?, but got (\d+)/g, "args:$1\u2260$2"],
+  [/Object is possibly '(null|undefined)'/g, "\u2205?"],
+  [/Parameter '(\w+)' implicitly has an 'any' type/g, "$1:\u2205type"],
+  [/Unexpected token/g, "\u2205token"],
+  [/No overload matches this call/g, "\u2209overload"],
+  [/Module '([^']+)' has no exported member '(\w+)'/g, "$1\u2205exp:$2"],
+  [/Cannot use import statement outside a module/g, "\u2205ESM"],
+  [/is declared but its value is never read/g, "\u26A0unused"],
+  [/is defined but never used/g, "\u26A0unused"]
 ];
-
 const PROMPT_PATTERNS = [
-  [/fix (?:the |this )?(?:error|bug|issue) in (.+)/i, '⺌✗ $1'],
-  [/create (?:a |an )?(.+) component/i, '▲⊞ $1'],
-  [/add (.+) to (.+)/i, '▲ $1 → $2'],
-  [/optimize (?:the )?performance of (.+)/i, '⺋ $1'],
-  [/explain (?:how |what |why )(.+)/i, '⺎ $1'],
-  [/refactor (.+)/i, '● $1'],
-  [/write (?:a |the )?tests? for (.+)/i, '► $1'],
-  [/deploy (.+) to (.+)/i, '⺏ $1→$2'],
-  [/review (.+)/i, '⺎ $1'],
-  [/debug (.+)/i, '⺃ $1'],
-  [/implement (.+)/i, '▲ $1'],
-  [/update (.+)/i, '● $1'],
-  [/delete (?:the )?(.+)/i, '✗ $1'],
-  [/test (.+)/i, '► $1'],
-  [/document (.+)/i, '■ $1'],
+  [/fix (?:the |this )?(?:error|bug|issue) in (.+)/i, "\u2E8C\u2717 $1"],
+  [/create (?:a |an )?(.+) component/i, "\u25B2\u229E $1"],
+  [/add (.+) to (.+)/i, "\u25B2 $1 \u2192 $2"],
+  [/optimize (?:the )?performance of (.+)/i, "\u2E8B $1"],
+  [/explain (?:how |what |why )(.+)/i, "\u2E8E $1"],
+  [/refactor (.+)/i, "\u25CF $1"],
+  [/write (?:a |the )?tests? for (.+)/i, "\u25BA $1"],
+  [/deploy (.+) to (.+)/i, "\u2E8F $1\u2192$2"],
+  [/review (.+)/i, "\u2E8E $1"],
+  [/debug (.+)/i, "\u2E83 $1"],
+  [/implement (.+)/i, "\u25B2 $1"],
+  [/update (.+)/i, "\u25CF $1"],
+  [/delete (?:the )?(.+)/i, "\u2717 $1"],
+  [/test (.+)/i, "\u25BA $1"],
+  [/document (.+)/i, "\u25A0 $1"]
 ];
-
-// ═══════════════════════════════════════════════════════════
-// CODEBOOK SYSTEM PROMPT
-// ═══════════════════════════════════════════════════════════
-
 const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.1]
 Context uses compressed glyphs. Decode:
-DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
-TECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent
-SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=ret ƒ=fn 𝒞=class ◇=state ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
-FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
+DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
+TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
+SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=ret \u0192=fn \u{1D49E}=class \u25C7=state \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
+FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
-
-// ═══════════════════════════════════════════════════════════
-// COMPRESSOR CLASS
-// ═══════════════════════════════════════════════════════════
-
 class GlyphCompressor {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    this.level = options.level || 'standard'; // light | standard | aggressive
-    this.fileIndex = new Map();
+    this.level = options.level || "standard";
+    this.fileIndex = /* @__PURE__ */ new Map();
     this.fileCounter = 0;
+    this.dynamicDict = /* @__PURE__ */ new Map();
+    this.dynamicCounter = 0;
     this.stats = {
       totalOriginalTokens: 0,
       totalCompressedTokens: 0,
       messagesProcessed: 0,
-      sessionStarted: Date.now(),
+      sessionStarted: Date.now()
     };
   }
-
   // ─── MAIN API ─────────────────────────────────────────────
-
   /**
    * Compress a message array before sending to LLM.
    * Works with both OpenAI and Anthropic message formats.
@@ -107,46 +137,39 @@ class GlyphCompressor {
    * @param {string} provider - 'openai' | 'anthropic' | 'antigravity'
    * @returns {Object} { messages, stats }
    */
-  compressMessages(messages, provider = 'auto') {
+  compressMessages(messages, provider = "auto") {
     if (!this.enabled) return { messages, stats: this.stats };
-
+    const allUserText = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
+    this._buildDynamicDictionary(allUserText);
     const compressed = [];
     let codebookInjected = false;
-
     for (const msg of messages) {
-      if (msg.role === 'system') {
-        // Inject codebook into system prompt
+      if (msg.role === "system") {
         compressed.push({
-          role: 'system',
-          content: this._injectCodebook(msg.content, provider),
+          role: "system",
+          content: this._injectCodebook(msg.content, provider)
         });
         codebookInjected = true;
-      } else if (msg.role === 'user') {
+      } else if (msg.role === "user") {
         compressed.push({
-          role: 'user',
-          content: this._compressUserMessage(msg.content),
+          role: "user",
+          content: this._compressUserMessage(msg.content)
         });
       } else {
-        // assistant messages: keep as-is (or summarize old ones)
         compressed.push(msg);
       }
     }
-
-    // If no system message, prepend one with codebook
     if (!codebookInjected) {
       compressed.unshift({
-        role: 'system',
-        content: CODEBOOK_PROMPT,
+        role: "system",
+        content: CODEBOOK_PROMPT
       });
     }
-
-    // Update stats
     const origTokens = this._estimateTokens(messages);
     const compTokens = this._estimateTokens(compressed);
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
-
     return {
       messages: compressed,
       stats: {
@@ -155,13 +178,12 @@ class GlyphCompressor {
           originalTokens: origTokens,
           compressedTokens: compTokens,
           saved: origTokens - compTokens,
-          ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
-          savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
-        },
-      },
+          ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + "x",
+          savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
+        }
+      }
     };
   }
-
   /**
    * Compress a standalone context string (for Antigravity/skill usage).
    * @param {string} text - Raw context text
@@ -169,63 +191,54 @@ class GlyphCompressor {
    */
   compressText(text) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
-
+    this._buildDynamicDictionary(text);
     const compressed = this._compressUserMessage(text);
     const origTokens = this._estimateTokens([{ content: text }]);
     const compTokens = this._estimateTokens([{ content: compressed }]);
-
-    // Track stats
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
-
     return {
       compressed,
       original: text,
       stats: {
         originalTokens: origTokens,
         compressedTokens: compTokens,
-        ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
-        savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
-      },
+        ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + "x",
+        savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
+      }
     };
   }
-
   /**
    * Get the codebook system prompt to inject.
    */
   getCodebookPrompt() {
     let prompt = CODEBOOK_PROMPT;
     if (this.fileIndex.size > 0) {
-      const files = [...this.fileIndex].map(([path, ref]) => `${ref}=${path}`).join(' | ');
-      prompt = prompt.replace('[/GLYPH]', `FILES: ${files}\n[/GLYPH]`);
+      const files = [...this.fileIndex].map(([path, ref]) => `${ref}=${path}`).join(" | ");
+      prompt = prompt.replace("[/GLYPH]", `FILES: ${files}
+[/GLYPH]`);
     }
     return prompt;
   }
-
   /**
    * Get session statistics.
    */
   getStats() {
     const s = this.stats;
     const saved = s.totalOriginalTokens - s.totalCompressedTokens;
-    const costPerToken = 3 / 1_000_000; // Claude Sonnet ~$3/M input
+    const costPerToken = 3 / 1e6;
     return {
       messagesProcessed: s.messagesProcessed,
       totalOriginalTokens: s.totalOriginalTokens,
       totalCompressedTokens: s.totalCompressedTokens,
       totalSavedTokens: saved,
-      overallRatio: s.totalOriginalTokens > 0
-        ? (s.totalOriginalTokens / Math.max(1, s.totalCompressedTokens)).toFixed(1) + 'x'
-        : '0x',
-      overallSavedPct: s.totalOriginalTokens > 0
-        ? ((1 - s.totalCompressedTokens / s.totalOriginalTokens) * 100).toFixed(0) + '%'
-        : '0%',
+      overallRatio: s.totalOriginalTokens > 0 ? (s.totalOriginalTokens / Math.max(1, s.totalCompressedTokens)).toFixed(1) + "x" : "0x",
+      overallSavedPct: s.totalOriginalTokens > 0 ? ((1 - s.totalCompressedTokens / s.totalOriginalTokens) * 100).toFixed(0) + "%" : "0%",
       estimatedCostSaved: `$${(saved * costPerToken).toFixed(4)}`,
-      sessionDuration: Math.round((Date.now() - s.sessionStarted) / 60000) + ' min',
+      sessionDuration: Math.round((Date.now() - s.sessionStarted) / 6e4) + " min"
     };
   }
-
   /**
    * Reset file index (when changing projects).
    */
@@ -233,79 +246,99 @@ class GlyphCompressor {
     this.fileIndex.clear();
     this.fileCounter = 0;
   }
-
   // ─── INTERNAL METHODS ──────────────────────────────────────
-
   _injectCodebook(systemPrompt, provider) {
-    // Don't double-inject
-    if (systemPrompt.includes('[GLYPH PROTOCOL')) return systemPrompt;
-
-    // Prepend codebook (it's small: ~150 tokens)
-    return CODEBOOK_PROMPT + '\n\n' + systemPrompt;
+    if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
+    let modifiedCodebook = CODEBOOK_PROMPT;
+    if (this.dynamicDict.size > 0) {
+      const dyn = [...this.dynamicDict].map(([w, g]) => `${g}=${w}`).join(" | ");
+      modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `DYN: ${dyn}
+[/GLYPH]`);
+    }
+    return modifiedCodebook + "\n\n" + systemPrompt;
   }
-
   _compressUserMessage(content) {
     if (!content) return content;
-
     let c = content;
-
-    // Level 3 first: Aggressive — compress code blocks BEFORE tech name substitution
-    if (this.level === 'aggressive') {
+    if (this.level === "ultra") {
+      c = this._stripRedundancy(c);
+    }
+    if (this.level === "aggressive" || this.level === "ultra") {
       c = this._compressCodeBlocks(c);
     }
-
-    // Level 1: Always — compress prompts
     c = this._compressPrompt(c);
     c = this._compressTechNames(c);
-
-    if (this.level === 'light') return c;
-
-    // Level 2: Standard — compress file paths and errors
+    if (this.level === "light") {
+      return this._applyDynamicDictionary(c);
+    }
     c = this._compressFilePaths(c);
     c = this._compressErrors(c);
     c = this._compressDiagnostics(c);
-
+    c = this._applyDynamicDictionary(c);
     return c;
   }
-
+  _stripRedundancy(text) {
+    return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
+  }
+  _buildDynamicDictionary(text) {
+    if (!text || this.dynamicDict.size >= 20) return;
+    const words = text.match(/\b[A-Za-z]+[A-Z][a-z]+[A-Za-z]*\b/g) || [];
+    const counts = /* @__PURE__ */ new Map();
+    for (const w of words) {
+      if (w.length > 5) {
+        counts.set(w, (counts.get(w) || 0) + 1);
+      }
+    }
+    const sorted = [...counts.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]);
+    for (const [word] of sorted) {
+      if (!this.dynamicDict.has(word) && this.dynamicCounter < 20) {
+        this.dynamicCounter++;
+        const greek = ["\u03B1", "\u03B2", "\u03B3", "\u03B4", "\u03B5", "\u03B6", "\u03B7", "\u03B8", "\u03B9", "\u03BA", "\u03BB", "\u03BC", "\u03BD", "\u03BE", "\u03BF", "\u03C0", "\u03C1", "\u03C3", "\u03C4", "\u03C5"];
+        this.dynamicDict.set(word, greek[this.dynamicCounter - 1]);
+      }
+    }
+  }
+  _applyDynamicDictionary(text) {
+    let result = text;
+    for (const [word, glyph] of this.dynamicDict) {
+      const regex = new RegExp(`\\b${word}\\b`, "g");
+      result = result.replace(regex, glyph);
+    }
+    return result;
+  }
   _compressPrompt(text) {
     let result = text;
     for (const [pattern, replacement] of PROMPT_PATTERNS) {
       if (pattern.test(result)) {
         result = result.replace(pattern, replacement);
-        break; // Only match first pattern
+        break;
       }
     }
     return result;
   }
-
   _compressTechNames(text) {
     let result = text;
-    // Sort by length to avoid partial matches (typescript before type)
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
     for (const [name, glyph] of entries) {
-      const regex = new RegExp(`\\b${name}\\b`, 'gi');
+      const regex = new RegExp(`\\b${name}\\b`, "gi");
       result = result.replace(regex, glyph);
     }
     return result;
   }
-
   _compressFilePaths(text) {
-    // Replace file paths with indexed refs
     return text.replace(
       /(?:[\w\-./\\]+\/)?[\w\-]+\.(tsx?|jsx?|py|rs|go|rb|java|cs|vue|svelte|css|scss|ya?ml|json|md)/gi,
       (match) => {
         if (!this.fileIndex.has(match)) {
           this.fileCounter++;
           const domain = this._detectDomain(match);
-          const glyph = DOMAIN_GLYPHS[domain] || '📄';
-          this.fileIndex.set(match, `${glyph}₍${this.fileCounter}₎`);
+          const glyph = DOMAIN_GLYPHS[domain] || "\u{1F4C4}";
+          this.fileIndex.set(match, `${glyph}\u208D${this.fileCounter}\u208E`);
         }
         return this.fileIndex.get(match);
       }
     );
   }
-
   _compressErrors(text) {
     let result = text;
     for (const [pattern, replacement] of ERROR_PATTERNS) {
@@ -313,31 +346,20 @@ class GlyphCompressor {
     }
     return result;
   }
-
   _compressDiagnostics(text) {
-    return text
-      .replace(/error TS(\d+):/gi, '✗TS$1:')
-      .replace(/warning:/gi, '⚠:')
-      .replace(/\bat line (\d+)/gi, ':$1')
-      .replace(/on line (\d+)/gi, ':$1')
-      .replace(/\bline (\d+)/gi, ':$1')
-      .replace(/\bcolumn (\d+)/gi, 'c$1');
+    return text.replace(/error TS(\d+):/gi, "\u2717TS$1:").replace(/warning:/gi, "\u26A0:").replace(/\bat line (\d+)/gi, ":$1").replace(/on line (\d+)/gi, ":$1").replace(/\bline (\d+)/gi, ":$1").replace(/\bcolumn (\d+)/gi, "c$1");
   }
-
   _compressCodeBlocks(text) {
-    // Replace code blocks with semantic summaries (handle both ``` and escaped ```)
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
-      const lines = code.trim().split('\n');
+      const lines = code.trim().split("\n");
       const summary = this._summarizeCode(lines, lang);
-      const techGlyph = TECH_GLYPHS[lang] || '';
+      const techGlyph = TECH_GLYPHS[lang] || "";
       return `[${techGlyph}${summary}]`;
     });
   }
-
   _summarizeCode(lines, lang) {
     const parts = [];
     let imports = 0, funcs = 0, classes = 0, hooks = 0;
-
     for (const line of lines) {
       const t = line.trim();
       if (/^import\s/.test(t) || /^from\s/.test(t)) imports++;
@@ -345,130 +367,92 @@ class GlyphCompressor {
       if (/^(?:export )?class /.test(t)) classes++;
       if (/use[A-Z]\w+/.test(t)) hooks++;
     }
-
     if (imports) parts.push(`imp:${imports}`);
-    if (funcs) parts.push(`ƒ:${funcs}`);
-    if (classes) parts.push(`𝒞:${classes}`);
-    if (hooks) parts.push(`⟳:${hooks}`);
+    if (funcs) parts.push(`\u0192:${funcs}`);
+    if (classes) parts.push(`\u{1D49E}:${classes}`);
+    if (hooks) parts.push(`\u27F3:${hooks}`);
     parts.push(`${lines.length}L`);
-
-    return parts.join(' ');
+    return parts.join(" ");
   }
-
   _detectDomain(filepath) {
     const p = filepath.toLowerCase();
-    if (/\.(tsx|jsx)$/.test(p) || /component|page|layout/i.test(p)) return 'frontend';
-    if (/\.(controller|service|middleware|route)\./i.test(p)) return 'backend';
-    if (/\.(test|spec)\./i.test(p)) return 'testing';
-    if (/dockerfile|docker-compose|\.ya?ml$/i.test(p)) return 'devops';
-    if (/migration|schema|seed/i.test(p)) return 'database';
-    if (/\.md$/.test(p)) return 'documentation';
-    if (/security|auth|guard/i.test(p)) return 'security';
-    return 'language';
+    if (/\.(tsx|jsx)$/.test(p) || /component|page|layout/i.test(p)) return "frontend";
+    if (/\.(controller|service|middleware|route)\./i.test(p)) return "backend";
+    if (/\.(test|spec)\./i.test(p)) return "testing";
+    if (/dockerfile|docker-compose|\.ya?ml$/i.test(p)) return "devops";
+    if (/migration|schema|seed/i.test(p)) return "database";
+    if (/\.md$/.test(p)) return "documentation";
+    if (/security|auth|guard/i.test(p)) return "security";
+    return "language";
   }
-
   _estimateTokens(messages) {
-    // Rough: 1 token ≈ 4 chars (English avg)
     let chars = 0;
     for (const m of messages) {
-      if (typeof m.content === 'string') chars += m.content.length;
+      if (typeof m.content === "string") chars += m.content.length;
       else if (m.content) chars += JSON.stringify(m.content).length;
     }
     return Math.ceil(chars / 4);
   }
 }
-
-// ═══════════════════════════════════════════════════════════
-// PROVIDER ADAPTERS
-// ═══════════════════════════════════════════════════════════
-
-/**
- * Wrap an OpenAI client to automatically compress messages.
- * 
- * Usage:
- *   import OpenAI from 'openai';
- *   const client = new OpenAI({ apiKey: '...' });
- *   const compressed = wrapOpenAI(client);
- *   const response = await compressed.chat.completions.create({
- *     model: 'gpt-4',
- *     messages: [{ role: 'user', content: 'Fix the bug in app.tsx' }],
- *   });
- */
 function wrapOpenAI(client, options = {}) {
   const compressor = new GlyphCompressor(options);
   const originalCreate = client.chat.completions.create.bind(client.chat.completions);
-
-  client.chat.completions.create = async function (params) {
+  client.chat.completions.create = async function(params) {
     const { messages: compressed, stats } = compressor.compressMessages(
-      params.messages, 'openai'
+      params.messages,
+      "openai"
     );
     console.log(`[GlyphCompress] ${stats.thisMessage.ratio} compression (${stats.thisMessage.savedPct} saved)`);
     return originalCreate({ ...params, messages: compressed });
   };
-
   client._glyphCompress = compressor;
   return client;
 }
-
-/**
- * Wrap an Anthropic client to automatically compress messages.
- * 
- * Usage:
- *   import Anthropic from '@anthropic-ai/sdk';
- *   const client = new Anthropic({ apiKey: '...' });
- *   const compressed = wrapAnthropic(client);
- *   const response = await compressed.messages.create({
- *     model: 'claude-sonnet-4-20250514',
- *     system: 'You are a coding assistant.',
- *     messages: [{ role: 'user', content: 'Fix the error in app.tsx' }],
- *   });
- */
 function wrapAnthropic(client, options = {}) {
   const compressor = new GlyphCompressor(options);
   const originalCreate = client.messages.create.bind(client.messages);
-
-  client.messages.create = async function (params) {
-    // Anthropic uses a separate 'system' field
+  client.messages.create = async function(params) {
     const allMessages = [];
-    if (params.system) {
-      allMessages.push({ role: 'system', content: params.system });
+    let origSystemStr = "";
+    if (typeof params.system === "string") {
+      origSystemStr = params.system;
+    } else if (Array.isArray(params.system)) {
+      origSystemStr = params.system.map((s) => s.text).join("\n");
+    }
+    if (origSystemStr) {
+      allMessages.push({ role: "system", content: origSystemStr });
     }
     allMessages.push(...params.messages);
-
-    const { messages: compressed } = compressor.compressMessages(allMessages, 'anthropic');
-
-    // Split back into system + messages for Anthropic format
-    const systemMsg = compressed.find(m => m.role === 'system');
-    const otherMsgs = compressed.filter(m => m.role !== 'system');
-
+    const { messages: compressed } = compressor.compressMessages(allMessages, "anthropic");
+    const systemMsg = compressed.find((m) => m.role === "system");
+    const otherMsgs = compressed.filter((m) => m.role !== "system");
+    let systemParam = params.system;
+    if (systemMsg) {
+      systemParam = [
+        {
+          type: "text",
+          text: systemMsg.content,
+          cache_control: { type: "ephemeral" }
+        }
+      ];
+    }
     const result = await originalCreate({
       ...params,
-      system: systemMsg?.content || params.system,
-      messages: otherMsgs,
+      system: systemParam,
+      messages: otherMsgs
     });
-
     return result;
   };
-
   client._glyphCompress = compressor;
   return client;
 }
-
-// ═══════════════════════════════════════════════════════════
-// EXPORTS
-// ═══════════════════════════════════════════════════════════
-
-// CommonJS for VS Code extension compatibility
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     GlyphCompressor,
     wrapOpenAI,
     wrapAnthropic,
     CODEBOOK_PROMPT,
     DOMAIN_GLYPHS,
-    TECH_GLYPHS,
+    TECH_GLYPHS
   };
 }
-
-// ESM export for modern usage
-

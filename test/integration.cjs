@@ -137,6 +137,49 @@ test('Claude: compress user messages', () => {
 });
 
 // ═══════════════════════════════════════════════════════════
+console.log('\n═══ TEST: v2 Advanced Features ═══\n');
+// ═══════════════════════════════════════════════════════════
+
+test('Dynamic Dictionary replaces repeated words', () => {
+  const gc = new GlyphCompressor({ level: 'standard' });
+  const r = gc.compressText('The AuthenticationManager handles AuthenticationManager logic for AuthenticationManager.');
+  assert(r.compressed.includes('α'), 'Should replace AuthenticationManager with α');
+  assert(!r.compressed.includes('AuthenticationManager'), 'AuthenticationManager should be gone');
+});
+
+test('Ultra level strips comments and console.logs', () => {
+  const gcUltra = new GlyphCompressor({ level: 'ultra' });
+  const code = 'function test() { console.log("debug"); // comment here\n /* block */ return true; }';
+  const r = gcUltra.compressText(code);
+  assert(!r.compressed.includes('console.log'), 'Logs should be stripped');
+  assert(!r.compressed.includes('comment here'), 'Inline comments should be stripped');
+  assert(!r.compressed.includes('block'), 'Block comments should be stripped');
+});
+
+test('Anthropic wrap adds cache_control to system', async () => {
+  // Mock Anthropic client
+  let capturedParams = null;
+  const mockClient = {
+    messages: {
+      create: async (params) => { capturedParams = params; return { id: 'msg_1' }; }
+    }
+  };
+  
+  // Need to require wrapAnthropic from the same module
+  const { wrapAnthropic } = require('../vscode-ext/glyph-middleware.cjs');
+  const wrapped = wrapAnthropic(mockClient);
+  await wrapped.messages.create({
+    model: 'claude',
+    system: 'Hello',
+    messages: [{ role: 'user', content: 'test' }]
+  });
+  
+  assert(Array.isArray(capturedParams.system), 'System should be converted to array');
+  assert(capturedParams.system[0].cache_control, 'Should have cache_control');
+  assert(capturedParams.system[0].cache_control.type === 'ephemeral', 'Should be ephemeral');
+});
+
+// ═══════════════════════════════════════════════════════════
 console.log('\n═══ TEST: Compression Levels ═══\n');
 // ═══════════════════════════════════════════════════════════
 
@@ -174,7 +217,7 @@ test('Light: only compress prompts and tech names', () => {
 test('Standard: compress prompts + files + errors', () => {
   const gc = new GlyphCompressor({ level: 'standard' });
   const r = gc.compressText(complexMessage);
-  assert(r.compressed.includes("'analytics'∉DashboardProps"), 'Should compress error');
+  assert(r.compressed.includes("'analytics'∉α") || r.compressed.includes("'analytics'∉DashboardProps"), 'Should compress error');
   assert(parseInt(r.stats.savedPct) > 10, 'Should save >10%');
 });
 
