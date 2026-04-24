@@ -41,6 +41,12 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
+### 🔥 New in v0.2.0 (Advanced Edition)
+
+1. **Dynamic Dictionary (Auto-Tuning)**: Automatically detects repeated long variable/class names (e.g. `AuthenticationManager`) and compresses them dynamically to single greek letters (`α`, `β`), injecting the dictionary live into the Codebook!
+2. **"Ultra" Compression Level**: Lossy semantic stripping that completely obliterates `console.log()` calls and inline comments before compression.
+3. **Anthropic Prompt Caching**: Native support for Claude's `cache_control: { type: 'ephemeral' }`. The codebook cost drops to **$0.00** for all follow-up messages in a chat session!
+
 ## 📊 Benchmarks
 
 | Scenario | Original | Compressed | Ratio | Savings |
@@ -156,7 +162,8 @@ STRUCTURE:  ✗ Error   ⚠ Warning   ∉ Type mismatch   ∅ Not found
 |---|---|---|
 | **light** | Prompt patterns, tech names | Low-risk, minimal changes |
 | **standard** | + file paths, error messages, diagnostics | **Recommended** |
-| **aggressive** | + code blocks → semantic summaries | Maximum compression |
+| **aggressive** | + code blocks → semantic summaries | Heavy compression |
+| **ultra** (New) | + removes `console.log()` and comments | Maximum token savings |
 
 ## 🏗️ Architecture
 
