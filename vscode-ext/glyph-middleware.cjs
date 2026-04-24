@@ -1,0 +1,474 @@
+/**
+ * GlyphCompress — LLM API Middleware
+ * 
+ * Intercepts and compresses messages for OpenAI, Anthropic Claude,
+ * and Antigravity. Injects codebook into system prompt, compresses
+ * user context, and tracks token savings.
+ * 
+ * Works as:
+ * 1. VS Code extension middleware
+ * 2. Standalone proxy
+ * 3. Antigravity skill
+ */
+
+// ═══════════════════════════════════════════════════════════
+// RADICAL ALPHABET (embedded — no external dependencies)
+// ═══════════════════════════════════════════════════════════
+
+const DOMAIN_GLYPHS = {
+  frontend: '◈', ai_ml: '◉', devops: '◊', database: '◆',
+  language: '◇', automation: '⊕', architecture: '⊗', mobile: '⊙',
+  cloud: '⊘', data: '⊚', testing: '⊛', backend: '⊜',
+  security: '⊝', documentation: '⊞', optimization: '⊟', networking: '⊠',
+};
+
+const TECH_GLYPHS = {
+  typescript: 'ᵗ', javascript: 'ʲˢ', python: 'ᵖ', rust: 'ʳ',
+  go: 'ᵍ', java: 'ʲ', csharp: 'ᶜ', swift: 'ˢ', ruby: 'ᵇ',
+  react: 'ℜ', nextjs: 'ℕ', vue: '𝕍', angular: '𝔸',
+  svelte: '𝕊', django: '𝔻', rails: 'ℝ', express: '𝔼ˣ',
+  fastapi: '𝔽', docker: '𝒟', kubernetes: '𝒦', terraform: '𝒯',
+  postgres: 'ℙ', mysql: 'ℳ', mongodb: 'ₘ', redis: 'ᵣ',
+  llm: 'ℒ', agent: 'α', prompt: 'π',
+};
+
+const ERROR_PATTERNS = [
+  [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'∉$2"],
+  [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1∉→$2"],
+  [/Cannot find (?:name|module) '([^']+)'/g, "∅'$1'"],
+  [/Argument of type '(\w+)' is not assignable/g, "arg:$1∉"],
+  [/Expected (\d+) arguments?, but got (\d+)/g, "args:$1≠$2"],
+  [/Object is possibly '(null|undefined)'/g, "∅?"],
+  [/Parameter '(\w+)' implicitly has an 'any' type/g, "$1:∅type"],
+  [/Unexpected token/g, "∅token"],
+  [/No overload matches this call/g, "∉overload"],
+  [/Module '([^']+)' has no exported member '(\w+)'/g, "$1∅exp:$2"],
+  [/Cannot use import statement outside a module/g, "∅ESM"],
+  [/is declared but its value is never read/g, "⚠unused"],
+  [/is defined but never used/g, "⚠unused"],
+];
+
+const PROMPT_PATTERNS = [
+  [/fix (?:the |this )?(?:error|bug|issue) in (.+)/i, '⺌✗ $1'],
+  [/create (?:a |an )?(.+) component/i, '▲⊞ $1'],
+  [/add (.+) to (.+)/i, '▲ $1 → $2'],
+  [/optimize (?:the )?performance of (.+)/i, '⺋ $1'],
+  [/explain (?:how |what |why )(.+)/i, '⺎ $1'],
+  [/refactor (.+)/i, '● $1'],
+  [/write (?:a |the )?tests? for (.+)/i, '► $1'],
+  [/deploy (.+) to (.+)/i, '⺏ $1→$2'],
+  [/review (.+)/i, '⺎ $1'],
+  [/debug (.+)/i, '⺃ $1'],
+  [/implement (.+)/i, '▲ $1'],
+  [/update (.+)/i, '● $1'],
+  [/delete (?:the )?(.+)/i, '✗ $1'],
+  [/test (.+)/i, '► $1'],
+  [/document (.+)/i, '■ $1'],
+];
+
+// ═══════════════════════════════════════════════════════════
+// CODEBOOK SYSTEM PROMPT
+// ═══════════════════════════════════════════════════════════
+
+const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.1]
+Context uses compressed glyphs. Decode:
+DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
+TECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent
+SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=ret ƒ=fn 𝒞=class ◇=state ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
+Respond normally. Context below uses these glyphs for brevity.
+[/GLYPH]`;
+
+// ═══════════════════════════════════════════════════════════
+// COMPRESSOR CLASS
+// ═══════════════════════════════════════════════════════════
+
+class GlyphCompressor {
+  constructor(options = {}) {
+    this.enabled = options.enabled !== false;
+    this.level = options.level || 'standard'; // light | standard | aggressive
+    this.fileIndex = new Map();
+    this.fileCounter = 0;
+    this.stats = {
+      totalOriginalTokens: 0,
+      totalCompressedTokens: 0,
+      messagesProcessed: 0,
+      sessionStarted: Date.now(),
+    };
+  }
+
+  // ─── MAIN API ─────────────────────────────────────────────
+
+  /**
+   * Compress a message array before sending to LLM.
+   * Works with both OpenAI and Anthropic message formats.
+   * 
+   * @param {Array} messages - [{role, content}]
+   * @param {string} provider - 'openai' | 'anthropic' | 'antigravity'
+   * @returns {Object} { messages, stats }
+   */
+  compressMessages(messages, provider = 'auto') {
+    if (!this.enabled) return { messages, stats: this.stats };
+
+    const compressed = [];
+    let codebookInjected = false;
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        // Inject codebook into system prompt
+        compressed.push({
+          role: 'system',
+          content: this._injectCodebook(msg.content, provider),
+        });
+        codebookInjected = true;
+      } else if (msg.role === 'user') {
+        compressed.push({
+          role: 'user',
+          content: this._compressUserMessage(msg.content),
+        });
+      } else {
+        // assistant messages: keep as-is (or summarize old ones)
+        compressed.push(msg);
+      }
+    }
+
+    // If no system message, prepend one with codebook
+    if (!codebookInjected) {
+      compressed.unshift({
+        role: 'system',
+        content: CODEBOOK_PROMPT,
+      });
+    }
+
+    // Update stats
+    const origTokens = this._estimateTokens(messages);
+    const compTokens = this._estimateTokens(compressed);
+    this.stats.totalOriginalTokens += origTokens;
+    this.stats.totalCompressedTokens += compTokens;
+    this.stats.messagesProcessed++;
+
+    return {
+      messages: compressed,
+      stats: {
+        ...this.stats,
+        thisMessage: {
+          originalTokens: origTokens,
+          compressedTokens: compTokens,
+          saved: origTokens - compTokens,
+          ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
+          savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
+        },
+      },
+    };
+  }
+
+  /**
+   * Compress a standalone context string (for Antigravity/skill usage).
+   * @param {string} text - Raw context text
+   * @returns {Object} { compressed, original, stats }
+   */
+  compressText(text) {
+    if (!this.enabled) return { compressed: text, original: text, stats: {} };
+
+    const compressed = this._compressUserMessage(text);
+    const origTokens = this._estimateTokens([{ content: text }]);
+    const compTokens = this._estimateTokens([{ content: compressed }]);
+
+    // Track stats
+    this.stats.totalOriginalTokens += origTokens;
+    this.stats.totalCompressedTokens += compTokens;
+    this.stats.messagesProcessed++;
+
+    return {
+      compressed,
+      original: text,
+      stats: {
+        originalTokens: origTokens,
+        compressedTokens: compTokens,
+        ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
+        savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
+      },
+    };
+  }
+
+  /**
+   * Get the codebook system prompt to inject.
+   */
+  getCodebookPrompt() {
+    let prompt = CODEBOOK_PROMPT;
+    if (this.fileIndex.size > 0) {
+      const files = [...this.fileIndex].map(([path, ref]) => `${ref}=${path}`).join(' | ');
+      prompt = prompt.replace('[/GLYPH]', `FILES: ${files}\n[/GLYPH]`);
+    }
+    return prompt;
+  }
+
+  /**
+   * Get session statistics.
+   */
+  getStats() {
+    const s = this.stats;
+    const saved = s.totalOriginalTokens - s.totalCompressedTokens;
+    const costPerToken = 3 / 1_000_000; // Claude Sonnet ~$3/M input
+    return {
+      messagesProcessed: s.messagesProcessed,
+      totalOriginalTokens: s.totalOriginalTokens,
+      totalCompressedTokens: s.totalCompressedTokens,
+      totalSavedTokens: saved,
+      overallRatio: s.totalOriginalTokens > 0
+        ? (s.totalOriginalTokens / Math.max(1, s.totalCompressedTokens)).toFixed(1) + 'x'
+        : '0x',
+      overallSavedPct: s.totalOriginalTokens > 0
+        ? ((1 - s.totalCompressedTokens / s.totalOriginalTokens) * 100).toFixed(0) + '%'
+        : '0%',
+      estimatedCostSaved: `$${(saved * costPerToken).toFixed(4)}`,
+      sessionDuration: Math.round((Date.now() - s.sessionStarted) / 60000) + ' min',
+    };
+  }
+
+  /**
+   * Reset file index (when changing projects).
+   */
+  resetFileIndex() {
+    this.fileIndex.clear();
+    this.fileCounter = 0;
+  }
+
+  // ─── INTERNAL METHODS ──────────────────────────────────────
+
+  _injectCodebook(systemPrompt, provider) {
+    // Don't double-inject
+    if (systemPrompt.includes('[GLYPH PROTOCOL')) return systemPrompt;
+
+    // Prepend codebook (it's small: ~150 tokens)
+    return CODEBOOK_PROMPT + '\n\n' + systemPrompt;
+  }
+
+  _compressUserMessage(content) {
+    if (!content) return content;
+
+    let c = content;
+
+    // Level 3 first: Aggressive — compress code blocks BEFORE tech name substitution
+    if (this.level === 'aggressive') {
+      c = this._compressCodeBlocks(c);
+    }
+
+    // Level 1: Always — compress prompts
+    c = this._compressPrompt(c);
+    c = this._compressTechNames(c);
+
+    if (this.level === 'light') return c;
+
+    // Level 2: Standard — compress file paths and errors
+    c = this._compressFilePaths(c);
+    c = this._compressErrors(c);
+    c = this._compressDiagnostics(c);
+
+    return c;
+  }
+
+  _compressPrompt(text) {
+    let result = text;
+    for (const [pattern, replacement] of PROMPT_PATTERNS) {
+      if (pattern.test(result)) {
+        result = result.replace(pattern, replacement);
+        break; // Only match first pattern
+      }
+    }
+    return result;
+  }
+
+  _compressTechNames(text) {
+    let result = text;
+    // Sort by length to avoid partial matches (typescript before type)
+    const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
+    for (const [name, glyph] of entries) {
+      const regex = new RegExp(`\\b${name}\\b`, 'gi');
+      result = result.replace(regex, glyph);
+    }
+    return result;
+  }
+
+  _compressFilePaths(text) {
+    // Replace file paths with indexed refs
+    return text.replace(
+      /(?:[\w\-./\\]+\/)?[\w\-]+\.(tsx?|jsx?|py|rs|go|rb|java|cs|vue|svelte|css|scss|ya?ml|json|md)/gi,
+      (match) => {
+        if (!this.fileIndex.has(match)) {
+          this.fileCounter++;
+          const domain = this._detectDomain(match);
+          const glyph = DOMAIN_GLYPHS[domain] || '📄';
+          this.fileIndex.set(match, `${glyph}₍${this.fileCounter}₎`);
+        }
+        return this.fileIndex.get(match);
+      }
+    );
+  }
+
+  _compressErrors(text) {
+    let result = text;
+    for (const [pattern, replacement] of ERROR_PATTERNS) {
+      result = result.replace(pattern, replacement);
+    }
+    return result;
+  }
+
+  _compressDiagnostics(text) {
+    return text
+      .replace(/error TS(\d+):/gi, '✗TS$1:')
+      .replace(/warning:/gi, '⚠:')
+      .replace(/\bat line (\d+)/gi, ':$1')
+      .replace(/on line (\d+)/gi, ':$1')
+      .replace(/\bline (\d+)/gi, ':$1')
+      .replace(/\bcolumn (\d+)/gi, 'c$1');
+  }
+
+  _compressCodeBlocks(text) {
+    // Replace code blocks with semantic summaries (handle both ``` and escaped ```)
+    return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
+      const lines = code.trim().split('\n');
+      const summary = this._summarizeCode(lines, lang);
+      const techGlyph = TECH_GLYPHS[lang] || '';
+      return `[${techGlyph}${summary}]`;
+    });
+  }
+
+  _summarizeCode(lines, lang) {
+    const parts = [];
+    let imports = 0, funcs = 0, classes = 0, hooks = 0;
+
+    for (const line of lines) {
+      const t = line.trim();
+      if (/^import\s/.test(t) || /^from\s/.test(t)) imports++;
+      if (/(?:function |const \w+ = (?:\(|async ))/.test(t) || /^\s*def /.test(t)) funcs++;
+      if (/^(?:export )?class /.test(t)) classes++;
+      if (/use[A-Z]\w+/.test(t)) hooks++;
+    }
+
+    if (imports) parts.push(`imp:${imports}`);
+    if (funcs) parts.push(`ƒ:${funcs}`);
+    if (classes) parts.push(`𝒞:${classes}`);
+    if (hooks) parts.push(`⟳:${hooks}`);
+    parts.push(`${lines.length}L`);
+
+    return parts.join(' ');
+  }
+
+  _detectDomain(filepath) {
+    const p = filepath.toLowerCase();
+    if (/\.(tsx|jsx)$/.test(p) || /component|page|layout/i.test(p)) return 'frontend';
+    if (/\.(controller|service|middleware|route)\./i.test(p)) return 'backend';
+    if (/\.(test|spec)\./i.test(p)) return 'testing';
+    if (/dockerfile|docker-compose|\.ya?ml$/i.test(p)) return 'devops';
+    if (/migration|schema|seed/i.test(p)) return 'database';
+    if (/\.md$/.test(p)) return 'documentation';
+    if (/security|auth|guard/i.test(p)) return 'security';
+    return 'language';
+  }
+
+  _estimateTokens(messages) {
+    // Rough: 1 token ≈ 4 chars (English avg)
+    let chars = 0;
+    for (const m of messages) {
+      if (typeof m.content === 'string') chars += m.content.length;
+      else if (m.content) chars += JSON.stringify(m.content).length;
+    }
+    return Math.ceil(chars / 4);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PROVIDER ADAPTERS
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Wrap an OpenAI client to automatically compress messages.
+ * 
+ * Usage:
+ *   import OpenAI from 'openai';
+ *   const client = new OpenAI({ apiKey: '...' });
+ *   const compressed = wrapOpenAI(client);
+ *   const response = await compressed.chat.completions.create({
+ *     model: 'gpt-4',
+ *     messages: [{ role: 'user', content: 'Fix the bug in app.tsx' }],
+ *   });
+ */
+function wrapOpenAI(client, options = {}) {
+  const compressor = new GlyphCompressor(options);
+  const originalCreate = client.chat.completions.create.bind(client.chat.completions);
+
+  client.chat.completions.create = async function (params) {
+    const { messages: compressed, stats } = compressor.compressMessages(
+      params.messages, 'openai'
+    );
+    console.log(`[GlyphCompress] ${stats.thisMessage.ratio} compression (${stats.thisMessage.savedPct} saved)`);
+    return originalCreate({ ...params, messages: compressed });
+  };
+
+  client._glyphCompress = compressor;
+  return client;
+}
+
+/**
+ * Wrap an Anthropic client to automatically compress messages.
+ * 
+ * Usage:
+ *   import Anthropic from '@anthropic-ai/sdk';
+ *   const client = new Anthropic({ apiKey: '...' });
+ *   const compressed = wrapAnthropic(client);
+ *   const response = await compressed.messages.create({
+ *     model: 'claude-sonnet-4-20250514',
+ *     system: 'You are a coding assistant.',
+ *     messages: [{ role: 'user', content: 'Fix the error in app.tsx' }],
+ *   });
+ */
+function wrapAnthropic(client, options = {}) {
+  const compressor = new GlyphCompressor(options);
+  const originalCreate = client.messages.create.bind(client.messages);
+
+  client.messages.create = async function (params) {
+    // Anthropic uses a separate 'system' field
+    const allMessages = [];
+    if (params.system) {
+      allMessages.push({ role: 'system', content: params.system });
+    }
+    allMessages.push(...params.messages);
+
+    const { messages: compressed } = compressor.compressMessages(allMessages, 'anthropic');
+
+    // Split back into system + messages for Anthropic format
+    const systemMsg = compressed.find(m => m.role === 'system');
+    const otherMsgs = compressed.filter(m => m.role !== 'system');
+
+    const result = await originalCreate({
+      ...params,
+      system: systemMsg?.content || params.system,
+      messages: otherMsgs,
+    });
+
+    return result;
+  };
+
+  client._glyphCompress = compressor;
+  return client;
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════
+
+// CommonJS for VS Code extension compatibility
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    GlyphCompressor,
+    wrapOpenAI,
+    wrapAnthropic,
+    CODEBOOK_PROMPT,
+    DOMAIN_GLYPHS,
+    TECH_GLYPHS,
+  };
+}
+
+// ESM export for modern usage
+

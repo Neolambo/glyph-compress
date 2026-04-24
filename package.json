@@ -1,0 +1,44 @@
+{
+  "name": "glyph-compress",
+  "version": "0.1.0",
+  "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./src/index.cjs"
+    },
+    "./middleware": {
+      "import": "./vscode-ext/glyph-middleware.js",
+      "require": "./vscode-ext/glyph-middleware.cjs"
+    }
+  },
+  "scripts": {
+    "test": "node test/integration.cjs",
+    "demo": "node test/demo.js"
+  },
+  "keywords": [
+    "compression",
+    "llm",
+    "token",
+    "semantic",
+    "glyph",
+    "openai",
+    "anthropic",
+    "claude",
+    "vscode",
+    "ide",
+    "cost-optimization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/glyph-compress.git"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/glyph-compress#readme",
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/glyph-compress/issues"
+  }
+}
