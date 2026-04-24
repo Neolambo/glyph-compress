@@ -114,6 +114,25 @@ const response = await client.messages.create({
 });
 ```
 
+### With Antigravity (AI Coding Assistant)
+
+For agentic IDEs like Antigravity, you can compress massive context payloads locally before passing them into the AI's prompt:
+
+```javascript
+import { GlyphCompressor } from 'glyph-compress';
+
+// Use "ultra" level to obliterate code bodies and comments into semantic summaries
+const gc = new GlyphCompressor({ level: 'ultra' });
+
+// 1. Inject this ONCE into your Antigravity System Prompt:
+console.log(gc.getCodebookPrompt());
+
+// 2. Compress and send massive files to Antigravity:
+const { compressed, stats } = gc.compressText(massiveProjectContext);
+console.log(compressed); // Send this to the LLM
+console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
+```
+
 ### VS Code Extension
 
 1. Install the extension from the Marketplace (coming soon)
