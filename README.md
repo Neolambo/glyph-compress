@@ -149,7 +149,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 
 ### VS Code Extension
 
-1. Install the extension from the Marketplace (coming soon)
+1. You can install the extension manually using the provided VSIX package: `code --install-extension vscode-ext/glyph-compress-0.1.0.vsix` (Marketplace release coming soon)
 2. GlyphCompress automatically compresses context sent to LLMs
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
