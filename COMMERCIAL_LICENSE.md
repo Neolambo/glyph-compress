@@ -17,4 +17,4 @@ If you represent a business, enterprise, or closed-source project that wishes to
 Currently, enterprise licenses are negotiated directly based on the scale of usage.
 Please contact the author to request a commercial license quote.
 
-**Email**: commercial@glyphcompress.com (placeholder - update with your real email)
+**Email**: campiossasco1@gmail.com
