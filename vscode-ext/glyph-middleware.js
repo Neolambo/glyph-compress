@@ -409,14 +409,14 @@ class GlyphCompressor {
       if (
         /(?:function |const \w+\s*=\s*(?:\(|async ))/.test(t) || 
         /^\s*def\s+\w+/.test(t) || 
-        /^\s*fn\s+\w+/.test(t) || 
-        /^\s*func\s+\w+/.test(t) ||
+        /^\s*(?:pub\s+)?(?:async\s+)?fn\s+\w+/.test(t) || 
+        /^\s*func\s+(?:\([^)]+\)\s+)?\w+/.test(t) ||
         /^\s*(?:public|private|protected|static|virtual|override|async|inline)*\s*[\w<>\[\]]+\s+\w+\s*\(/.test(t) && !t.includes(';') && !t.includes('new ')
       ) {
         funcs++;
       }
       // Classes/Structs (JS, Py, Rust, Go, Java, C#)
-      if (/^(?:export\s+|public\s+|private\s+)?(?:class|struct|interface|trait|type\s+\w+\s+struct)\b/.test(t)) classes++;
+      if (/^(?:export\s+|public\s+|private\s+|pub\s+)?(?:class|struct|interface|trait|type\s+\w+\s+struct)\b/.test(t)) classes++;
       // React Hooks
       if (/^const\s+\[.*\]\s*=\s*use[A-Z]\w+/.test(t) || /^use[A-Z]\w+\(/.test(t)) hooks++;
     }
