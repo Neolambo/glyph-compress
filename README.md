@@ -277,9 +277,14 @@ The key insight: development communication is **highly structured** — the same
 - **Codeblock Summarizer**: Introduced the `[imp:3 ƒ:2 44L]` structural summary format for code blocks.
 - **Middleware API**: Created wrappers for OpenAI and Anthropic SDKs to automatically inject the codebook and compress user messages.
 
-## 📄 License
+## ⚖️ Dual Licensing Model
 
-MIT License — see [LICENSE](LICENSE) for details.
+GlyphCompress is distributed under a **Dual License** model:
+
+1. **Open Source (AGPL-3.0)**: Free for individuals, non-profits, and open-source projects. If you use it, you must share your changes and the source code of your derivative works.
+2. **Commercial License**: For enterprises and businesses integrating GlyphCompress into closed-source or commercial products (e.g., custom IDEs, internal developer portals, SaaS platforms). Contact the author for a dedicated enterprise license.
+
+See the [LICENSE](LICENSE) file for the full AGPL-3.0 text.
 
 ## 🤝 Contributing
 
