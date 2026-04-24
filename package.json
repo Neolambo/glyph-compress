@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "main": "src/index.js",
