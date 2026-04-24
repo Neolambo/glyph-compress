@@ -41,11 +41,13 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.2.0 (Advanced Edition)
+### 🔥 New in v0.3.0 (Next-Gen Features)
 
-1. **Dynamic Dictionary (Auto-Tuning)**: Automatically detects repeated long variable/class names (e.g. `AuthenticationManager`) and compresses them dynamically to single greek letters (`α`, `β`), injecting the dictionary live into the Codebook!
-2. **"Ultra" Compression Level**: Lossy semantic stripping that completely obliterates `console.log()` calls and inline comments before compression.
-3. **Anthropic Prompt Caching**: Native support for Claude's `cache_control: { type: 'ephemeral' }`. The codebook cost drops to **$0.00** for all follow-up messages in a chat session!
+1. **Global CLI Tool (`npx glyph-compress`)**: Compress files straight from your terminal! Use `--level ultra --copy` to get a highly optimized codebook ready to paste into ChatGPT or Claude web interfaces.
+2. **Multi-Language Ultra Parser**: The "Ultra" semantic codeblock compressor now understands **Python, Rust, Go, Java, and C#** out of the box, reducing huge backend files to `[imp:3 ƒ:3 𝒞:1 13L]` effortlessly.
+3. **Persistent Telemetry**: The VS Code extension now tracks your *Lifetime Savings* across all sessions, showing exactly how many millions of tokens (and dollars) you've saved overall.
+4. **Dynamic Dictionary (Auto-Tuning)** (from v0.2): Automatically detects repeated long variable/class names and compresses them to single greek letters (`α`, `β`).
+5. **Anthropic Prompt Caching** (from v0.2): Native support for Claude's `cache_control: { type: 'ephemeral' }`. Codebook cost drops to **$0.00**!
 
 ## 📊 Benchmarks
 
@@ -57,6 +59,18 @@ AFTER (137 chars):
 | Debug Python ML pipeline | 1,925 chars | 249 chars | **7.7x** | 87% |
 | Create React form | 116 chars | 33 chars | **3.5x** | 72% |
 | **Average** | | | **9.3x** | **89%** |
+
+## 🚀 Usage: Command Line (CLI)
+
+You can run GlyphCompress directly from your terminal to quickly compress files for ChatGPT or Claude.
+
+```bash
+# Compress a Python/Rust/JS file and copy it to your clipboard
+npx glyph-compress src/app.ts --level ultra --copy
+
+# Check the built-in help
+npx glyph-compress --help
+```
 
 **Cost savings**: ~$200/month at 50 requests/day with Claude Sonnet.
 
