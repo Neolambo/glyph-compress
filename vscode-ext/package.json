@@ -4,7 +4,7 @@
   "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
   "version": "0.3.2",
   "license": "AGPL-3.0",
-  "publisher": "glyphcompress",
+  "publisher": "Neolambo",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other", "Machine Learning"],
   "activationEvents": ["onStartupFinished"],
