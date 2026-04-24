@@ -201,14 +201,14 @@ STRUCTURE:  ✗ Error   ⚠ Warning   ∉ Type mismatch   ∅ Not found
 ## 🏗️ Architecture
 
 ```
-┌──────────────────┐     ┌──────────────────┐     ┌─────────────┐
-│    IDE / Tool     │────▶│  GlyphCompress   │────▶│   LLM API   │
-│                   │     │                  │     │             │
-│  VS Code         │     │  1. Index files   │     │  OpenAI     │
-│  Antigravity     │     │  2. Compress ctx  │     │  Claude     │
-│  CLI script      │     │  3. Inject codebook│     │  Gemini     │
-│  Custom app      │     │  4. Track stats   │     │             │
-└──────────────────┘     └──────────────────┘     └─────────────┘
+┌──────────────────┐     ┌────────────────────┐     ┌─────────────┐
+│    IDE / Tool    │────▶│   GlyphCompress    │────▶│   LLM API   │
+│                  │     │                    │     │             │
+│ VS Code          │     │ 1. Index files     │     │ OpenAI      │
+│ Antigravity      │     │ 2. Compress ctx    │     │ Claude      │
+│ CLI script       │     │ 3. Inject codebook │     │ Gemini      │
+│ Custom app       │     │ 4. Track stats     │     │             │
+└──────────────────┘     └────────────────────┘     └─────────────┘
 ```
 
 The **codebook** (~150 tokens) is injected once into the system prompt. The LLM learns to decode the glyphs from it and responds normally in natural language.
