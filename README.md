@@ -1,5 +1,9 @@
 # ⚡ GlyphCompress
 
+[![NPM Version](https://img.shields.io/npm/v/glyph-compress)](https://www.npmjs.com/package/glyph-compress)
+[![License: AGPL 3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/Neolambo.glyph-compress?label=VS%20Code%20Extension)](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)
+
 **Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.**
 
 GlyphCompress uses a compositional radical-based encoding system (inspired by Chinese logograms) to compress the verbose context exchanged between IDEs and Large Language Models. A shared codebook injected into the LLM's system prompt enables it to decode compact glyph sequences back into full semantic concepts.
@@ -149,7 +153,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 
 ### VS Code Extension
 
-1. You can install the extension manually using the provided VSIX package: `code --install-extension vscode-ext/glyph-compress-0.3.2.vsix` (Marketplace release coming soon)
+1. Install directly from the **[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)** (Search for `GlyphCompress`).
 2. GlyphCompress automatically compresses context sent to LLMs
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
