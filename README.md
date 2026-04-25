@@ -45,12 +45,12 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.5.2 (Zero-Command Proxy & Universal Minification)
+### 🔥 New in v0.5.3 (Workspace Compression & Zero-Command Proxy)
 
-1. **Zero-Command Transparent Proxy**: Intercept LLM API calls from your IDE (Continue, Cursor, Cline) automatically. No more shortcuts or copy-pasting—everything happens transparently in the background on `localhost:8080`.
-2. **Universal Syntax Minification**: The `aggressive` compression level now actively removes comments and blank lines for **C-family (JS, TS, C#, Java, C++, Go, Rust), Python, Ruby, HTML, and CSS**, slashing token counts drastically.
-3. **Google Gemini Native Support**: The proxy seamlessly reroutes OpenAI-formatted requests to Gemini's official `v1beta/openai` compatible endpoints.
-4. **Global CLI Tool (`npx glyph-compress`)**: Compress files straight from your terminal! Use `--proxy 8080` to run the interception server, or `--level ultra --copy` to manually optimize codeblocks.
+1. **Workspace Compression (VS Code & Antigravity)**: A brand new command `GlyphCompress: Compress Entire Workspace` scans your entire project, removes boilerplate, and generates a single semantic map (Level: Ultra) in an unsaved tab! Perfect for feeding massive architectures to Claude or Antigravity.
+2. **Zero-Command Transparent Proxy**: Intercept LLM API calls from your IDE (Continue, Cursor, Cline) automatically. No more shortcuts or copy-pasting—everything happens transparently in the background on `localhost:8080`.
+3. **Universal Syntax Minification**: The `aggressive` compression level now actively removes comments and blank lines for **C-family (JS, TS, C#, Java, C++, Go, Rust), Python, Ruby, HTML, and CSS**, slashing token counts drastically.
+4. **Google Gemini Native Support**: The proxy seamlessly reroutes OpenAI-formatted requests to Gemini's official `v1beta/openai` compatible endpoints.
 5. **Persistent Telemetry**: The VS Code extension tracks your *Lifetime Savings* across all sessions, showing exactly how many millions of tokens (and dollars) you've saved overall.
 
 ## 📊 Benchmarks
