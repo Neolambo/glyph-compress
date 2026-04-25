@@ -156,15 +156,16 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install directly from the **[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)** (Search for `GlyphCompress`).
 2. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
-#### Zero-Friction Chat Integration (Copilot / Claude)
-GlyphCompress provides an incredibly fluid workflow for native IDE chats (like GitHub Copilot Chat or Claude in VS Code). 
+#### Zero-Friction Chat Integration (Copilot / Claude / Cursor)
+GlyphCompress provides an incredibly fluid workflow for native IDE chats. The extension automatically configures your workspace so the AI understands you without any setup.
 
-**The 3-Step Magic Workflow:**
-1. **Feed the Codebook:** Open the Command Palette (`Ctrl+Shift+P`) and run **`GlyphCompress: Copy System Codebook`**. Go to your Copilot/Claude chat, paste it, and say: *"This is the dictionary. From now on, my code will be in this format."* *(Tip: You can also paste this into your AI's global "Custom Instructions" so you only do it once).*
-2. **Compress Code:** Highlight a massive chunk of code in your editor and run **`GlyphCompress: Compress Selection`**. 
-3. **Paste & Ask:** The compressed result is **automatically copied to your clipboard**. Just paste it (`Ctrl+V`) into your chat, type your question (e.g., *"Find the bug"*), and hit enter! The AI will parse the `[imp:3 ƒ:2 34L]` glyphs perfectly, saving you 90% of your context window.
+**The Magic Workflow:**
+1. **Auto-Injected Codebook:** Upon activation, GlyphCompress automatically creates/updates `.github/copilot-instructions.md` and `.cursorrules` in your project root. **Copilot and Cursor instantly learn the Glyph dictionary in the background.** You don't need to do anything!
+2. **One-Click Ask (`Ctrl+Alt+G`):** Highlight a massive chunk of code (or leave unselected to compress the whole file) and press `Ctrl+Alt+G` (or run `GlyphCompress: Ask LLM (Auto-Compress)`).
+3. **Seamless Chat:** The extension instantly compresses the code and **automatically opens your VS Code Chat** with the compressed text pre-filled. Just type your question and hit enter! The AI will parse the `[imp:3 ƒ:2 34L]` glyphs perfectly, saving you 90% of your context window.
 
 **Available Commands:**
+- `GlyphCompress: Ask LLM (Auto-Compress)` (`Ctrl+Alt+G`) — Instantly compress and open VS Code Chat
 - `GlyphCompress: Copy System Codebook` — Instantly copy instructions for any LLM
 - `GlyphCompress: Compress Selection` — Compress code and auto-copy to clipboard
 - `GlyphCompress: Build Project Codebook` — Index your workspace files
@@ -273,7 +274,11 @@ The key insight: development communication is **highly structured** — the same
 
 ## 📜 Version History (Changelog)
 
-### v0.3.4 (Current Release)
+### v0.3.5 (Current Release)
+- **True Zero-Friction UX**: The extension now automatically creates and updates `.cursorrules` and `.github/copilot-instructions.md` with the dynamic codebook, teaching AI assistants the semantic dictionary completely in the background.
+- **One-Click Ask (`Ctrl+Alt+G`)**: Added a new command to instantly compress the current file/selection and automatically open the native VS Code Chat sidebar, eliminating all copy-paste steps.
+
+### v0.3.4 (Zero-Friction Base)
 - **Zero-Friction LLM Chat Integration**: Added `GlyphCompress: Copy System Codebook` command. You can now instantly copy the codebook to your clipboard and paste it into Copilot/Claude Chat custom instructions, making GlyphCompress seamlessly interoperable with any built-in IDE chat.
 
 ### v0.3.3 (VS Code Selection Fix)
