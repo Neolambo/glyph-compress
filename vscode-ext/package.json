@@ -2,7 +2,7 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
   "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "license": "AGPL-3.0",
   "publisher": "Neolambo",
   "engines": { "vscode": "^1.85.0" },
@@ -30,6 +30,18 @@
       {
         "command": "glyphCompress.copyCodebook",
         "title": "GlyphCompress: Copy System Codebook"
+      },
+      {
+        "command": "glyphCompress.askChat",
+        "title": "GlyphCompress: Ask LLM (Auto-Compress)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "glyphCompress.askChat",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g",
+        "when": "editorTextFocus"
       }
     ],
     "configuration": {

@@ -18,6 +18,8 @@
 
 const vscode = require('vscode');
 const { GlyphCompressor, CODEBOOK_PROMPT, DOMAIN_GLYPHS } = require('./glyph-middleware.js');
+const fs = require('fs');
+const path = require('path');
 
 let compressor;
 let statusBarItem;
@@ -35,6 +37,9 @@ function activate(context) {
     enabled: config.get('enabled', true),
     level: config.get('compressionLevel', 'standard'),
   });
+
+  // Auto-inject rules on startup
+  updateWorkspaceRules();
 
   // ─── Status Bar ──────────────────────────────────────────
   if (config.get('showStatusBar', true)) {
@@ -112,6 +117,7 @@ function activate(context) {
         outputChannel.appendLine(
           `Codebook built: ${compressor.fileIndex.size} files indexed`
         );
+        updateWorkspaceRules(); // Update rules after building codebook
         vscode.window.showInformationMessage(
           `GlyphCompress: Indexed ${compressor.fileIndex.size} files`
         );
@@ -157,6 +163,32 @@ function activate(context) {
       vscode.env.clipboard.writeText(codebook);
       vscode.window.showInformationMessage('GlyphCompress: Codebook copied to clipboard! Paste it as a Custom Instruction in your LLM.');
       outputChannel.appendLine('Codebook copied to clipboard.');
+    })
+  );
+
+  // Ask LLM (Auto-Compress)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('glyphCompress.askChat', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+
+      let selection = editor.document.getText(editor.selection);
+      if (!selection) {
+        // If no selection, use the whole file
+        selection = editor.document.getText();
+      }
+
+      const lang = editor.document.languageId;
+      const wrappedSelection = \`\`\`\${lang}\\n\${selection}\\n\`\`\`;
+      const result = compressor.compressText(wrappedSelection);
+
+      // Open the VS Code Chat UI with the compressed text
+      await vscode.commands.executeCommand('workbench.action.chat.open', {
+        query: \`\\n\\n\${result.compressed}\\n\\n\`
+      });
+      
+      outputChannel.appendLine(\`Auto-compressed \${result.stats.originalTokens} tokens to \${result.stats.compressedTokens} tokens for chat.\`);
+      vscode.window.showInformationMessage(\`GlyphCompress: Ready to ask! Saved \${result.stats.savedPct}.\`);
     })
   );
 
@@ -274,6 +306,52 @@ function deactivate() {
     
     outputChannel.appendLine(`\nSession ended. Final stats:`);
     outputChannel.appendLine(JSON.stringify(stats, null, 2));
+  }
+}
+
+// ─── Zero-Friction Workspace Integration ───────────────────
+function updateWorkspaceRules() {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) return;
+  
+  const rootPath = folders[0].uri.fsPath;
+  const codebook = compressor.getCodebookPrompt();
+  
+  const rulesHeader = "## GLYPHCOMPRESS DICTIONARY (DO NOT MODIFY MANUALLY)\\n" +
+    "You are communicating with a user who has semantic compression enabled.\\n" +
+    "Parse the following compressed syntax in all user queries:\\n\\n";
+    
+  const content = rulesHeader + codebook + "\\n\\n";
+  
+  // 1. Update .cursorrules
+  try {
+    const cursorPath = path.join(rootPath, '.cursorrules');
+    let existingCursor = '';
+    if (fs.existsSync(cursorPath)) {
+      existingCursor = fs.readFileSync(cursorPath, 'utf8');
+      // Remove old glyph instructions if present
+      existingCursor = existingCursor.replace(/## GLYPHCOMPRESS DICTIONARY[\s\S]*?\[\/GLYPH\]\n\n/g, '');
+    }
+    fs.writeFileSync(cursorPath, content + existingCursor);
+  } catch(e) {
+    console.error('Failed to update .cursorrules', e);
+  }
+
+  // 2. Update .github/copilot-instructions.md
+  try {
+    const githubDir = path.join(rootPath, '.github');
+    if (!fs.existsSync(githubDir)) {
+      fs.mkdirSync(githubDir, { recursive: true });
+    }
+    const copilotPath = path.join(githubDir, 'copilot-instructions.md');
+    let existingCopilot = '';
+    if (fs.existsSync(copilotPath)) {
+      existingCopilot = fs.readFileSync(copilotPath, 'utf8');
+      existingCopilot = existingCopilot.replace(/## GLYPHCOMPRESS DICTIONARY[\s\S]*?\[\/GLYPH\]\n\n/g, '');
+    }
+    fs.writeFileSync(copilotPath, content + existingCopilot);
+  } catch(e) {
+    console.error('Failed to update copilot-instructions.md', e);
   }
 }
 
