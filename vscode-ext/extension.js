@@ -39,8 +39,9 @@ function activate(context) {
     level: config.get('compressionLevel', 'standard'),
   });
 
-  // Auto-inject rules on startup
-  updateWorkspaceRules();
+  if (config.get('autoUpdateWorkspaceRules', false)) {
+    updateWorkspaceRules();
+  }
 
   // ─── Status Bar ──────────────────────────────────────────
   if (config.get('showStatusBar', true)) {
@@ -118,7 +119,9 @@ function activate(context) {
         outputChannel.appendLine(
           `Codebook built: ${compressor.fileIndex.size} files indexed`
         );
-        updateWorkspaceRules(); // Update rules after building codebook
+        if (config.get('autoUpdateWorkspaceRules', false)) {
+          updateWorkspaceRules();
+        }
         vscode.window.showInformationMessage(
           `GlyphCompress: Indexed ${compressor.fileIndex.size} files`
         );
@@ -178,7 +181,7 @@ function activate(context) {
       try {
         // Use dynamic import because proxy.js is ES module and this is CJS
         import('./proxy.js').then(({ startProxyServer }) => {
-          const targetUrl = 'https://generativelanguage.googleapis.com';
+          const targetUrl = config.get('targetApiUrl', 'https://api.openai.com');
           proxyServer = startProxyServer(8080, targetUrl, compressor.level, compressor, outputChannel);
           vscode.window.showInformationMessage(`🚀 GlyphProxy started on http://localhost:8080. Forwarding to ${targetUrl}`);
           outputChannel.appendLine('GlyphProxy started on port 8080');

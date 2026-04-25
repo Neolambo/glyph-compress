@@ -2,7 +2,7 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
   "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
-  "version": "0.5.3",
+  "version": "0.6.1",
   "license": "AGPL-3.0",
   "publisher": "Neolambo",
   "engines": {
@@ -87,15 +87,21 @@
           "enum": [
             "light",
             "standard",
-            "aggressive"
+            "aggressive",
+            "ultra"
           ],
           "default": "standard",
-          "description": "Compression aggressiveness (light=prompts only, standard=+files, aggressive=+full code→semantic)"
+          "description": "Compression aggressiveness (light=prompts only, standard=+files, aggressive=+full code→semantic, ultra=semantic summaries)"
         },
         "glyphCompress.showStatusBar": {
           "type": "boolean",
           "default": true,
           "description": "Show compression stats in status bar"
+        },
+        "glyphCompress.autoUpdateWorkspaceRules": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically write GlyphCompress instructions to .cursorrules and .github/copilot-instructions.md"
         },
         "glyphCompress.targetApiUrl": {
           "type": "string",
@@ -106,7 +112,7 @@
     }
   },
   "scripts": {
-    "test": "node test.js"
+    "test": "node ../test/integration.js"
   },
   "dependencies": {
     "@types/vscode": "^1.116.0"

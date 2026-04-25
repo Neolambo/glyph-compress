@@ -49,7 +49,14 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.6.0 (Project "Rosetta")
+### 🔥 New in v0.6.1 (Packaging & VS Code Hardening)
+
+1. **Root API Alignment**: The documented `GlyphCompressor`, `wrapOpenAI`, and `wrapAnthropic` imports are now exported from the package root.
+2. **CommonJS Entry Point**: Added the missing CommonJS package entry so `require('glyph-compress')` works for CJS consumers.
+3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
+4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
+
+### 🔥 v0.6.0 (Project "Rosetta")
 
 1. **Adaptive Payload Dictionary (APD)**: Analyzes term frequency in real-time and maps the highest token-consuming strings (classes, functions, variables) to a dynamic Unicode "Rosetta Stone" on the fly.
 2. **Semantic Context Elision (Blackout Algorithm)**: Intelligently analyzes user intent (e.g., "fix", "deploy"). The new `_elideIrrelevantContext` function strips the bodies of unrelated functions across massive payloads (`[✂]`), keeping structural signatures while slashing token noise.
@@ -171,7 +178,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 GlyphCompress provides an incredibly fluid workflow for native IDE chats. The extension automatically configures your workspace so the AI understands you without any setup.
 
 **The Magic Workflow:**
-1. **Auto-Injected Codebook:** Upon activation, GlyphCompress automatically creates/updates `.github/copilot-instructions.md` and `.cursorrules` in your project root. **Copilot and Cursor instantly learn the Glyph dictionary in the background.** You don't need to do anything!
+1. **Optional Codebook Injection:** Enable `glyphCompress.autoUpdateWorkspaceRules` to let GlyphCompress create/update `.github/copilot-instructions.md` and `.cursorrules` in your project root. Copilot and Cursor can then learn the Glyph dictionary from workspace rules.
 2. **One-Click Ask (`Ctrl+Alt+G`):** Highlight a massive chunk of code (or leave unselected to compress the whole file) and press `Ctrl+Alt+G` (or run `GlyphCompress: Ask LLM (Auto-Compress)`).
 3. **Seamless Chat:** The extension instantly compresses the code and **automatically opens your VS Code Chat** with the compressed text pre-filled. Just type your question and hit enter! The AI will parse the `[imp:3 ƒ:2 34L]` glyphs perfectly, saving you 90% of your context window.
 
@@ -188,7 +195,9 @@ GlyphCompress provides an incredibly fluid workflow for native IDE chats. The ex
 {
   "glyphCompress.enabled": true,
   "glyphCompress.provider": "auto",        // "openai" | "anthropic" | "antigravity"
-  "glyphCompress.compressionLevel": "standard"  // "light" | "standard" | "aggressive"
+  "glyphCompress.compressionLevel": "standard", // "light" | "standard" | "aggressive" | "ultra"
+  "glyphCompress.autoUpdateWorkspaceRules": false,
+  "glyphCompress.targetApiUrl": "https://api.openai.com"
 }
 ```
 
@@ -334,6 +343,11 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v0.6.1 (Packaging & VS Code Hardening)
+- **Root API Alignment**: Exported `GlyphCompressor`, `wrapOpenAI`, `wrapAnthropic`, and `CODEBOOK_PROMPT` from the package root to match the README examples.
+- **CommonJS Entry Point**: Added `src/index.cjs` so the declared `require` entry works for CommonJS consumers.
+- **VS Code Extension Fixes**: The proxy now uses `glyphCompress.targetApiUrl`, workspace rule injection is opt-in, `ultra` is exposed in settings, and the extension test script points to the existing integration suite.
 
 ### v0.6.0 (Project "Rosetta")
 - **Adaptive Payload Dictionary (APD)**: Introduced a real-time frequency analyzer that identifies and maps the heaviest token-consuming strings to a dynamic Unicode dictionary.
