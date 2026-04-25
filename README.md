@@ -265,7 +265,10 @@ The key insight: development communication is **highly structured** — the same
 
 ## 📜 Version History (Changelog)
 
-### v0.3.3 (Current Release)
+### v0.3.4 (Current Release)
+- **Zero-Friction LLM Chat Integration**: Added `GlyphCompress: Copy System Codebook` command. You can now instantly copy the codebook to your clipboard and paste it into Copilot/Claude Chat custom instructions, making GlyphCompress seamlessly interoperable with any built-in IDE chat.
+
+### v0.3.3 (VS Code Selection Fix)
 - **VS Code Extension Fix**: The `Compress Selection` command now automatically detects the editor language and wraps raw text in markdown backticks, ensuring the "Ultra" semantic compressor triggers correctly for code snippets.
 
 ### v0.3.2 (Monetization & Legal)
