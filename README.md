@@ -12,6 +12,13 @@
 
 GlyphCompress uses a compositional radical-based encoding system (inspired by Chinese logograms) to compress the verbose context exchanged between IDEs and Large Language Models. A shared codebook injected into the LLM's system prompt enables it to decode compact glyph sequences back into full semantic concepts.
 
+### 🎬 See it in Action
+
+Check out our promotional and architectural videos to see how GlyphCompress achieves 90% token savings:
+
+- 📺 **[Motion Graphics Promo Video](https://youtu.be/qLRSAAv1zhk)**: A high-impact visualization of the token overflow problem and our glyph solution.
+- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)**: An internal graphical animation showing exactly how the engine minifies and translates verbose code into dense semantic glyphs.
+
 ---
 
 ## 🎯 The Problem
