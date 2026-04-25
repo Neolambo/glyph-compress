@@ -105,11 +105,12 @@ const PROMPT_PATTERNS = [
   [/test (.+)/i, "\u25BA $1"],
   [/document (.+)/i, "\u25A0 $1"]
 ];
-const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.1]
+const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
 TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
-SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const ◇t=type ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;

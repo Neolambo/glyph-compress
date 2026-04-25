@@ -231,8 +231,9 @@ test('Aggressive: compress code blocks too', () => {
   // Use a string with raw backticks (not escaped) to simulate actual markdown
   const codeMsg = 'Fix this code:\n' + '```' + 'typescript\nimport React from "react";\n\nexport const App = () => <div>Hello</div>;\n' + '```';
   const r = gcAggressive.compressText(codeMsg);
-  assert(!r.compressed.includes('```'), `Should remove code block, got: ${r.compressed}`);
-  assert(r.compressed.includes('['), 'Should have summary brackets');
+  assert(r.compressed.includes('```'), `Should preserve code block, got: ${r.compressed}`);
+  assert(r.compressed.includes('imp ℜ'), 'Should minify import');
+  assert(r.compressed.includes('exp ◇ App'), 'Should minify export const');
 });
 
 test('Ultra: compress Python code', () => {
