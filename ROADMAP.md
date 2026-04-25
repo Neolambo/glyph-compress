@@ -49,11 +49,13 @@ Status: delivered in the first v0.9.0 release slice.
 
 ### v1.0.0: Stable Platform
 
-- Freeze the public API for `GlyphCompressor`, middleware wrappers, CLI commands, and VS Code settings.
-- Add TypeScript declarations or migrate core APIs to TypeScript.
-- Add CI for Node LTS versions, packaging, linting, and VS Code extension validation.
+Status: delivered in the first v1.0.0 stable release.
+
+- Freeze the public API for `GlyphCompressor`, middleware wrappers, source maps, workspace intelligence helpers, CLI commands, and VS Code settings.
+- Add TypeScript declarations for the stable public package surface.
+- Add CI for Node LTS versions, packaging, npm pack validation, and VS Code extension validation.
 - Add formal docs for security, privacy, licensing, telemetry, and enterprise deployment.
-- Publish a stable VS Code Marketplace release aligned with npm and GitHub tags.
+- Publish a stable VS Code extension artifact aligned with npm and GitHub tags.
 
 ## Repository Improvements
 

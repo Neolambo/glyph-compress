@@ -1,26 +1,49 @@
 {
   "name": "glyph-compress",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {
     "glyph-compress": "bin/cli.js"
   },
   "main": "src/index.js",
+  "types": "src/index.d.ts",
   "exports": {
     ".": {
+      "types": "./src/index.d.ts",
       "import": "./src/index.js",
       "require": "./src/index.cjs"
     },
     "./middleware": {
+      "types": "./vscode-ext/glyph-middleware.d.ts",
       "import": "./vscode-ext/glyph-middleware.js",
       "require": "./vscode-ext/glyph-middleware.cjs"
     }
   },
+  "files": [
+    "bin/",
+    "src/",
+    "vscode-ext/extension.js",
+    "vscode-ext/glyph-middleware.js",
+    "vscode-ext/glyph-middleware.cjs",
+    "vscode-ext/glyph-middleware.d.ts",
+    "vscode-ext/proxy.js",
+    "vscode-ext/LICENSE",
+    "vscode-ext/package.json",
+    "README.md",
+    "ROADMAP.md",
+    "LICENSE",
+    "COMMERCIAL_LICENSE.md",
+    "SECURITY.md",
+    "PRIVACY.md",
+    "ENTERPRISE.md"
+  ],
   "scripts": {
     "test": "node test/integration.js",
     "benchmark": "node test/benchmark.js",
-    "demo": "node test/demo.js"
+    "demo": "node test/demo.js",
+    "check": "npm test && npm run benchmark && npm pack --dry-run",
+    "package:vscode": "cd vscode-ext && npx @vscode/vsce package --allow-missing-repository"
   },
   "keywords": [
     "compression",

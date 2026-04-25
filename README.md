@@ -55,7 +55,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.9.0 (Workspace Intelligence)
+### 🔥 New in v1.0.0 (Stable Platform)
+
+1. **Stable Public API**: The `GlyphCompressor`, provider wrappers, source maps, workspace intelligence exports, CLI commands, and VS Code settings are documented as the stable `1.x` platform surface.
+2. **TypeScript Declarations**: Added package-level declarations for the middleware, source maps, workspace codebooks, intent detection, and repository doctor APIs.
+3. **CI and Packaging Validation**: Added GitHub Actions coverage for Node LTS tests, benchmarks, npm pack dry-runs, and VS Code extension packaging.
+4. **Formal Governance Docs**: Added security, privacy, and enterprise deployment documentation for production adoption.
+5. **Lean npm Package**: Added an explicit package allowlist so npm releases include runtime, docs, typings, and extension files without scratch artifacts.
+
+### 🔥 v0.9.0 (Workspace Intelligence)
 
 1. **Persistent Workspace Codebook**: Added `glyph-compress inspect` to scan supported project files and write `.glyphcompress/codebook.json` with symbols, imports, diagnostics, owners, and git status.
 2. **Intent Detection**: Detects common workflows such as fix error, review diff, implement feature, explain architecture, write tests, and optimize performance.
@@ -83,7 +91,7 @@ AFTER (137 chars):
 3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
 4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
 
-For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md).
+For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For operational guidance, see [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
 ### 📏 v0.7.0 Benchmark Snapshot
 
@@ -354,6 +362,7 @@ The **codebook** (~150 tokens) is injected once into the system prompt. The LLM 
 glyph-compress/
 ├── src/
 │   ├── index.js                  # Library entry point (ESM)
+│   ├── index.d.ts                # Stable TypeScript declarations
 │   ├── workspace-intelligence.js  # Workspace codebook, intent detection, and file ranking
 │   ├── radical-alphabet.js       # 96 symbols: radicals + glyphs
 │   ├── compressor.js             # Multi-level compression engine
@@ -365,11 +374,14 @@ glyph-compress/
 ├── test/
 │   ├── demo.js                   # Interactive demo with 5 scenarios
 │   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 32 automated tests
+│   └── integration.js            # 35 automated tests
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
 ├── package.json
+├── SECURITY.md
+├── PRIVACY.md
+├── ENTERPRISE.md
 ├── LICENSE
 ├── ROADMAP.md
 └── README.md
@@ -378,8 +390,11 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (32/32 ✓)
+# Run all tests (35/35 ✓)
 npm test
+
+# Run the stable release validation bundle
+npm run check
 
 # Run trust and measurement benchmark
 npm run benchmark
@@ -401,6 +416,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.0.0 (Stable Platform)
+- **Stable API Surface**: Documented and typed the public `GlyphCompressor`, provider wrappers, source maps, workspace intelligence helpers, and CLI workflows.
+- **TypeScript Declarations**: Added `src/index.d.ts` and middleware subpath declarations for editor and package consumer support.
+- **CI Validation**: Added GitHub Actions for Node 20/22 tests, benchmarks, npm pack dry-runs, and VS Code extension packaging.
+- **Formal Docs**: Added security, privacy, and enterprise deployment documents for production adoption.
+- **Packaging Hygiene**: Added a package allowlist to avoid publishing generated codebooks, scratch files, historical VSIX files, and unnecessary assets.
 
 ### v0.9.0 (Workspace Intelligence)
 - **Persistent Codebook**: Added workspace scanning and `.glyphcompress/codebook.json` output with files, symbols, imports, diagnostics, owners, and git context.
