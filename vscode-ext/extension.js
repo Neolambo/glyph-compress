@@ -139,7 +139,7 @@ function activate(context) {
 
       // Automatically wrap in markdown backticks so the semantic codeblock parser triggers
       const lang = editor.document.languageId;
-      const wrappedSelection = \`\`\`\${lang}\\n\${selection}\\n\`\`\`;
+      const wrappedSelection = '```' + lang + '\n' + selection + '\n```';
 
       const result = compressor.compressText(wrappedSelection);
       outputChannel.appendLine(`\n─── Compression Result ───`);
@@ -179,16 +179,16 @@ function activate(context) {
       }
 
       const lang = editor.document.languageId;
-      const wrappedSelection = \`\`\`\${lang}\\n\${selection}\\n\`\`\`;
+      const wrappedSelection = '```' + lang + '\n' + selection + '\n```';
       const result = compressor.compressText(wrappedSelection);
 
       // Open the VS Code Chat UI with the compressed text
       await vscode.commands.executeCommand('workbench.action.chat.open', {
-        query: \`\\n\\n\${result.compressed}\\n\\n\`
+        query: '\n\n' + result.compressed + '\n\n'
       });
       
-      outputChannel.appendLine(\`Auto-compressed \${result.stats.originalTokens} tokens to \${result.stats.compressedTokens} tokens for chat.\`);
-      vscode.window.showInformationMessage(\`GlyphCompress: Ready to ask! Saved \${result.stats.savedPct}.\`);
+      outputChannel.appendLine("Auto-compressed " + result.stats.originalTokens + " tokens to " + result.stats.compressedTokens + " tokens for chat.");
+      vscode.window.showInformationMessage("GlyphCompress: Ready to ask! Saved " + result.stats.savedPct + ".");
     })
   );
 
@@ -317,11 +317,11 @@ function updateWorkspaceRules() {
   const rootPath = folders[0].uri.fsPath;
   const codebook = compressor.getCodebookPrompt();
   
-  const rulesHeader = "## GLYPHCOMPRESS DICTIONARY (DO NOT MODIFY MANUALLY)\\n" +
-    "You are communicating with a user who has semantic compression enabled.\\n" +
-    "Parse the following compressed syntax in all user queries:\\n\\n";
+  const rulesHeader = "## GLYPHCOMPRESS DICTIONARY (DO NOT MODIFY MANUALLY)\n" +
+    "You are communicating with a user who has semantic compression enabled.\n" +
+    "Parse the following compressed syntax in all user queries:\n\n";
     
-  const content = rulesHeader + codebook + "\\n\\n";
+  const content = rulesHeader + codebook + "\n\n";
   
   // 1. Update .cursorrules
   try {
