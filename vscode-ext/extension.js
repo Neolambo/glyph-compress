@@ -230,6 +230,71 @@ function activate(context) {
     })
   );
 
+  // Compress Entire Workspace
+  context.subscriptions.push(
+    vscode.commands.registerCommand('glyphCompress.compressWorkspace', async () => {
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders) {
+        vscode.window.showWarningMessage('No workspace open to compress.');
+        return;
+      }
+
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Compressing workspace...',
+      }, async (progress) => {
+        progress.report({ increment: 0, message: 'Finding files...' });
+
+        // Temporarily force ultra level for maximum structural compression
+        const originalLevel = compressor.level;
+        compressor.level = 'ultra';
+
+        const files = await vscode.workspace.findFiles(
+          '**/*.{ts,tsx,js,jsx,py,rs,go,java,c,cpp,cs,vue,svelte,html,css,md,json}',
+          '**/{node_modules,.git,dist,build,coverage,out}/**',
+          1000
+        );
+
+        let outputText = '=== WORKSPACE COMPRESSED WITH GLYPH-COMPRESS (Level: Ultra) ===\n\n';
+        
+        for (let i = 0; i < files.length; i++) {
+          progress.report({
+            increment: (1 / files.length) * 100,
+            message: `Compressing file ${i + 1}/${files.length}`
+          });
+
+          try {
+            const content = fs.readFileSync(files[i].fsPath, 'utf8');
+            const relPath = vscode.workspace.asRelativePath(files[i]);
+            
+            // Wrap in codeblock to trigger semantic parsing
+            const ext = path.extname(files[i].fsPath).substring(1) || 'txt';
+            const wrapped = '```' + ext + '\n' + content + '\n```';
+            
+            const result = compressor.compressText(wrapped);
+            
+            outputText += `\n--- FILE: ${relPath} ---\n`;
+            outputText += result.compressed + '\n';
+          } catch (e) {
+            outputChannel.appendLine(`Skipped ${files[i].fsPath}: ${e.message}`);
+          }
+        }
+
+        // Restore user's level
+        compressor.level = originalLevel;
+
+        progress.report({ increment: 100, message: 'Done!' });
+
+        // Open in new unsaved editor
+        const doc = await vscode.workspace.openTextDocument({ content: outputText, language: 'plaintext' });
+        await vscode.window.showTextDocument(doc, { preview: false });
+        
+        vscode.window.showInformationMessage(`GlyphCompress: Workspace compressed (${files.length} files)`);
+        outputChannel.appendLine(`Workspace compressed: ${files.length} files processed`);
+      });
+    })
+  );
+
   // ─── VS Code Language Model API Integration ──────────────
   // Hook into VS Code's native LM API if available (v1.90+)
   if (vscode.lm) {

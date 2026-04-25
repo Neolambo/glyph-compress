@@ -2,7 +2,7 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
   "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "license": "AGPL-3.0",
   "publisher": "Neolambo",
   "engines": {
@@ -49,6 +49,10 @@
       {
         "command": "glyphCompress.stopProxy",
         "title": "GlyphCompress: Stop Zero-Command Proxy"
+      },
+      {
+        "command": "glyphCompress.compressWorkspace",
+        "title": "GlyphCompress: Compress Entire Workspace"
       }
     ],
     "keybindings": [
