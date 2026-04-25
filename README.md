@@ -45,7 +45,7 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.3.0 (Next-Gen Features)
+### 🔥 New in v0.3.4 (Next-Gen Features)
 
 1. **Global CLI Tool (`npx glyph-compress`)**: Compress files straight from your terminal! Use `--level ultra --copy` to get a highly optimized codebook ready to paste into ChatGPT or Claude web interfaces.
 2. **Multi-Language Ultra Parser**: The "Ultra" semantic codeblock compressor now understands **Python, Rust, Go, Java, and C#** out of the box, reducing huge backend files to `[imp:3 ƒ:3 𝒞:1 13L]` effortlessly.
