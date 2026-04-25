@@ -125,13 +125,17 @@ function activate(context) {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
 
-      const selection = editor.document.getText(editor.selection);
+      let selection = editor.document.getText(editor.selection);
       if (!selection) {
         vscode.window.showWarningMessage('No text selected');
         return;
       }
 
-      const result = compressor.compressText(selection);
+      // Automatically wrap in markdown backticks so the semantic codeblock parser triggers
+      const lang = editor.document.languageId;
+      const wrappedSelection = \`\`\`\${lang}\\n\${selection}\\n\`\`\`;
+
+      const result = compressor.compressText(wrappedSelection);
       outputChannel.appendLine(`\n─── Compression Result ───`);
       outputChannel.appendLine(`Original (${result.stats.originalTokens} tokens):`);
       outputChannel.appendLine(result.original);
