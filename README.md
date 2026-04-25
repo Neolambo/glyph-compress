@@ -207,9 +207,9 @@ STRUCTURE:  ✗ Error   ⚠ Warning   ∉ Type mismatch   ∅ Not found
 | Level | What it compresses | Use case |
 |---|---|---|
 | **light** | Prompt patterns, tech names | Low-risk, minimal changes |
-| **standard** | + file paths, error messages, diagnostics | **Recommended** |
-| **aggressive** | + code blocks → semantic summaries | Heavy compression |
-| **ultra** (New) | + removes `console.log()` and comments | Maximum token savings |
+- **`standard`**: (Default) Compresses prompts, error messages, and file paths. Leaves code blocks mostly intact.
+- **`aggressive`**: Applies **Multi-Language Syntax Minification** to code blocks. Preserves the logic and structure (great for debugging) but replaces verbose keywords (`function`, `public`, `return`, `def`, `#include`) with ultra-short glyphs (`ƒ`, `+`, `→`, `imp`). Supports C, Python, JS/TS, Rust, Go, Java, and C#.
+- **`ultra`**: Fully destructive semantic compression. Replaces entire code blocks with pure architectural summaries (e.g. `[imp:3 ƒ:2 34L]`). Only use this when you need absolute maximum context saving and the AI doesn't need to read the inner logic.
 
 ## 🏗️ Architecture
 
@@ -274,7 +274,12 @@ The key insight: development communication is **highly structured** — the same
 
 ## 📜 Version History (Changelog)
 
-### v0.3.5 (Current Release)
+### v0.4.0 (Multi-Language Syntax Minification)
+- **Intelligent Minification**: Upgraded the `aggressive` compression level. Instead of destructively summarizing code blocks, it now applies intelligent syntax minification to preserve logic and structure for debugging.
+- **Broad Language Support**: Added targeted RegEx parsing for C, C++, Python, Java, C#, Rust, Go, JavaScript, and TypeScript.
+- **Enhanced Codebook**: Expanded the glyph dictionary to include universal concepts like variables (`◇`), returns (`→`), and types (`◇t`).
+
+### v0.3.6 (Zero-Friction Base)
 - **True Zero-Friction UX**: The extension now automatically creates and updates `.cursorrules` and `.github/copilot-instructions.md` with the dynamic codebook, teaching AI assistants the semantic dictionary completely in the background.
 - **One-Click Ask (`Ctrl+Alt+G`)**: Added a new command to instantly compress the current file/selection and automatically open the native VS Code Chat sidebar, eliminating all copy-paste steps.
 

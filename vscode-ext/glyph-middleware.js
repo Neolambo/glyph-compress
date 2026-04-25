@@ -82,7 +82,7 @@ const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.1]
 Context uses compressed glyphs. Decode:
 DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
 TECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent
-SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=ret ƒ=fn 𝒞=class ◇=state ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const ◇t=type ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
 FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
@@ -396,13 +396,81 @@ class GlyphCompressor {
   }
 
   _compressCodeBlocks(text) {
-    // Replace code blocks with semantic summaries (handle both ``` and escaped ```)
+    // Replace code blocks with semantic summaries or minification
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
       const lines = code.trim().split('\n');
-      const summary = this._summarizeCode(lines, lang);
-      const techGlyph = TECH_GLYPHS[lang] || '';
-      return `[${techGlyph}${summary}]`;
+      
+      if (this.level === 'ultra') {
+        const summary = this._summarizeCode(lines, lang);
+        const techGlyph = TECH_GLYPHS[lang] || '';
+        return `[${techGlyph}${summary}]`;
+      } else {
+        // aggressive mode
+        const minified = this._minifySyntax(code, lang);
+        return '```' + lang + '\n' + minified + '\n```';
+      }
     });
+  }
+
+  _minifySyntax(code, lang) {
+    if (!code) return code;
+    let c = code;
+    const l = (lang || '').toLowerCase();
+
+    // Cross-language common minifications
+    c = c.replace(/\breturn\b/g, '→');
+
+    if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript'].includes(l) || !l) {
+      c = c.replace(/\bfunction\b/g, 'ƒ');
+      c = c.replace(/\bconst\b/g, '◇');
+      c = c.replace(/\blet\b/g, '◇');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\bexport\b/g, 'exp');
+    }
+    
+    if (['py', 'python'].includes(l) || !l) {
+      c = c.replace(/\bdef\b/g, 'ƒ');
+      c = c.replace(/\bclass\b/g, '𝒞');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\bfrom\b/g, 'imp');
+      c = c.replace(/\byield\b/g, '→');
+      c = c.replace(/\bself\.\b/g, 's.');
+    }
+
+    if (['c', 'cpp', 'c++', 'h', 'hpp'].includes(l) || !l) {
+      c = c.replace(/#include/g, 'imp');
+      c = c.replace(/\b(?:int|void|char|float|double|long|short)\b/g, '◇t');
+    }
+
+    if (['rs', 'rust'].includes(l) || !l) {
+      c = c.replace(/\bfn\b/g, 'ƒ');
+      c = c.replace(/\bpub\b/g, '+');
+      c = c.replace(/\bmut\b/g, 'm');
+      c = c.replace(/\bimpl\b/g, 'I');
+      c = c.replace(/\bstruct\b/g, '𝒞');
+      c = c.replace(/\buse\b/g, 'imp');
+      c = c.replace(/\bmatch\b/g, '?');
+    }
+
+    if (['go', 'golang'].includes(l) || !l) {
+      c = c.replace(/\bfunc\b/g, 'ƒ');
+      c = c.replace(/\bpackage\b/g, 'pkg');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\btype\b/g, '◇t');
+      c = c.replace(/\bstruct\b/g, '𝒞');
+    }
+
+    if (['java', 'cs', 'csharp'].includes(l) || !l) {
+      c = c.replace(/\bpublic\b/g, '+');
+      c = c.replace(/\bprivate\b/g, '-');
+      c = c.replace(/\bprotected\b/g, '#');
+      c = c.replace(/\bclass\b/g, '𝒞');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\busing\b/g, 'imp');
+      c = c.replace(/\bvoid\b/g, '◇t');
+    }
+
+    return c;
   }
 
   _summarizeCode(lines, lang) {

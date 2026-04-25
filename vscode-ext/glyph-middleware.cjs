@@ -109,7 +109,7 @@ const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.1]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
 TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
-SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=ret \u0192=fn \u{1D49E}=class \u25C7=state \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
+SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const ◇t=type ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
@@ -352,10 +352,66 @@ class GlyphCompressor {
   _compressCodeBlocks(text) {
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
       const lines = code.trim().split("\n");
-      const summary = this._summarizeCode(lines, lang);
-      const techGlyph = TECH_GLYPHS[lang] || "";
-      return `[${techGlyph}${summary}]`;
+      if (this.level === 'ultra') {
+        const summary = this._summarizeCode(lines, lang);
+        const techGlyph = TECH_GLYPHS[lang] || "";
+        return `[${techGlyph}${summary}]`;
+      } else {
+        const minified = this._minifySyntax(code, lang);
+        return '```' + lang + '\n' + minified + '\n```';
+      }
     });
+  }
+  _minifySyntax(code, lang) {
+    if (!code) return code;
+    let c = code;
+    const l = (lang || '').toLowerCase();
+    c = c.replace(/\breturn\b/g, '→');
+    if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript'].includes(l) || !l) {
+      c = c.replace(/\bfunction\b/g, 'ƒ');
+      c = c.replace(/\bconst\b/g, '◇');
+      c = c.replace(/\blet\b/g, '◇');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\bexport\b/g, 'exp');
+    }
+    if (['py', 'python'].includes(l) || !l) {
+      c = c.replace(/\bdef\b/g, 'ƒ');
+      c = c.replace(/\bclass\b/g, '𝒞');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\bfrom\b/g, 'imp');
+      c = c.replace(/\byield\b/g, '→');
+      c = c.replace(/\bself\.\b/g, 's.');
+    }
+    if (['c', 'cpp', 'c++', 'h', 'hpp'].includes(l) || !l) {
+      c = c.replace(/#include/g, 'imp');
+      c = c.replace(/\b(?:int|void|char|float|double|long|short)\b/g, '◇t');
+    }
+    if (['rs', 'rust'].includes(l) || !l) {
+      c = c.replace(/\bfn\b/g, 'ƒ');
+      c = c.replace(/\bpub\b/g, '+');
+      c = c.replace(/\bmut\b/g, 'm');
+      c = c.replace(/\bimpl\b/g, 'I');
+      c = c.replace(/\bstruct\b/g, '𝒞');
+      c = c.replace(/\buse\b/g, 'imp');
+      c = c.replace(/\bmatch\b/g, '?');
+    }
+    if (['go', 'golang'].includes(l) || !l) {
+      c = c.replace(/\bfunc\b/g, 'ƒ');
+      c = c.replace(/\bpackage\b/g, 'pkg');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\btype\b/g, '◇t');
+      c = c.replace(/\bstruct\b/g, '𝒞');
+    }
+    if (['java', 'cs', 'csharp'].includes(l) || !l) {
+      c = c.replace(/\bpublic\b/g, '+');
+      c = c.replace(/\bprivate\b/g, '-');
+      c = c.replace(/\bprotected\b/g, '#');
+      c = c.replace(/\bclass\b/g, '𝒞');
+      c = c.replace(/\bimport\b/g, 'imp');
+      c = c.replace(/\busing\b/g, 'imp');
+      c = c.replace(/\bvoid\b/g, '◇t');
+    }
+    return c;
   }
   _summarizeCode(lines, lang) {
     const parts = [];
