@@ -1,5 +1,9 @@
 # ⚡ GlyphCompress
 
+<p align="center">
+  <img src="./assets/logo.png" alt="GlyphCompress Logo" width="300">
+</p>
+
 [![NPM Version](https://img.shields.io/npm/v/glyph-compress)](https://www.npmjs.com/package/glyph-compress)
 [![License: AGPL 3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/Neolambo.glyph-compress?label=VS%20Code%20Extension)](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)
