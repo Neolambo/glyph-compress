@@ -23,6 +23,8 @@ const args = process.argv.slice(2);
 let level = 'standard';
 let copyToClipboard = false;
 let fileToCompress = null;
+let startProxy = false;
+let proxyPort = 8080;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -31,14 +33,20 @@ for (let i = 0; i < args.length; i++) {
     level = args[++i];
   } else if (arg === '--copy' || arg === '-c') {
     copyToClipboard = true;
+  } else if (arg === '--proxy' || arg === '-p') {
+    startProxy = true;
+    if (args[i + 1] && !args[i + 1].startsWith('-')) {
+      proxyPort = parseInt(args[++i], 10);
+    }
   } else if (arg === '--help' || arg === '-h') {
     console.log(`
 GlyphCompress CLI
-Usage: npx glyph-compress <file> [options]
+Usage: npx glyph-compress [file] [options]
 
 Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra (default: standard)
   -c, --copy            Copy compressed output to clipboard
+  -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
     `);
     process.exit(0);
@@ -47,10 +55,18 @@ Options:
   }
 }
 
-if (!fileToCompress) {
-  console.error('Error: No file specified. Use --help for usage.');
-  process.exit(1);
-}
+if (startProxy) {
+  import('../src/proxy.js').then(({ startProxyServer }) => {
+    startProxyServer(proxyPort, 'https://api.openai.com', level);
+  }).catch(err => {
+    console.error('Failed to start proxy:', err);
+    process.exit(1);
+  });
+} else {
+  if (!fileToCompress) {
+    console.error('Error: No file specified. Use --help for usage.');
+    process.exit(1);
+  }
 
 const targetPath = path.resolve(process.cwd(), fileToCompress);
 if (!fs.existsSync(targetPath)) {
@@ -92,4 +108,5 @@ if (copyToClipboard) {
   }
 } else {
   console.log(output);
+}
 }

@@ -25,6 +25,7 @@ let compressor;
 let statusBarItem;
 let outputChannel;
 let globalState;
+let proxyServer = null;
 
 function activate(context) {
   outputChannel = vscode.window.createOutputChannel('GlyphCompress');
@@ -166,6 +167,42 @@ function activate(context) {
     })
   );
 
+  // ─── Proxy Management ──────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('glyphCompress.startProxy', () => {
+      if (proxyServer) {
+        vscode.window.showInformationMessage('GlyphProxy is already running.');
+        return;
+      }
+      
+      try {
+        // Use dynamic import because proxy.js is ES module and this is CJS
+        import('../../src/proxy.js').then(({ startProxyServer }) => {
+          proxyServer = startProxyServer(8080, 'https://api.openai.com', compressor.level);
+          vscode.window.showInformationMessage('🚀 GlyphProxy started on http://localhost:8080. Configure your IDE/Agent to use this API base URL.');
+          outputChannel.appendLine('GlyphProxy started on port 8080');
+        }).catch(err => {
+          vscode.window.showErrorMessage(`Failed to start proxy module: ${err.message}`);
+        });
+      } catch (err) {
+        vscode.window.showErrorMessage(`Failed to start proxy: ${err.message}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('glyphCompress.stopProxy', () => {
+      if (proxyServer) {
+        proxyServer.close();
+        proxyServer = null;
+        vscode.window.showInformationMessage('🛑 GlyphProxy stopped.');
+        outputChannel.appendLine('GlyphProxy stopped');
+      } else {
+        vscode.window.showInformationMessage('GlyphProxy is not running.');
+      }
+    })
+  );
+
   // Ask LLM (Auto-Compress)
   context.subscriptions.push(
     vscode.commands.registerCommand('glyphCompress.askChat', async () => {
@@ -298,6 +335,11 @@ function generateStatsHTML(stats, lifetimeSaved, lifetimeCost) {
 }
 
 function deactivate() {
+  if (proxyServer) {
+    proxyServer.close();
+    proxyServer = null;
+  }
+  
   if (outputChannel) {
     const stats = compressor.getStats();
     // Persist final session stats

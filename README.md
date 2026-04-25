@@ -181,6 +181,22 @@ GlyphCompress provides an incredibly fluid workflow for native IDE chats. The ex
 }
 ```
 
+## 👻 The Ultimate Magic: Zero-Command Transparent Proxy (v0.5.0+)
+
+If you want **100% automatic, invisible** compression without pressing *any* shortcuts, you can use the GlyphProxy. It intercepts the API calls made by your IDE, compresses the prompt on the fly, and saves your API tokens.
+
+### How to use the Proxy:
+1. Start the proxy server using the CLI or VS Code:
+   ```bash
+   # From terminal
+   npx glyph-compress --proxy 8080
+   ```
+   *(Or from VS Code Command Palette: `GlyphCompress: Start Zero-Command Proxy`)*
+2. Configure your AI coding assistant (Cursor, Cline, Continue.dev, RooCode, etc.) to use an OpenAI-compatible custom endpoint:
+   - **API Base URL**: `http://localhost:8080/v1`
+   - **API Key**: *Your real OpenAI/Anthropic key*
+3. **Done!** You don't need to do anything else. When your IDE sends huge blocks of code to the LLM, the proxy intercepts the JSON request, minifies the code blocks, injects the codebook, and forwards the heavily compressed request to the real LLM API. 
+
 ## 🔤 The Glyph Protocol
 
 The system is built on 16 **base radicals** that encode fundamental semantic dimensions:
@@ -273,6 +289,11 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v0.5.0 (Zero-Command Transparent Proxy)
+- **Invisible Proxy Middleware**: Added `src/proxy.js`, a local HTTP server that intercepts OpenAI-compatible API requests.
+- **True Zero Commands**: Configured your IDE's API Base URL to point to `localhost:8080`, and GlyphCompress automatically intercepts, parses, and minifies your code blocks before they hit the real API.
+- Added Proxy start/stop commands in both CLI (`--proxy`) and VS Code Extension.
 
 ### v0.4.0 (Multi-Language Syntax Minification)
 - **Intelligent Minification**: Upgraded the `aggressive` compression level. Instead of destructively summarizing code blocks, it now applies intelligent syntax minification to preserve logic and structure for debugging.
