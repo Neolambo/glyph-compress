@@ -29,11 +29,13 @@ Status: delivered in the first v0.7.0 release slice.
 
 ### v0.8.0: Reversible Compression and Source Maps
 
-- Add optional reversible dictionaries for file paths, symbols, diagnostics, and repeated identifiers.
-- Emit a `sourceMap` object from the library API for compressed file blocks.
-- Add a VS Code webview inspector for compressed payloads.
-- Add round-trip tests for codebook encoding and decoding.
-- Document when to use light, standard, aggressive, ultra, and reversible modes.
+Status: delivered in the first v0.8.0 release slice.
+
+- Add optional reversible dictionaries for file paths, diagnostics, repeated identifiers, and compressed code blocks.
+- Emit a `sourceMap` object from the library API for compressed text and message payloads.
+- Add CLI source map output for compressed payload inspection.
+- Add round-trip coverage for source maps, dynamic dictionaries, and CommonJS consumers.
+- Document when to use light, standard, aggressive, ultra, source maps, and reversible dictionaries.
 
 ### v0.9.0: Workspace Intelligence
 

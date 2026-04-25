@@ -26,6 +26,7 @@ let fileToCompress = null;
 let startProxy = false;
 let proxyPort = 8080;
 let explain = false;
+let printSourceMap = false;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -36,6 +37,8 @@ for (let i = 0; i < args.length; i++) {
     copyToClipboard = true;
   } else if (arg === '--explain' || arg === '-x') {
     explain = true;
+  } else if (arg === '--source-map') {
+    printSourceMap = true;
   } else if (arg === '--proxy' || arg === '-p') {
     startProxy = true;
     if (args[i + 1] && !args[i + 1].startsWith('-')) {
@@ -50,6 +53,7 @@ Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra (default: standard)
   -c, --copy            Copy compressed output to clipboard
   -x, --explain         Explain what changed during compression
+  --source-map          Print the reversible source map JSON
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
     `);
@@ -83,7 +87,7 @@ const ext = path.extname(targetPath).substring(1);
 
 const gc = new GlyphCompressor({ level });
 // Wrap in backticks to trigger full semantic code block compression if in aggressive/ultra mode
-const { compressed, stats } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
+const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
 
 const output = `${gc.getCodebookPrompt()}\n\n${compressed}`;
 const explanation = explain ? buildExplanation({
@@ -106,6 +110,13 @@ console.log('----------------------------------------------------\n');
 
 if (explanation) {
   console.log(explanation);
+}
+
+if (printSourceMap) {
+  console.log('Source map');
+  console.log('----------------------------------------------------');
+  console.log(JSON.stringify(sourceMap, null, 2));
+  console.log('----------------------------------------------------\n');
 }
 
 if (copyToClipboard) {

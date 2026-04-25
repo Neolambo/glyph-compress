@@ -109,7 +109,7 @@ const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
 TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
-SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
 MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 Respond normally. Context below uses these glyphs for brevity.
@@ -122,6 +122,7 @@ class GlyphCompressor {
     this.fileCounter = 0;
     this.dynamicDict = /* @__PURE__ */ new Map();
     this.dynamicCounter = 0;
+    this.sourceMap = this._createSourceMap();
     this.stats = {
       totalOriginalTokens: 0,
       totalCompressedTokens: 0,
@@ -140,6 +141,7 @@ class GlyphCompressor {
    */
   compressMessages(messages, provider = "auto") {
     if (!this.enabled) return { messages, stats: this.stats };
+    this.resetSourceMap();
     const allUserText = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
     this._buildDynamicDictionary(allUserText);
     const compressed = [];
@@ -154,7 +156,7 @@ class GlyphCompressor {
       } else if (msg.role === "user") {
         compressed.push({
           role: "user",
-          content: this._compressUserMessage(msg.content)
+          content: this._compressUserMessage(msg.content, allUserText)
         });
       } else {
         compressed.push(msg);
@@ -173,6 +175,7 @@ class GlyphCompressor {
     this.stats.messagesProcessed++;
     return {
       messages: compressed,
+      sourceMap: this.getSourceMap(),
       stats: {
         ...this.stats,
         thisMessage: {
@@ -192,8 +195,9 @@ class GlyphCompressor {
    */
   compressText(text) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
+    this.resetSourceMap();
     this._buildDynamicDictionary(text);
-    const compressed = this._compressUserMessage(text);
+    const compressed = this._compressUserMessage(text, text);
     const origTokens = this._estimateTokens([{ content: text }]);
     const compTokens = this._estimateTokens([{ content: compressed }]);
     this.stats.totalOriginalTokens += origTokens;
@@ -202,6 +206,7 @@ class GlyphCompressor {
     return {
       compressed,
       original: text,
+      sourceMap: this.getSourceMap(),
       stats: {
         originalTokens: origTokens,
         compressedTokens: compTokens,
@@ -247,7 +252,50 @@ class GlyphCompressor {
     this.fileIndex.clear();
     this.fileCounter = 0;
   }
+  getSourceMap() {
+    const sourceMap = JSON.parse(JSON.stringify(this.sourceMap));
+    const knownFileRefs = new Set(sourceMap.files.map((file) => file.ref));
+    for (const [path, ref] of this.fileIndex) {
+      if (!knownFileRefs.has(ref)) {
+        sourceMap.files.push({ ref, path, domain: this._detectDomain(path) });
+      }
+    }
+    const knownDynamicGlyphs = new Set(sourceMap.dynamic.map((entry) => entry.glyph));
+    for (const [original, glyph] of this.dynamicDict) {
+      if (!knownDynamicGlyphs.has(glyph)) {
+        sourceMap.dynamic.push({ glyph, original });
+      }
+    }
+    return sourceMap;
+  }
+  getReversibleDictionaries() {
+    const sourceMap = this.getSourceMap();
+    return {
+      files: sourceMap.files,
+      dynamic: sourceMap.dynamic,
+      diagnostics: sourceMap.diagnostics,
+      codeBlocks: sourceMap.codeBlocks
+    };
+  }
+  resetSourceMap() {
+    this.sourceMap = this._createSourceMap();
+  }
   // ─── INTERNAL METHODS ──────────────────────────────────────
+  _createSourceMap() {
+    return {
+      version: "0.8.0",
+      level: this.level,
+      files: [],
+      dynamic: [],
+      diagnostics: [],
+      codeBlocks: [],
+      replacements: []
+    };
+  }
+  _recordReplacement(kind, original, compressed, extra = {}) {
+    if (!original || original === compressed) return;
+    this.sourceMap.replacements.push({ kind, original, compressed, ...extra });
+  }
   _injectCodebook(systemPrompt, provider) {
     if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
     let modifiedCodebook = CODEBOOK_PROMPT;
@@ -258,14 +306,14 @@ class GlyphCompressor {
     }
     return modifiedCodebook + "\n\n" + systemPrompt;
   }
-  _compressUserMessage(content) {
+  _compressUserMessage(content, allUserText) {
     if (!content) return content;
     let c = content;
     if (this.level === "ultra") {
       c = this._stripRedundancy(c);
     }
     if (this.level === "aggressive" || this.level === "ultra") {
-      c = this._compressCodeBlocks(c);
+      c = this._compressCodeBlocks(c, allUserText);
     }
     c = this._compressPrompt(c);
     c = this._compressTechNames(c);
@@ -282,20 +330,27 @@ class GlyphCompressor {
     return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
   }
   _buildDynamicDictionary(text) {
-    if (!text || this.dynamicDict.size >= 20) return;
-    const words = text.match(/\b[A-Za-z]+[A-Z][a-z]+[A-Za-z]*\b/g) || [];
+    if (!text || this.dynamicDict.size >= 60) return;
+    const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{3,}\b/g) || [];
     const counts = /* @__PURE__ */ new Map();
     for (const w of words) {
-      if (w.length > 5) {
-        counts.set(w, (counts.get(w) || 0) + 1);
-      }
+      if (["this", "that", "from", "with", "true", "false", "null"].includes(w)) continue;
+      counts.set(w, (counts.get(w) || 0) + 1);
     }
-    const sorted = [...counts.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]);
-    for (const [word] of sorted) {
-      if (!this.dynamicDict.has(word) && this.dynamicCounter < 20) {
+    const DYN_SYMBOLS = "\u03B1\u03B2\u03B3\u03B4\u03B5\u03B6\u03B7\u03B8\u03B9\u03BA\u03BB\u03BC\u03BD\u03BE\u03BF\u03C0\u03C1\u03C3\u03C4\u03C5\u03C6\u03C7\u03C8\u03C9\u0393\u0394\u0398\u039B\u039E\u03A0\u03A3\u03A6\u03A8\u03A9\u0411\u0412\u0413\u0414\u0416\u0417\u0418\u041A\u041B\u041F\u0424\u0426\u0427\u0428\u0429\u042E\u042F".split("");
+    const savings = [...counts.entries()].map(([word, freq]) => {
+      return { word, freq, save: freq * (word.length - 1) };
+    }).filter((x) => x.save > 10).sort((a, b) => b.save - a.save);
+    for (const item of savings) {
+      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length) {
+        this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
+        this.sourceMap.dynamic.push({
+          glyph: DYN_SYMBOLS[this.dynamicCounter],
+          original: item.word,
+          frequency: item.freq,
+          estimatedSavedChars: item.save
+        });
         this.dynamicCounter++;
-        const greek = ["\u03B1", "\u03B2", "\u03B3", "\u03B4", "\u03B5", "\u03B6", "\u03B7", "\u03B8", "\u03B9", "\u03BA", "\u03BB", "\u03BC", "\u03BD", "\u03BE", "\u03BF", "\u03C0", "\u03C1", "\u03C3", "\u03C4", "\u03C5"];
-        this.dynamicDict.set(word, greek[this.dynamicCounter - 1]);
       }
     }
   }
@@ -303,6 +358,10 @@ class GlyphCompressor {
     let result = text;
     for (const [word, glyph] of this.dynamicDict) {
       const regex = new RegExp(`\\b${word}\\b`, "g");
+      const matches = result.match(regex);
+      if (matches) {
+        this._recordReplacement("dynamic", word, glyph, { count: matches.length });
+      }
       result = result.replace(regex, glyph);
     }
     return result;
@@ -335,7 +394,13 @@ class GlyphCompressor {
           const domain = this._detectDomain(match);
           const glyph = DOMAIN_GLYPHS[domain] || "\u{1F4C4}";
           this.fileIndex.set(match, `${glyph}\u208D${this.fileCounter}\u208E`);
+          this.sourceMap.files.push({
+            ref: this.fileIndex.get(match),
+            path: match,
+            domain
+          });
         }
+        this._recordReplacement("file", match, this.fileIndex.get(match));
         return this.fileIndex.get(match);
       }
     );
@@ -343,75 +408,140 @@ class GlyphCompressor {
   _compressErrors(text) {
     let result = text;
     for (const [pattern, replacement] of ERROR_PATTERNS) {
-      result = result.replace(pattern, replacement);
+      result = result.replace(pattern, (...args) => {
+        const original = args[0];
+        const groups = args.slice(1, -2);
+        const compressed = this._expandReplacement(replacement, groups);
+        this.sourceMap.diagnostics.push({ original, compressed, pattern: pattern.source });
+        this._recordReplacement("diagnostic", original, compressed);
+        return compressed;
+      });
     }
     return result;
+  }
+  _expandReplacement(replacement, groups) {
+    return replacement.replace(/\$(\d+)/g, (_, index) => groups[Number(index) - 1] || "");
   }
   _compressDiagnostics(text) {
     return text.replace(/error TS(\d+):/gi, "\u2717TS$1:").replace(/warning:/gi, "\u26A0:").replace(/\bat line (\d+)/gi, ":$1").replace(/on line (\d+)/gi, ":$1").replace(/\bline (\d+)/gi, ":$1").replace(/\bcolumn (\d+)/gi, "c$1");
   }
-  _compressCodeBlocks(text) {
+  _compressCodeBlocks(text, userPrompt) {
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
       const lines = code.trim().split("\n");
-      if (this.level === 'ultra') {
+      if (this.level === "ultra") {
         const summary = this._summarizeCode(lines, lang);
         const techGlyph = TECH_GLYPHS[lang] || "";
-        return `[${techGlyph}${summary}]`;
+        const compressed = `[${techGlyph}${summary}]`;
+        this.sourceMap.codeBlocks.push({
+          mode: "summary",
+          lang: lang || "text",
+          originalLines: lines.length,
+          originalChars: code.length,
+          compressed
+        });
+        this._recordReplacement("codeBlock", `\`\`\`${lang}
+...
+\`\`\``, compressed, { lang: lang || "text", mode: "summary" });
+        return compressed;
       } else {
-        const minified = this._minifySyntax(code, lang);
-        return '```' + lang + '\n' + minified + '\n```';
+        let minified = this._minifySyntax(code, lang);
+        minified = this._elideIrrelevantContext(minified, userPrompt);
+        const compressed = "```" + lang + "\n" + minified + "\n```";
+        this.sourceMap.codeBlocks.push({
+          mode: "minified",
+          lang: lang || "text",
+          originalLines: lines.length,
+          originalChars: code.length,
+          compressedChars: minified.length
+        });
+        return compressed;
       }
     });
+  }
+  _elideIrrelevantContext(code, userPrompt) {
+    if (!userPrompt || userPrompt.length < 5) return code;
+    const intentKeywords = (userPrompt.match(/\b[A-Za-z0-9_]{3,}\b/g) || []).map((w) => w.toLowerCase());
+    if (intentKeywords.length === 0) return code;
+    let result = code;
+    const blockRegex = /^([ \t]*)(?:(?:export|public|private|async|static)\s+)*(?:function|class|def|fn|func|struct)\s+([A-Za-z0-9_]+)[^{]*\{([\s\S]*?)\n\1\}/gm;
+    result = result.replace(blockRegex, (match, indent, name, body) => {
+      const lowerMatch = match.toLowerCase();
+      const isRelevant = intentKeywords.some((kw) => lowerMatch.includes(kw));
+      if (!isRelevant && body.split("\n").length > 5) {
+        const signature = match.substring(0, match.indexOf("{") + 1);
+        return `${signature} \u2702 }`;
+      }
+      return match;
+    });
+    return result;
   }
   _minifySyntax(code, lang) {
     if (!code) return code;
     let c = code;
-    const l = (lang || '').toLowerCase();
-    c = c.replace(/\breturn\b/g, '→');
-    if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript'].includes(l) || !l) {
-      c = c.replace(/\bfunction\b/g, 'ƒ');
-      c = c.replace(/\bconst\b/g, '◇');
-      c = c.replace(/\blet\b/g, '◇');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\bexport\b/g, 'exp');
+    const l = (lang || "").toLowerCase();
+    if (["js", "jsx", "ts", "tsx", "javascript", "typescript", "java", "cs", "csharp", "c", "cpp", "c++", "h", "hpp", "go", "golang", "rs", "rust"].includes(l) || !l) {
+      c = c.replace(/\/\/.*$/gm, "");
+      c = c.replace(/\/\*[\s\S]*?\*\//g, "");
     }
-    if (['py', 'python'].includes(l) || !l) {
-      c = c.replace(/\bdef\b/g, 'ƒ');
-      c = c.replace(/\bclass\b/g, '𝒞');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\bfrom\b/g, 'imp');
-      c = c.replace(/\byield\b/g, '→');
-      c = c.replace(/\bself\.\b/g, 's.');
+    if (["py", "python", "rb", "ruby", "sh", "bash", "yaml", "yml"].includes(l) || !l) {
+      c = c.replace(/(?<!['"])\s*#.*$/gm, "");
     }
-    if (['c', 'cpp', 'c++', 'h', 'hpp'].includes(l) || !l) {
-      c = c.replace(/#include/g, 'imp');
-      c = c.replace(/\b(?:int|void|char|float|double|long|short)\b/g, '◇t');
+    if (["html", "xml", "vue", "svelte"].includes(l) || !l) {
+      c = c.replace(/<!--[\s\S]*?-->/g, "");
     }
-    if (['rs', 'rust'].includes(l) || !l) {
-      c = c.replace(/\bfn\b/g, 'ƒ');
-      c = c.replace(/\bpub\b/g, '+');
-      c = c.replace(/\bmut\b/g, 'm');
-      c = c.replace(/\bimpl\b/g, 'I');
-      c = c.replace(/\bstruct\b/g, '𝒞');
-      c = c.replace(/\buse\b/g, 'imp');
-      c = c.replace(/\bmatch\b/g, '?');
+    if (["css", "scss", "less"].includes(l) || !l) {
+      c = c.replace(/\/\*[\s\S]*?\*\//g, "");
     }
-    if (['go', 'golang'].includes(l) || !l) {
-      c = c.replace(/\bfunc\b/g, 'ƒ');
-      c = c.replace(/\bpackage\b/g, 'pkg');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\btype\b/g, '◇t');
-      c = c.replace(/\bstruct\b/g, '𝒞');
+    c = c.replace(/\breturn\b/g, "\u2192");
+    c = c.replace(/^\s*[\r\n]/gm, "");
+    if (["js", "jsx", "ts", "tsx", "javascript", "typescript"].includes(l) || !l) {
+      c = c.replace(/\bfunction\b/g, "\u0192");
+      c = c.replace(/\bconst\b/g, "\u25C7");
+      c = c.replace(/\blet\b/g, "\u25C7");
+      c = c.replace(/\bimport\b/g, "imp");
+      c = c.replace(/\bexport\b/g, "exp");
     }
-    if (['java', 'cs', 'csharp'].includes(l) || !l) {
-      c = c.replace(/\bpublic\b/g, '+');
-      c = c.replace(/\bprivate\b/g, '-');
-      c = c.replace(/\bprotected\b/g, '#');
-      c = c.replace(/\bclass\b/g, '𝒞');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\busing\b/g, 'imp');
-      c = c.replace(/\bvoid\b/g, '◇t');
+    if (["py", "python"].includes(l) || !l) {
+      c = c.replace(/\bdef\b/g, "\u0192");
+      c = c.replace(/\bclass\b/g, "\u{1D49E}");
+      c = c.replace(/\bimport\b/g, "imp");
+      c = c.replace(/\bfrom\b/g, "imp");
+      c = c.replace(/\byield\b/g, "\u2192");
+      c = c.replace(/\bself\.\b/g, "s.");
     }
+    if (["c", "cpp", "c++", "h", "hpp"].includes(l) || !l) {
+      c = c.replace(/#include/g, "imp");
+      c = c.replace(/\b(?:int|void|char|float|double|long|short)\b/g, "\u25C7t");
+    }
+    if (["rs", "rust"].includes(l) || !l) {
+      c = c.replace(/\bfn\b/g, "\u0192");
+      c = c.replace(/\bpub\b/g, "+");
+      c = c.replace(/\bmut\b/g, "m");
+      c = c.replace(/\bimpl\b/g, "I");
+      c = c.replace(/\bstruct\b/g, "\u{1D49E}");
+      c = c.replace(/\buse\b/g, "imp");
+      c = c.replace(/\bmatch\b/g, "?");
+    }
+    if (["go", "golang"].includes(l) || !l) {
+      c = c.replace(/\bfunc\b/g, "\u0192");
+      c = c.replace(/\bpackage\b/g, "pkg");
+      c = c.replace(/\bimport\b/g, "imp");
+      c = c.replace(/\btype\b/g, "\u25C7t");
+      c = c.replace(/\bstruct\b/g, "\u{1D49E}");
+    }
+    if (["java", "cs", "csharp"].includes(l) || !l) {
+      c = c.replace(/\bpublic\b/g, "+");
+      c = c.replace(/\bprivate\b/g, "-");
+      c = c.replace(/\bprotected\b/g, "#");
+      c = c.replace(/\bclass\b/g, "\u{1D49E}");
+      c = c.replace(/\bimport\b/g, "imp");
+      c = c.replace(/\busing\b/g, "imp");
+      c = c.replace(/\bvoid\b/g, "\u25C7t");
+    }
+    c = c.replace(/^[ \t]+/gm, (match) => {
+      const spaces = match.replace(/\t/g, "    ").length;
+      return "	".repeat(Math.max(1, Math.floor(spaces / 2)));
+    });
     return c;
   }
   _summarizeCode(lines, lang) {
@@ -419,10 +549,12 @@ class GlyphCompressor {
     let imports = 0, funcs = 0, classes = 0, hooks = 0;
     for (const line of lines) {
       const t = line.trim();
-      if (/^import\s/.test(t) || /^from\s/.test(t)) imports++;
-      if (/(?:function |const \w+ = (?:\(|async ))/.test(t) || /^\s*def /.test(t)) funcs++;
-      if (/^(?:export )?class /.test(t)) classes++;
-      if (/use[A-Z]\w+/.test(t)) hooks++;
+      if (/^(?:import|from|use|using)\s/.test(t) || /^#include/.test(t)) imports++;
+      if (/(?:function |const \w+\s*=\s*(?:\(|async ))/.test(t) || /^\s*def\s+\w+/.test(t) || /^\s*(?:pub\s+)?(?:async\s+)?fn\s+\w+/.test(t) || /^\s*func\s+(?:\([^)]+\)\s+)?\w+/.test(t) || /^\s*(?:public|private|protected|static|virtual|override|async|inline)*\s*[\w<>\[\]]+\s+\w+\s*\(/.test(t) && !t.includes(";") && !t.includes("new ")) {
+        funcs++;
+      }
+      if (/^(?:export\s+|public\s+|private\s+|pub\s+)?(?:class|struct|interface|trait|type\s+\w+\s+struct)\b/.test(t)) classes++;
+      if (/^const\s+\[.*\]\s*=\s*use[A-Z]\w+/.test(t) || /^use[A-Z]\w+\(/.test(t)) hooks++;
     }
     if (imports) parts.push(`imp:${imports}`);
     if (funcs) parts.push(`\u0192:${funcs}`);
@@ -493,6 +625,34 @@ function wrapAnthropic(client, options = {}) {
         }
       ];
     }
+    let largestMsgIdx = -1;
+    let maxLen = 0;
+    for (let i = 0; i < otherMsgs.length; i++) {
+      if (otherMsgs[i].role === "user") {
+        const len = typeof otherMsgs[i].content === "string" ? otherMsgs[i].content.length : JSON.stringify(otherMsgs[i].content).length;
+        if (len > maxLen) {
+          maxLen = len;
+          largestMsgIdx = i;
+        }
+      }
+    }
+    if (largestMsgIdx !== -1) {
+      const msg = otherMsgs[largestMsgIdx];
+      if (typeof msg.content === "string") {
+        msg.content = [
+          {
+            type: "text",
+            text: msg.content,
+            cache_control: { type: "ephemeral" }
+          }
+        ];
+      } else if (Array.isArray(msg.content) && msg.content.length > 0) {
+        const textBlocks = msg.content.filter((b) => b.type === "text");
+        if (textBlocks.length > 0) {
+          textBlocks[textBlocks.length - 1].cache_control = { type: "ephemeral" };
+        }
+      }
+    }
     const result = await originalCreate({
       ...params,
       system: systemParam,
@@ -513,3 +673,12 @@ if (typeof module !== "undefined" && module.exports) {
     TECH_GLYPHS
   };
 }
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  CODEBOOK_PROMPT,
+  DOMAIN_GLYPHS,
+  GlyphCompressor,
+  TECH_GLYPHS,
+  wrapAnthropic,
+  wrapOpenAI
+});

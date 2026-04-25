@@ -55,7 +55,14 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.7.0 (Trust & Measurement)
+### 🔥 New in v0.8.0 (Reversible Compression & Source Maps)
+
+1. **Source Map API**: `compressText()` and `compressMessages()` now return a `sourceMap` with file refs, dynamic dictionary entries, diagnostics, code blocks, and replacements.
+2. **Reversible Dictionaries**: Added `getReversibleDictionaries()` for file paths, repeated identifiers, diagnostics, and summarized code blocks.
+3. **CLI Source Maps**: Added `glyph-compress --source-map` to print source map JSON alongside compressed output.
+4. **Round-Trip Coverage**: Added integration tests for source maps, dynamic dictionaries, CommonJS alignment, and CLI source-map output.
+
+### 🔥 v0.7.0 (Trust & Measurement)
 
 1. **Benchmark Harness**: Added `npm run benchmark` to compare original and compressed payloads across raw text, OpenAI, Anthropic, Gemini-compatible, and ultra-mode fixtures.
 2. **Trust Metrics**: The benchmark reports payload ratio, token savings, context fidelity score, edit success proxy, and hallucinated file references.
@@ -114,6 +121,9 @@ npx glyph-compress --help
 
 # Explain what changed during compression
 npx glyph-compress src/app.ts --level ultra --explain
+
+# Print reversible source map metadata
+npx glyph-compress src/app.ts --level ultra --source-map
 ```
 
 **Cost savings**: ~$200/month at 50 requests/day with Claude Sonnet.
@@ -126,7 +136,7 @@ npx glyph-compress src/app.ts --level ultra --explain
 import { GlyphCompressor } from 'glyph-compress';
 
 const gc = new GlyphCompressor({ level: 'standard' });
-const { compressed, stats } = gc.compressText(
+const { compressed, stats, sourceMap } = gc.compressText(
   "Fix the TypeScript error in src/components/UserProfile.tsx line 42: " +
   "Property 'name' does not exist on type 'User'"
 );
@@ -135,6 +145,8 @@ console.log(compressed);
 // → "⺌✗ ◈₍1₎:42 'name'∉User"
 console.log(stats);
 // → { ratio: '5.5x', savedPct: '82%' }
+console.log(sourceMap.files);
+// → [{ ref: '◈₍1₎', path: 'src/components/UserProfile.tsx', domain: 'frontend' }]
 ```
 
 ### With OpenAI
@@ -299,9 +311,11 @@ STRUCTURE:  ✗ Error   ⚠ Warning   ∉ Type mismatch   ∅ Not found
 | Level | What it compresses | Use case |
 |---|---|---|
 | **light** | Prompt patterns, tech names | Low-risk, minimal changes |
-- **`standard`**: (Default) Compresses prompts, error messages, and file paths. Leaves code blocks mostly intact.
-- **`aggressive`**: Applies **Multi-Language Syntax Minification** to code blocks. Preserves the logic and structure (great for debugging) but replaces verbose keywords (`function`, `public`, `return`, `def`, `#include`) with ultra-short glyphs (`ƒ`, `+`, `→`, `imp`). Supports C, Python, JS/TS, Rust, Go, Java, and C#.
-- **`ultra`**: Fully destructive semantic compression. Replaces entire code blocks with pure architectural summaries (e.g. `[imp:3 ƒ:2 34L]`). Only use this when you need absolute maximum context saving and the AI doesn't need to read the inner logic.
+| **standard** | Prompt patterns, tech names, file paths, diagnostics, repeated identifiers | Default coding assistant payloads |
+| **aggressive** | Standard compression plus multi-language syntax minification inside code blocks | Debugging or review where code structure still matters |
+| **ultra** | Aggressive compression plus architectural code summaries and redundancy stripping | Maximum context savings when inner code logic is less important |
+
+Use `sourceMap` or `--source-map` whenever you need to inspect or reverse the compressed references after the payload is sent.
 
 ## 🏗️ Architecture
 
@@ -334,7 +348,7 @@ glyph-compress/
 ├── test/
 │   ├── demo.js                   # Interactive demo with 5 scenarios
 │   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 24 automated tests
+│   └── integration.js            # 28 automated tests
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -347,7 +361,7 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (24/24 ✓)
+# Run all tests (28/28 ✓)
 npm test
 
 # Run trust and measurement benchmark
@@ -370,6 +384,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v0.8.0 (Reversible Compression & Source Maps)
+- **Source Map API**: `compressText()` and `compressMessages()` return a `sourceMap` object for files, dynamic identifiers, diagnostics, code blocks, and replacements.
+- **Reversible Dictionaries**: Added `getSourceMap()` and `getReversibleDictionaries()` to inspect mappings after compression.
+- **CLI Source Maps**: Added `--source-map` to print reversible source map metadata from the CLI.
+- **CommonJS Alignment**: Regenerated the CommonJS middleware so `require('glyph-compress')` consumers receive the same source map behavior.
+- **Integration Coverage**: Added source map, dynamic dictionary, and CLI source-map tests.
 
 ### v0.7.0 (Trust & Measurement)
 - **Benchmark Harness**: Added `test/benchmark.js` and `npm run benchmark` for representative raw, OpenAI, Anthropic, Gemini-compatible, and ultra-mode payloads.

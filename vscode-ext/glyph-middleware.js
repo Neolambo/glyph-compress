@@ -100,6 +100,7 @@ class GlyphCompressor {
     this.fileCounter = 0;
     this.dynamicDict = new Map();
     this.dynamicCounter = 0;
+    this.sourceMap = this._createSourceMap();
     this.stats = {
       totalOriginalTokens: 0,
       totalCompressedTokens: 0,
@@ -120,6 +121,7 @@ class GlyphCompressor {
    */
   compressMessages(messages, provider = 'auto') {
     if (!this.enabled) return { messages, stats: this.stats };
+    this.resetSourceMap();
 
     // Build dynamic dictionary from user messages
     const allUserText = messages.filter(m => m.role === 'user').map(m => m.content).join('\n');
@@ -164,6 +166,7 @@ class GlyphCompressor {
 
     return {
       messages: compressed,
+      sourceMap: this.getSourceMap(),
       stats: {
         ...this.stats,
         thisMessage: {
@@ -184,6 +187,7 @@ class GlyphCompressor {
    */
   compressText(text) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
+    this.resetSourceMap();
 
     this._buildDynamicDictionary(text);
     const compressed = this._compressUserMessage(text, text);
@@ -198,6 +202,7 @@ class GlyphCompressor {
     return {
       compressed,
       original: text,
+      sourceMap: this.getSourceMap(),
       stats: {
         originalTokens: origTokens,
         compressedTokens: compTokens,
@@ -250,7 +255,55 @@ class GlyphCompressor {
     this.fileCounter = 0;
   }
 
+  getSourceMap() {
+    const sourceMap = JSON.parse(JSON.stringify(this.sourceMap));
+    const knownFileRefs = new Set(sourceMap.files.map((file) => file.ref));
+    for (const [path, ref] of this.fileIndex) {
+      if (!knownFileRefs.has(ref)) {
+        sourceMap.files.push({ ref, path, domain: this._detectDomain(path) });
+      }
+    }
+    const knownDynamicGlyphs = new Set(sourceMap.dynamic.map((entry) => entry.glyph));
+    for (const [original, glyph] of this.dynamicDict) {
+      if (!knownDynamicGlyphs.has(glyph)) {
+        sourceMap.dynamic.push({ glyph, original });
+      }
+    }
+    return sourceMap;
+  }
+
+  getReversibleDictionaries() {
+    const sourceMap = this.getSourceMap();
+    return {
+      files: sourceMap.files,
+      dynamic: sourceMap.dynamic,
+      diagnostics: sourceMap.diagnostics,
+      codeBlocks: sourceMap.codeBlocks,
+    };
+  }
+
+  resetSourceMap() {
+    this.sourceMap = this._createSourceMap();
+  }
+
   // ─── INTERNAL METHODS ──────────────────────────────────────
+
+  _createSourceMap() {
+    return {
+      version: '0.8.0',
+      level: this.level,
+      files: [],
+      dynamic: [],
+      diagnostics: [],
+      codeBlocks: [],
+      replacements: [],
+    };
+  }
+
+  _recordReplacement(kind, original, compressed, extra = {}) {
+    if (!original || original === compressed) return;
+    this.sourceMap.replacements.push({ kind, original, compressed, ...extra });
+  }
 
   _injectCodebook(systemPrompt, provider) {
     // Don't double-inject
@@ -330,6 +383,12 @@ class GlyphCompressor {
     for (const item of savings) {
       if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length) {
         this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
+        this.sourceMap.dynamic.push({
+          glyph: DYN_SYMBOLS[this.dynamicCounter],
+          original: item.word,
+          frequency: item.freq,
+          estimatedSavedChars: item.save,
+        });
         this.dynamicCounter++;
       }
     }
@@ -339,6 +398,10 @@ class GlyphCompressor {
     let result = text;
     for (const [word, glyph] of this.dynamicDict) {
       const regex = new RegExp(`\\b${word}\\b`, 'g');
+      const matches = result.match(regex);
+      if (matches) {
+        this._recordReplacement('dynamic', word, glyph, { count: matches.length });
+      }
       result = result.replace(regex, glyph);
     }
     return result;
@@ -376,7 +439,13 @@ class GlyphCompressor {
           const domain = this._detectDomain(match);
           const glyph = DOMAIN_GLYPHS[domain] || '📄';
           this.fileIndex.set(match, `${glyph}₍${this.fileCounter}₎`);
+          this.sourceMap.files.push({
+            ref: this.fileIndex.get(match),
+            path: match,
+            domain,
+          });
         }
+        this._recordReplacement('file', match, this.fileIndex.get(match));
         return this.fileIndex.get(match);
       }
     );
@@ -385,9 +454,20 @@ class GlyphCompressor {
   _compressErrors(text) {
     let result = text;
     for (const [pattern, replacement] of ERROR_PATTERNS) {
-      result = result.replace(pattern, replacement);
+      result = result.replace(pattern, (...args) => {
+        const original = args[0];
+        const groups = args.slice(1, -2);
+        const compressed = this._expandReplacement(replacement, groups);
+        this.sourceMap.diagnostics.push({ original, compressed, pattern: pattern.source });
+        this._recordReplacement('diagnostic', original, compressed);
+        return compressed;
+      });
     }
     return result;
+  }
+
+  _expandReplacement(replacement, groups) {
+    return replacement.replace(/\$(\d+)/g, (_, index) => groups[Number(index) - 1] || '');
   }
 
   _compressDiagnostics(text) {
@@ -408,12 +488,29 @@ class GlyphCompressor {
       if (this.level === 'ultra') {
         const summary = this._summarizeCode(lines, lang);
         const techGlyph = TECH_GLYPHS[lang] || '';
-        return `[${techGlyph}${summary}]`;
+        const compressed = `[${techGlyph}${summary}]`;
+        this.sourceMap.codeBlocks.push({
+          mode: 'summary',
+          lang: lang || 'text',
+          originalLines: lines.length,
+          originalChars: code.length,
+          compressed,
+        });
+        this._recordReplacement('codeBlock', `\`\`\`${lang}\n...\n\`\`\``, compressed, { lang: lang || 'text', mode: 'summary' });
+        return compressed;
       } else {
         // aggressive mode
         let minified = this._minifySyntax(code, lang);
         minified = this._elideIrrelevantContext(minified, userPrompt);
-        return '```' + lang + '\n' + minified + '\n```';
+        const compressed = '```' + lang + '\n' + minified + '\n```';
+        this.sourceMap.codeBlocks.push({
+          mode: 'minified',
+          lang: lang || 'text',
+          originalLines: lines.length,
+          originalChars: code.length,
+          compressedChars: minified.length,
+        });
+        return compressed;
       }
     });
   }

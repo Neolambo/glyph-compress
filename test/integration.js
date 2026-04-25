@@ -15,8 +15,10 @@
 
 import assert from 'assert';
 import { execFileSync } from 'child_process';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { GlyphCompressor, wrapOpenAI } from '../vscode-ext/glyph-middleware.js';
+const require = createRequire(import.meta.url);
 let passed = 0;
 let failed = 0;
 
@@ -310,6 +312,32 @@ test(`Batch: overall compression > 1x (standalone text)`, () => {
 console.log('\n═══ TEST: CLI Trust Features ═══\n');
 // ═══════════════════════════════════════════════════════════
 
+test('Source maps: expose reversible dictionaries', () => {
+  const gc = new GlyphCompressor({ level: 'ultra' });
+  const r = gc.compressText("Fix src/components/App.tsx. Property 'name' does not exist on type 'User'.\n```ts\nimport React from 'react';\nfunction App() { return null; }\n```");
+  assert(r.sourceMap.version === '0.8.0', 'Should include source map version');
+  assert(r.sourceMap.files.some(file => file.path === 'src/components/App.tsx'), 'Should map file refs to paths');
+  assert(r.sourceMap.diagnostics.some(diag => diag.original.includes("Property 'name'")), 'Should map diagnostics');
+  assert(r.sourceMap.codeBlocks.some(block => block.mode === 'summary'), 'Should map summarized code blocks');
+  assert(r.sourceMap.replacements.some(item => item.kind === 'file'), 'Should record replacements');
+});
+
+test('Source maps: dynamic dictionary can be read after compression', () => {
+  const gc = new GlyphCompressor({ level: 'standard' });
+  const r = gc.compressText('AuthenticationManager calls AuthenticationManager before AuthenticationManager returns.');
+  const dictionaries = gc.getReversibleDictionaries();
+  assert(r.sourceMap.dynamic.some(entry => entry.original === 'AuthenticationManager'), 'Should expose dynamic source map entry');
+  assert(dictionaries.dynamic.some(entry => entry.original === 'AuthenticationManager'), 'Should expose reversible dynamic dictionary');
+});
+
+test('Source maps: CommonJS root export matches ESM behavior', () => {
+  const cjs = require('..');
+  const gc = new cjs.GlyphCompressor({ level: 'standard' });
+  const r = gc.compressText('Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
+  assert(r.sourceMap.version === '0.8.0', 'Should expose source maps through require()');
+  assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
+});
+
 test('CLI: explain flag prints compression explanation', () => {
   const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
   const output = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--explain'], {
@@ -319,6 +347,17 @@ test('CLI: explain flag prints compression explanation', () => {
   assert(output.includes('Compression explanation'), 'Should print explanation heading');
   assert(output.includes('Level:             standard'), 'Should print selected compression level');
   assert(output.includes('Detected changes:'), 'Should print detected compression changes');
+});
+
+test('CLI: source-map flag prints source map JSON', () => {
+  const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+  const output = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--source-map'], {
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    encoding: 'utf8',
+  });
+  assert(output.includes('Source map'), 'Should print source map heading');
+  assert(output.includes('"version": "0.8.0"'), 'Should print source map version');
+  assert(output.includes('"files"'), 'Should include file dictionary');
 });
 
 // ═══════════════════════════════════════════════════════════
