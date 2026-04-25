@@ -154,13 +154,21 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 ### VS Code Extension
 
 1. Install directly from the **[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)** (Search for `GlyphCompress`).
-2. GlyphCompress automatically compresses context sent to LLMs
-3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
+2. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
-**Commands:**
+#### Zero-Friction Chat Integration (Copilot / Claude)
+GlyphCompress provides an incredibly fluid workflow for native IDE chats (like GitHub Copilot Chat or Claude in VS Code). 
+
+**The 3-Step Magic Workflow:**
+1. **Feed the Codebook:** Open the Command Palette (`Ctrl+Shift+P`) and run **`GlyphCompress: Copy System Codebook`**. Go to your Copilot/Claude chat, paste it, and say: *"This is the dictionary. From now on, my code will be in this format."* *(Tip: You can also paste this into your AI's global "Custom Instructions" so you only do it once).*
+2. **Compress Code:** Highlight a massive chunk of code in your editor and run **`GlyphCompress: Compress Selection`**. 
+3. **Paste & Ask:** The compressed result is **automatically copied to your clipboard**. Just paste it (`Ctrl+V`) into your chat, type your question (e.g., *"Find the bug"*), and hit enter! The AI will parse the `[imp:3 ƒ:2 34L]` glyphs perfectly, saving you 90% of your context window.
+
+**Available Commands:**
+- `GlyphCompress: Copy System Codebook` — Instantly copy instructions for any LLM
+- `GlyphCompress: Compress Selection` — Compress code and auto-copy to clipboard
 - `GlyphCompress: Build Project Codebook` — Index your workspace files
 - `GlyphCompress: Toggle Compression On/Off`
-- `GlyphCompress: Compress Selection` — Test compression on selected text
 - `GlyphCompress: Show Stats` — Dashboard with session statistics
 
 **Settings:**
