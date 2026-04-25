@@ -175,7 +175,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 2. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
 #### Zero-Friction Chat Integration (Copilot / Claude / Cursor)
-GlyphCompress provides an incredibly fluid workflow for native IDE chats. The extension automatically configures your workspace so the AI understands you without any setup.
+GlyphCompress provides a fluid workflow for native IDE chats. The extension can optionally write workspace rules so Copilot and Cursor understand compressed glyph context.
 
 **The Magic Workflow:**
 1. **Optional Codebook Injection:** Enable `glyphCompress.autoUpdateWorkspaceRules` to let GlyphCompress create/update `.github/copilot-instructions.md` and `.cursorrules` in your project root. Copilot and Cursor can then learn the Glyph dictionary from workspace rules.
@@ -311,7 +311,7 @@ glyph-compress/
 │   └── glyph-middleware.js       # Core middleware (OpenAI/Claude/Antigravity)
 ├── test/
 │   ├── demo.js                   # Interactive demo with 5 scenarios
-│   └── integration.cjs           # 17 automated tests
+│   └── integration.js            # 23 automated tests
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -323,7 +323,7 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (17/17 ✓)
+# Run all tests (23/23 ✓)
 npm test
 
 # Run interactive demo
