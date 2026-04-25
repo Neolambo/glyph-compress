@@ -265,7 +265,10 @@ The key insight: development communication is **highly structured** — the same
 
 ## 📜 Version History (Changelog)
 
-### v0.3.2 (Current Release)
+### v0.3.3 (Current Release)
+- **VS Code Extension Fix**: The `Compress Selection` command now automatically detects the editor language and wraps raw text in markdown backticks, ensuring the "Ultra" semantic compressor triggers correctly for code snippets.
+
+### v0.3.2 (Monetization & Legal)
 - **Monetization & Legal**: Migrated to Dual Licensing model (AGPL-3.0 for open source, Enterprise for commercial).
 - **Marketplace Publishing**: Added official support and documentation for the Visual Studio Code Marketplace.
 - **Funding Support**: Enabled GitHub Sponsors and NPM funding links natively.
