@@ -14,11 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] npm latest is `glyph-compress@1.0.0`.
-- [x] GitHub tag `v1.0.0` exists.
-- [x] GitHub release `v1.0.0` exists with `glyph-compress-1.0.0.vsix` attached.
-- [x] Local VS Code extension was verified as `neolambo.glyph-compress@1.0.0`.
-- [x] `npm test` passes with 35/35 tests.
+- [x] Current target release is `v1.1.0` for contributor and release hygiene.
+- [x] Last stable published release is `glyph-compress@1.0.0`.
+- [x] `npm test` is expected to pass with 38/38 tests after `v1.1.0`.
 - [x] `npm run benchmark` reports 2.0x aggregate ratio, 49% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -113,8 +111,9 @@ Status: delivered as the first stable release.
 - [x] Avoid publishing historical `.vsix` files to npm.
 - [x] Add `npm run check` for tests, benchmark, and npm pack dry-run.
 - [x] Add `npm run package:vscode` for VSIX packaging.
+- [x] Add `docs/release.md` with the exact release sequence and post-release verification steps.
 - [ ] Partial: Release process still requires manual commit, tag, GitHub release, npm publish, and VSIX upload steps.
-- [ ] Add a root release script/checklist that automates version consistency checks and prints the exact release sequence.
+- [ ] Add a root release script that automates version consistency checks and prints the exact release sequence.
 
 ### Testing
 
@@ -131,9 +130,9 @@ Status: delivered as the first stable release.
 - [x] Add `SECURITY.md` explaining proxy behavior, local processing, API key handling, and what data is sent upstream.
 - [x] Add `PRIVACY.md` for local artifacts, source maps, codebooks, telemetry, and network behavior.
 - [x] Add `ENTERPRISE.md` for deployment controls and commercial usage guidance.
-- [ ] Add `CONTRIBUTING.md` with local setup, test commands, release process, and documentation style.
-- [ ] Add `docs/architecture.md` for compression pipeline diagrams and provider-specific behavior.
-- [ ] Add `docs/release.md` checklist covering npm, GitHub tags, VSIX install, README badges, and Marketplace release.
+- [x] Add `CONTRIBUTING.md` with local setup, test commands, release process, and documentation style.
+- [x] Add `docs/architecture.md` for compression pipeline and provider-specific behavior notes.
+- [x] Add `docs/release.md` checklist covering npm, GitHub tags, VSIX install, README badges, and Marketplace release checks.
 
 ### Developer Experience
 
@@ -148,9 +147,9 @@ Status: delivered as the first stable release.
 
 - [x] Add GitHub Actions for tests, benchmark, package dry-run, and VSIX packaging.
 - [x] Add stable security, privacy, and enterprise docs.
-- [ ] Add issue templates for bug reports, feature requests, provider compatibility, and benchmark submissions.
-- [ ] Add pull request template with tests, docs, compression impact, and privacy checklist.
-- [ ] Add link checking to GitHub Actions.
+- [x] Add issue templates for bug reports, feature requests, provider compatibility, and benchmark submissions.
+- [x] Add pull request template with tests, docs, compression impact, and privacy checklist.
+- [x] Add link checking to GitHub Actions.
 - [ ] Add release notes automation from conventional commits.
 
 ## Experimental Ideas
@@ -172,10 +171,8 @@ Status: delivered as the first stable release.
 
 ## Immediate Next Actions
 
-1. Add `CONTRIBUTING.md` and `docs/release.md` so external contributors can reproduce the release process.
-2. Add issue and pull request templates with privacy, tests, and compression-impact checklists.
-3. Split the integration test file into focused unit, CLI, proxy, workspace, and extension smoke suites.
-4. Add provider-specific tokenizer estimates and benchmark scenarios for OpenAI, Anthropic, Gemini, and local models.
-5. Expand source maps with line/column and symbol-span mappings.
-6. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
-7. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.
+1. Split the integration test file into focused unit, CLI, proxy, workspace, and extension smoke suites.
+2. Add provider-specific tokenizer estimates and benchmark scenarios for OpenAI, Anthropic, Gemini, and local models.
+3. Expand source maps with line/column and symbol-span mappings.
+4. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
+5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.

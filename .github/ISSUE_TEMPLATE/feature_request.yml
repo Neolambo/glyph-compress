@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a new capability or workflow
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow should GlyphCompress improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the desired behavior and user-facing outcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Compression
+        - Source maps
+        - Workspace intelligence
+        - Provider compatibility
+        - VS Code extension
+        - CLI
+        - Enterprise/privacy
+  - type: textarea
+    id: impact
+    attributes:
+      label: Compression or privacy impact
+      description: Note any expected token savings, fidelity risks, or sensitive-data concerns.

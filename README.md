@@ -55,7 +55,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.0.0 (Stable Platform)
+### 🔥 New in v1.1.0 (Contributor & Release Hygiene)
+
+1. **Contributor Guide**: Added `CONTRIBUTING.md` with setup, testing, documentation, and API stability expectations.
+2. **Release Documentation**: Added `docs/release.md` and `docs/architecture.md` for maintainers and technical reviewers.
+3. **GitHub Templates**: Added issue templates for bugs, features, provider compatibility, benchmark submissions, and a PR checklist.
+4. **Link Checking**: Added `npm run check:links` and wired it into CI.
+5. **Release Metadata**: Updated tests and package metadata to verify contributor hygiene assets.
+
+### 🔥 v1.0.0 (Stable Platform)
 
 1. **Stable Public API**: The `GlyphCompressor`, provider wrappers, source maps, workspace intelligence exports, CLI commands, and VS Code settings are documented as the stable `1.x` platform surface.
 2. **TypeScript Declarations**: Added package-level declarations for the middleware, source maps, workspace codebooks, intent detection, and repository doctor APIs.
@@ -91,7 +99,7 @@ AFTER (137 chars):
 3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
 4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
 
-For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For operational guidance, see [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
+For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
 ### 📏 v0.7.0 Benchmark Snapshot
 
@@ -374,7 +382,7 @@ glyph-compress/
 ├── test/
 │   ├── demo.js                   # Interactive demo with 5 scenarios
 │   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 35 automated tests
+│   └── integration.js            # 38 automated tests
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -390,11 +398,14 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (35/35 ✓)
+# Run all tests (38/38 ✓)
 npm test
 
 # Run the stable release validation bundle
 npm run check
+
+# Check local Markdown links
+npm run check:links
 
 # Run trust and measurement benchmark
 npm run benchmark
@@ -416,6 +427,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.1.0 (Contributor & Release Hygiene)
+- **Contributor Guide**: Added setup, testing, documentation style, public API, and release-process guidance.
+- **Release and Architecture Docs**: Added focused maintainer checklists and architecture notes under `docs/`.
+- **GitHub Templates**: Added bug, feature, provider compatibility, benchmark submission, and pull request templates.
+- **Link Checking**: Added `npm run check:links` and CI coverage for local Markdown links.
+- **Integration Coverage**: Added contributor hygiene metadata checks to the integration suite.
 
 ### v1.0.0 (Stable Platform)
 - **Stable API Surface**: Documented and typed the public `GlyphCompressor`, provider wrappers, source maps, workspace intelligence helpers, and CLI workflows.

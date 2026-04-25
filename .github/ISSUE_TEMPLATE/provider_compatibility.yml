@@ -1,0 +1,24 @@
+name: Provider compatibility
+description: Report behavior for a provider, model, proxy, or coding agent
+title: "provider: "
+labels: [provider-compatibility]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider or agent
+      placeholder: "OpenAI, Anthropic, Gemini-compatible, local model, VS Code agent"
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behavior
+      description: What compression, decoding, or prompt behavior did you observe?
+    validations:
+      required: true
+  - type: textarea
+    id: payload
+    attributes:
+      label: Sanitized payload details
+      description: Include only redacted examples without credentials, customer data, or proprietary strings.

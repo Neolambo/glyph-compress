@@ -23,6 +23,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run benchmark
+      - run: npm run check:links
       - run: npm pack --dry-run
 
   vscode-extension:

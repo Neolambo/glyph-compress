@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible GlyphCompress problem
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "glyph-compress 1.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - CLI
+        - Library API
+        - VS Code extension
+        - Proxy
+        - Documentation
+        - Benchmark
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Include commands, inputs, and minimal files if possible.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy check
+      description: Confirm that logs, prompts, source maps, and codebooks do not include secrets or proprietary data.

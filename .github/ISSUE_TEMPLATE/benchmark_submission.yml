@@ -1,0 +1,22 @@
+name: Benchmark submission
+description: Submit a benchmark fixture or result
+title: "benchmark: "
+labels: [benchmark]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario
+      description: Describe the task, provider, compression level, and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics
+      description: Include compression ratio, saved percent, fidelity notes, edit success, and bad file refs if available.
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Sanitized fixture
+      description: Provide a minimal fixture with secrets and proprietary identifiers removed.
