@@ -55,7 +55,14 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.8.0 (Reversible Compression & Source Maps)
+### 🔥 New in v0.9.0 (Workspace Intelligence)
+
+1. **Persistent Workspace Codebook**: Added `glyph-compress inspect` to scan supported project files and write `.glyphcompress/codebook.json` with symbols, imports, diagnostics, owners, and git status.
+2. **Intent Detection**: Detects common workflows such as fix error, review diff, implement feature, explain architecture, write tests, and optimize performance.
+3. **Relevant File Selection**: Ranks workspace files for a query so compressed context can focus on the files most likely to matter.
+4. **Repository Health Commands**: Added `glyph-compress doctor` and `glyph-compress benchmark` for repo readiness and trust metrics from the CLI.
+
+### 🔥 v0.8.0 (Reversible Compression & Source Maps)
 
 1. **Source Map API**: `compressText()` and `compressMessages()` now return a `sourceMap` with file refs, dynamic dictionary entries, diagnostics, code blocks, and replacements.
 2. **Reversible Dictionaries**: Added `getReversibleDictionaries()` for file paths, repeated identifiers, diagnostics, and summarized code blocks.
@@ -124,6 +131,15 @@ npx glyph-compress src/app.ts --level ultra --explain
 
 # Print reversible source map metadata
 npx glyph-compress src/app.ts --level ultra --source-map
+
+# Build a persistent workspace codebook and rank relevant files
+npx glyph-compress inspect "fix AuthenticationManager error"
+
+# Check repository readiness for GlyphCompress workflows
+npx glyph-compress doctor
+
+# Run benchmark metrics through the CLI
+npx glyph-compress benchmark
 ```
 
 **Cost savings**: ~$200/month at 50 requests/day with Claude Sonnet.
@@ -338,6 +354,7 @@ The **codebook** (~150 tokens) is injected once into the system prompt. The LLM 
 glyph-compress/
 ├── src/
 │   ├── index.js                  # Library entry point (ESM)
+│   ├── workspace-intelligence.js  # Workspace codebook, intent detection, and file ranking
 │   ├── radical-alphabet.js       # 96 symbols: radicals + glyphs
 │   ├── compressor.js             # Multi-level compression engine
 │   └── system-prompt-generator.js# Codebook system prompt generator
@@ -348,7 +365,7 @@ glyph-compress/
 ├── test/
 │   ├── demo.js                   # Interactive demo with 5 scenarios
 │   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 28 automated tests
+│   └── integration.js            # 32 automated tests
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -361,7 +378,7 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (28/28 ✓)
+# Run all tests (32/32 ✓)
 npm test
 
 # Run trust and measurement benchmark
@@ -384,6 +401,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v0.9.0 (Workspace Intelligence)
+- **Persistent Codebook**: Added workspace scanning and `.glyphcompress/codebook.json` output with files, symbols, imports, diagnostics, owners, and git context.
+- **Intent Detection**: Added workflow detection for fix error, review diff, implement feature, explain architecture, write tests, and optimize performance.
+- **Relevant File Ranking**: Added query-aware file selection so future compression can focus on relevant files by default.
+- **CLI Commands**: Added `inspect`, `doctor`, and `benchmark` commands with JSON support for automation.
+- **Integration Coverage**: Added workspace intelligence, codebook persistence, doctor, CLI inspect, and intent-detection tests.
 
 ### v0.8.0 (Reversible Compression & Source Maps)
 - **Source Map API**: `compressText()` and `compressMessages()` return a `sourceMap` object for files, dynamic identifiers, diagnostics, code blocks, and replacements.

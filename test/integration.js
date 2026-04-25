@@ -16,8 +16,12 @@
 import assert from 'assert';
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { fileURLToPath } from 'url';
 import { GlyphCompressor, wrapOpenAI } from '../vscode-ext/glyph-middleware.js';
+import { buildWorkspaceCodebook, detectIntent, runDoctor, saveWorkspaceCodebook, selectRelevantFiles } from '../src/workspace-intelligence.js';
 const require = createRequire(import.meta.url);
 let passed = 0;
 let failed = 0;
@@ -315,7 +319,7 @@ console.log('\n═══ TEST: CLI Trust Features ═══\n');
 test('Source maps: expose reversible dictionaries', () => {
   const gc = new GlyphCompressor({ level: 'ultra' });
   const r = gc.compressText("Fix src/components/App.tsx. Property 'name' does not exist on type 'User'.\n```ts\nimport React from 'react';\nfunction App() { return null; }\n```");
-  assert(r.sourceMap.version === '0.8.0', 'Should include source map version');
+  assert(r.sourceMap.version === '0.9.0', 'Should include source map version');
   assert(r.sourceMap.files.some(file => file.path === 'src/components/App.tsx'), 'Should map file refs to paths');
   assert(r.sourceMap.diagnostics.some(diag => diag.original.includes("Property 'name'")), 'Should map diagnostics');
   assert(r.sourceMap.codeBlocks.some(block => block.mode === 'summary'), 'Should map summarized code blocks');
@@ -334,7 +338,7 @@ test('Source maps: CommonJS root export matches ESM behavior', () => {
   const cjs = require('..');
   const gc = new cjs.GlyphCompressor({ level: 'standard' });
   const r = gc.compressText('Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
-  assert(r.sourceMap.version === '0.8.0', 'Should expose source maps through require()');
+  assert(r.sourceMap.version === '0.9.0', 'Should expose source maps through require()');
   assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
 });
 
@@ -356,8 +360,61 @@ test('CLI: source-map flag prints source map JSON', () => {
     encoding: 'utf8',
   });
   assert(output.includes('Source map'), 'Should print source map heading');
-  assert(output.includes('"version": "0.8.0"'), 'Should print source map version');
+  assert(output.includes('"version": "0.9.0"'), 'Should print source map version');
   assert(output.includes('"files"'), 'Should include file dictionary');
+});
+
+console.log('\n═══ TEST: Workspace Intelligence ═══\n');
+
+function withTempWorkspace(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-workspace-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'src', 'services'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'test'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ scripts: { test: 'node test/integration.js', benchmark: 'node test/benchmark.js' } }), 'utf8');
+    fs.writeFileSync(path.join(dir, 'README.md'), '# fixture\n', 'utf8');
+    fs.writeFileSync(path.join(dir, 'LICENSE'), 'fixture\n', 'utf8');
+    fs.writeFileSync(path.join(dir, 'src', 'services', 'auth.ts'), "import { db } from '../db';\nexport function AuthenticationManager() { return db.user.findMany(); }\n// TODO: error TS2339: Property 'name' does not exist\n", 'utf8');
+    fs.writeFileSync(path.join(dir, 'test', 'auth.test.ts'), "import { AuthenticationManager } from '../src/services/auth';\ntest('auth', () => AuthenticationManager());\n", 'utf8');
+    return fn(dir);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('Workspace intelligence: builds persistent codebook and ranks relevant files', () => withTempWorkspace((dir) => {
+  const codebook = buildWorkspaceCodebook(dir);
+  const codebookPath = saveWorkspaceCodebook(dir, codebook);
+  const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
+  assert(codebook.version === '0.9.0', 'Should use v0.9.0 codebook schema');
+  assert(fs.existsSync(codebookPath), 'Should persist workspace codebook');
+  assert(codebook.symbols.some(symbol => symbol.name === 'AuthenticationManager'), 'Should index symbols');
+  assert(selection.intents.includes('fix_error'), 'Should detect fix intent');
+  assert(selection.files.some(file => file.path === 'src/services/auth.ts'), 'Should rank relevant source file');
+}));
+
+test('Workspace intelligence: doctor reports repository readiness', () => withTempWorkspace((dir) => {
+  const report = runDoctor(dir);
+  assert(report.ok, 'Fixture repository should pass doctor checks');
+  assert(report.checks.some(check => check.name === 'benchmark script' && check.ok), 'Should check benchmark script');
+}));
+
+test('Workspace intelligence: CLI inspect prints JSON summary', () => withTempWorkspace((dir) => {
+  const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+  const output = execFileSync(process.execPath, [cliPath, 'inspect', 'fix AuthenticationManager error', '--json'], {
+    cwd: dir,
+    encoding: 'utf8',
+  });
+  const result = JSON.parse(output);
+  assert(result.version === '0.9.0', 'Should print v0.9.0 inspect output');
+  assert(result.intents.includes('fix_error'), 'Should include detected intent');
+  assert(result.relevantFiles.some(file => file.path === 'src/services/auth.ts'), 'Should include relevant file');
+}));
+
+test('Workspace intelligence: intent detection covers roadmap workflows', () => {
+  assert(detectIntent('review staged diff for pull request').includes('review_diff'), 'Should detect review diff');
+  assert(detectIntent('write unit tests for the service').includes('write_tests'), 'Should detect tests');
+  assert(detectIntent('optimize slow query performance').includes('optimize_performance'), 'Should detect performance');
 });
 
 // ═══════════════════════════════════════════════════════════

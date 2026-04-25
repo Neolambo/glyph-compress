@@ -14,6 +14,7 @@
  */
 
 import { GlyphCompressor } from '../vscode-ext/glyph-middleware.js';
+import { buildWorkspaceCodebook, saveWorkspaceCodebook, selectRelevantFiles, runDoctor } from '../src/workspace-intelligence.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -27,11 +28,15 @@ let startProxy = false;
 let proxyPort = 8080;
 let explain = false;
 let printSourceMap = false;
+let command = null;
+let jsonOutput = false;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
-  if (arg === '--level' || arg === '-l') {
+  if (!command && ['inspect', 'doctor', 'benchmark'].includes(arg)) {
+    command = arg;
+  } else if (arg === '--level' || arg === '-l') {
     level = args[++i];
   } else if (arg === '--copy' || arg === '-c') {
     copyToClipboard = true;
@@ -39,6 +44,8 @@ for (let i = 0; i < args.length; i++) {
     explain = true;
   } else if (arg === '--source-map') {
     printSourceMap = true;
+  } else if (arg === '--json') {
+    jsonOutput = true;
   } else if (arg === '--proxy' || arg === '-p') {
     startProxy = true;
     if (args[i + 1] && !args[i + 1].startsWith('-')) {
@@ -47,13 +54,19 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === '--help' || arg === '-h') {
     console.log(`
 GlyphCompress CLI
-Usage: npx glyph-compress [file] [options]
+Usage: npx glyph-compress [file|command] [options]
+
+Commands:
+  inspect [query]       Build .glyphcompress/codebook.json and rank relevant files
+  doctor                Check repository readiness for GlyphCompress workflows
+  benchmark             Run the repository benchmark script
 
 Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra (default: standard)
   -c, --copy            Copy compressed output to clipboard
   -x, --explain         Explain what changed during compression
   --source-map          Print the reversible source map JSON
+  --json                Print command output as JSON
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
     `);
@@ -63,7 +76,9 @@ Options:
   }
 }
 
-if (startProxy) {
+if (command) {
+  runCommand(command, args, { jsonOutput });
+} else if (startProxy) {
   import('../src/proxy.js').then(({ startProxyServer }) => {
     startProxyServer(proxyPort, 'https://api.openai.com', level);
   }).catch(err => {
@@ -137,6 +152,65 @@ if (copyToClipboard) {
 } else {
   console.log(output);
 }
+}
+
+function runCommand(command, args, { jsonOutput }) {
+  if (command === 'inspect') {
+    const query = args.filter((arg) => !['inspect', '--json'].includes(arg) && !arg.startsWith('-')).join(' ');
+    const root = process.cwd();
+    const codebook = buildWorkspaceCodebook(root);
+    const codebookPath = saveWorkspaceCodebook(root, codebook);
+    const selection = selectRelevantFiles(root, query, { codebook });
+    const result = {
+      version: codebook.version,
+      codebookPath: path.relative(root, codebookPath),
+      filesScanned: codebook.files.length,
+      symbolsIndexed: codebook.symbols.length,
+      importsIndexed: codebook.importGraph.length,
+      diagnosticsIndexed: codebook.diagnostics.length,
+      owners: codebook.owners.slice(0, 8),
+      intents: selection.intents,
+      relevantFiles: selection.files,
+    };
+    if (jsonOutput) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('\nWorkspace intelligence');
+      console.log('----------------------------------------------------');
+      console.log(`Codebook:          ${result.codebookPath}`);
+      console.log(`Files scanned:     ${result.filesScanned}`);
+      console.log(`Symbols indexed:   ${result.symbolsIndexed}`);
+      console.log(`Imports indexed:   ${result.importsIndexed}`);
+      console.log(`Diagnostics:       ${result.diagnosticsIndexed}`);
+      console.log(`Intent:            ${result.intents.join(', ')}`);
+      console.log('Relevant files:');
+      for (const file of result.relevantFiles.slice(0, 8)) {
+        console.log(`  ${file.score.toString().padStart(2, ' ')}  ${file.path}`);
+      }
+      console.log('----------------------------------------------------\n');
+    }
+    return;
+  }
+
+  if (command === 'doctor') {
+    const report = runDoctor(process.cwd());
+    if (jsonOutput) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log('\nGlyphCompress doctor');
+      console.log('----------------------------------------------------');
+      for (const check of report.checks) {
+        console.log(`${check.ok ? 'OK ' : 'ERR'} ${check.name}: ${check.detail}`);
+      }
+      console.log('----------------------------------------------------');
+      console.log(report.ok ? 'Repository looks ready.' : 'Repository needs attention.');
+    }
+    process.exit(report.ok ? 0 : 1);
+  }
+
+  if (command === 'benchmark') {
+    execSync('npm run benchmark', { cwd: process.cwd(), stdio: 'inherit' });
+  }
 }
 
 function buildExplanation({ level, fileToCompress, ext, original, compressed, stats, compressor }) {

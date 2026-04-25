@@ -39,10 +39,12 @@ Status: delivered in the first v0.8.0 release slice.
 
 ### v0.9.0: Workspace Intelligence
 
-- Build a persistent workspace codebook with symbol frequency, import graph, diagnostics, and ownership hints.
+Status: delivered in the first v0.9.0 release slice.
+
+- Build a persistent workspace codebook with symbol frequency, import graph, diagnostics, ownership hints, and git context.
 - Add intent detection for common workflows: fix error, review diff, implement feature, explain architecture, write tests, optimize performance.
-- Compress only relevant files by default instead of compressing whole workspace payloads blindly.
-- Add git-aware context selection for staged changes, unstaged changes, and pull request review.
+- Rank relevant files for a query so future compression can focus on the most useful context by default.
+- Add git-aware context selection for staged changes, unstaged changes, and pull request review signals.
 - Add repository health commands: `glyph-compress inspect`, `glyph-compress benchmark`, and `glyph-compress doctor`.
 
 ### v1.0.0: Stable Platform

@@ -14,3 +14,4 @@ export { RADICALS, DOMAIN_GLYPHS, ACTION_GLYPHS, TECH_GLYPHS, STRUCTURE_GLYPHS, 
 export { Compressor, Codebook } from './compressor.js';
 export { generateSystemPrompt, estimateOverhead } from './system-prompt-generator.js';
 export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT } from '../vscode-ext/glyph-middleware.js';
+export { buildWorkspaceCodebook, saveWorkspaceCodebook, loadWorkspaceCodebook, selectRelevantFiles, detectIntent, runDoctor } from './workspace-intelligence.js';
