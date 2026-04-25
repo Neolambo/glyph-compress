@@ -49,7 +49,14 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.5.3 (Workspace Compression & Zero-Command Proxy)
+### 🔥 New in v0.6.0 (Project "Rosetta")
+
+1. **Adaptive Payload Dictionary (APD)**: Analyzes term frequency in real-time and maps the highest token-consuming strings (classes, functions, variables) to a dynamic Unicode "Rosetta Stone" on the fly.
+2. **Semantic Context Elision (Blackout Algorithm)**: Intelligently analyzes user intent (e.g., "fix", "deploy"). The new `_elideIrrelevantContext` function strips the bodies of unrelated functions across massive payloads (`[✂]`), keeping structural signatures while slashing token noise.
+3. **Prompt Caching for Anthropic**: Automatic injection of `cache_control: { type: 'ephemeral' }` into the heaviest blocks of context (dictionary and files) to minimize repeated token costs and latency for Claude users.
+4. **Indentation Minification**: Converts spaces to tabs or strips them automatically to scale down structural byte and token counts before final compression.
+
+### ⚡ Previous Highlights (v0.5.x & Below)
 
 1. **Workspace Compression (VS Code & Antigravity)**: A brand new command `GlyphCompress: Compress Entire Workspace` scans your entire project, removes boilerplate, and generates a single semantic map (Level: Ultra) in an unsaved tab! Perfect for feeding massive architectures to Claude or Antigravity.
 2. **Zero-Command Transparent Proxy**: Intercept LLM API calls from your IDE (Continue, Cursor, Cline) automatically. No more shortcuts or copy-pasting—everything happens transparently in the background on `localhost:8080`.
@@ -327,6 +334,12 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v0.6.0 (Project "Rosetta")
+- **Adaptive Payload Dictionary (APD)**: Introduced a real-time frequency analyzer that identifies and maps the heaviest token-consuming strings to a dynamic Unicode dictionary.
+- **Semantic Context Elision (Blackout Algorithm)**: Implemented `_elideIrrelevantContext` to intelligently strip out unrelated function bodies based on the intent of the user query.
+- **Anthropic Prompt Caching**: Auto-injects `cache_control: { type: 'ephemeral' }` into heavily weighted blocks for Claude optimization.
+- **Indentation Minification**: Added an explicit layer to minimize spaces to tabs for all structural context blocks.
 
 ### v0.5.1 (Universal Minification & Gemini Integration)
 - **Universal Minification**: Expanded the `aggressive` minification to aggressively remove comments (`//`, `/* */`, `<!-- -->`, `#`) and empty lines across all supported languages (C-family, Python, Ruby, Web markup, CSS, etc.).

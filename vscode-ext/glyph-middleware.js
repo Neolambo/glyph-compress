@@ -139,7 +139,7 @@ class GlyphCompressor {
       } else if (msg.role === 'user') {
         compressed.push({
           role: 'user',
-          content: this._compressUserMessage(msg.content),
+          content: this._compressUserMessage(msg.content, allUserText),
         });
       } else {
         // assistant messages: keep as-is (or summarize old ones)
@@ -186,7 +186,7 @@ class GlyphCompressor {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
 
     this._buildDynamicDictionary(text);
-    const compressed = this._compressUserMessage(text);
+    const compressed = this._compressUserMessage(text, text);
     const origTokens = this._estimateTokens([{ content: text }]);
     const compTokens = this._estimateTokens([{ content: compressed }]);
 
@@ -266,7 +266,7 @@ class GlyphCompressor {
     return modifiedCodebook + '\n\n' + systemPrompt;
   }
 
-  _compressUserMessage(content) {
+  _compressUserMessage(content, allUserText) {
     if (!content) return content;
 
     let c = content;
@@ -278,7 +278,7 @@ class GlyphCompressor {
 
     // Level 3 first: Aggressive — compress code blocks BEFORE tech name substitution
     if (this.level === 'aggressive' || this.level === 'ultra') {
-      c = this._compressCodeBlocks(c);
+      c = this._compressCodeBlocks(c, allUserText);
     }
 
     // Level 1: Always — compress prompts
@@ -308,25 +308,29 @@ class GlyphCompressor {
   }
 
   _buildDynamicDictionary(text) {
-    if (!text || this.dynamicDict.size >= 20) return;
+    if (!text || this.dynamicDict.size >= 60) return;
 
-    // Find words > 5 chars that look like class/var names (camelCase/PascalCase)
-    const words = text.match(/\b[A-Za-z]+[A-Z][a-z]+[A-Za-z]*\b/g) || [];
+    // Find all potential identifiers (words >= 4 chars, containing letters)
+    const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{3,}\b/g) || [];
     const counts = new Map();
     for (const w of words) {
-      if (w.length > 5) {
-        counts.set(w, (counts.get(w) || 0) + 1);
-      }
+      // Ignore common short keywords that aren't worth replacing
+      if (['this', 'that', 'from', 'with', 'true', 'false', 'null'].includes(w)) continue;
+      counts.set(w, (counts.get(w) || 0) + 1);
     }
 
-    const sorted = [...counts.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]);
-    
-    for (const [word] of sorted) {
-      if (!this.dynamicDict.has(word) && this.dynamicCounter < 20) {
+    const DYN_SYMBOLS = 'αβγδεζηθικλμνξοπρστυφχψωΓΔΘΛΞΠΣΦΨΩБВГДЖЗИКЛПФЦЧШЩЮЯ'.split('');
+
+    const savings = [...counts.entries()].map(([word, freq]) => {
+      // Assume replacement glyph is 1 char. Saving is frequency * (length - 1)
+      return { word, freq, save: freq * (word.length - 1) };
+    }).filter(x => x.save > 10) // Only keep if we save at least 10 chars overall
+      .sort((a, b) => b.save - a.save);
+
+    for (const item of savings) {
+      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length) {
+        this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
         this.dynamicCounter++;
-        // Use greek letters for dynamic dictionary
-        const greek = ['α','β','γ','δ','ε','ζ','η','θ','ι','κ','λ','μ','ν','ξ','ο','π','ρ','σ','τ','υ'];
-        this.dynamicDict.set(word, greek[this.dynamicCounter - 1]);
       }
     }
   }
@@ -396,7 +400,7 @@ class GlyphCompressor {
       .replace(/\bcolumn (\d+)/gi, 'c$1');
   }
 
-  _compressCodeBlocks(text) {
+  _compressCodeBlocks(text, userPrompt) {
     // Replace code blocks with semantic summaries or minification
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
       const lines = code.trim().split('\n');
@@ -407,10 +411,38 @@ class GlyphCompressor {
         return `[${techGlyph}${summary}]`;
       } else {
         // aggressive mode
-        const minified = this._minifySyntax(code, lang);
+        let minified = this._minifySyntax(code, lang);
+        minified = this._elideIrrelevantContext(minified, userPrompt);
         return '```' + lang + '\n' + minified + '\n```';
       }
     });
+  }
+
+  _elideIrrelevantContext(code, userPrompt) {
+    if (!userPrompt || userPrompt.length < 5) return code;
+    
+    // Extract keywords from user prompt to determine intent
+    const intentKeywords = (userPrompt.match(/\b[A-Za-z0-9_]{3,}\b/g) || []).map(w => w.toLowerCase());
+    if (intentKeywords.length === 0) return code;
+
+    // A very fast, naive AST-like block elision using regex
+    // Matches top-level or single-indent functions/classes: `function foo() { ... }`
+    let result = code;
+    const blockRegex = /^([ \t]*)(?:(?:export|public|private|async|static)\s+)*(?:function|class|def|fn|func|struct)\s+([A-Za-z0-9_]+)[^{]*\{([\s\S]*?)\n\1\}/gm;
+
+    result = result.replace(blockRegex, (match, indent, name, body) => {
+      const lowerMatch = match.toLowerCase();
+      const isRelevant = intentKeywords.some(kw => lowerMatch.includes(kw));
+      
+      if (!isRelevant && body.split('\n').length > 5) {
+        // Elide! Keep the signature, but replace body with ✂
+        const signature = match.substring(0, match.indexOf('{') + 1);
+        return `${signature} ✂ }`;
+      }
+      return match;
+    });
+
+    return result;
   }
 
   _minifySyntax(code, lang) {
@@ -490,6 +522,12 @@ class GlyphCompressor {
       c = c.replace(/\busing\b/g, 'imp');
       c = c.replace(/\bvoid\b/g, '◇t');
     }
+
+    // 4. Indentation minification (replace spaces with tabs)
+    c = c.replace(/^[ \t]+/gm, (match) => {
+      const spaces = match.replace(/\t/g, '    ').length;
+      return '\t'.repeat(Math.max(1, Math.floor(spaces / 2))); // 2 spaces = 1 tab
+    });
 
     return c;
   }
@@ -631,6 +669,37 @@ function wrapAnthropic(client, options = {}) {
           cache_control: { type: 'ephemeral' }
         }
       ];
+    }
+
+    // Inject cache_control into the largest user message to save massive token costs
+    let largestMsgIdx = -1;
+    let maxLen = 0;
+    for (let i = 0; i < otherMsgs.length; i++) {
+      if (otherMsgs[i].role === 'user') {
+        const len = typeof otherMsgs[i].content === 'string' ? otherMsgs[i].content.length : JSON.stringify(otherMsgs[i].content).length;
+        if (len > maxLen) {
+          maxLen = len;
+          largestMsgIdx = i;
+        }
+      }
+    }
+
+    if (largestMsgIdx !== -1) {
+      const msg = otherMsgs[largestMsgIdx];
+      if (typeof msg.content === 'string') {
+        msg.content = [
+          {
+            type: 'text',
+            text: msg.content,
+            cache_control: { type: 'ephemeral' }
+          }
+        ];
+      } else if (Array.isArray(msg.content) && msg.content.length > 0) {
+        const textBlocks = msg.content.filter(b => b.type === 'text');
+        if (textBlocks.length > 0) {
+          textBlocks[textBlocks.length - 1].cache_control = { type: 'ephemeral' };
+        }
+      }
     }
 
     const result = await originalCreate({
