@@ -25,6 +25,7 @@ let copyToClipboard = false;
 let fileToCompress = null;
 let startProxy = false;
 let proxyPort = 8080;
+let explain = false;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -33,6 +34,8 @@ for (let i = 0; i < args.length; i++) {
     level = args[++i];
   } else if (arg === '--copy' || arg === '-c') {
     copyToClipboard = true;
+  } else if (arg === '--explain' || arg === '-x') {
+    explain = true;
   } else if (arg === '--proxy' || arg === '-p') {
     startProxy = true;
     if (args[i + 1] && !args[i + 1].startsWith('-')) {
@@ -46,6 +49,7 @@ Usage: npx glyph-compress [file] [options]
 Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra (default: standard)
   -c, --copy            Copy compressed output to clipboard
+  -x, --explain         Explain what changed during compression
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
     `);
@@ -82,6 +86,15 @@ const gc = new GlyphCompressor({ level });
 const { compressed, stats } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
 
 const output = `${gc.getCodebookPrompt()}\n\n${compressed}`;
+const explanation = explain ? buildExplanation({
+  level,
+  fileToCompress,
+  ext,
+  original: content,
+  compressed,
+  stats,
+  compressor: gc,
+}) : '';
 
 console.log('\n⚡ GlyphCompress Results:');
 console.log('----------------------------------------------------');
@@ -89,7 +102,11 @@ console.log(`Original tokens:   ~${stats.originalTokens}`);
 console.log(`Compressed tokens: ~${stats.compressedTokens}`);
 console.log(`Compression ratio: ${stats.ratio}`);
 console.log(`Saved:             ${stats.savedPct}`);
-console.log('----------------------------------------------------\\n');
+console.log('----------------------------------------------------\n');
+
+if (explanation) {
+  console.log(explanation);
+}
 
 if (copyToClipboard) {
   try {
@@ -109,4 +126,46 @@ if (copyToClipboard) {
 } else {
   console.log(output);
 }
+}
+
+function buildExplanation({ level, fileToCompress, ext, original, compressed, stats, compressor }) {
+  const originalLines = original.split(/\r?\n/).length;
+  const compressedLines = compressed.split(/\r?\n/).length;
+  const fileRefs = compressor.fileIndex ? compressor.fileIndex.size : 0;
+  const dynamicEntries = compressor.dynamicDict ? compressor.dynamicDict.size : 0;
+  const detected = [];
+
+  if (/```[\s\S]*```/.test(compressed) || /\[[^\]]*(imp|ƒ|𝒞|exp):/u.test(compressed)) {
+    detected.push('code block handling');
+  }
+  if (/₍\d+₎/.test(compressed)) detected.push('file path indexing');
+  if (/[ᵗʲˢᵖʳᵍℜℕ𝕍𝒟𝒦𝒯ℙᵣℒα]/u.test(compressed)) detected.push('technology and dynamic glyphs');
+  if (/[✗⚠∉∅]/u.test(compressed)) detected.push('diagnostic/error compression');
+  if (/[⺌⺋⺎⺃⺏▲●►■]/u.test(compressed)) detected.push('intent/action compression');
+
+  const modeDescription = {
+    light: 'Prompt patterns and technology names only.',
+    standard: 'Prompt patterns, technology names, file paths, diagnostics, and dynamic dictionary entries.',
+    aggressive: 'Standard compression plus syntax minification inside code blocks.',
+    ultra: 'Aggressive compression plus structural summaries and redundancy stripping.',
+  }[level] || 'Custom compression level.';
+
+  return [
+    'Compression explanation',
+    '----------------------------------------------------',
+    `File:              ${fileToCompress}`,
+    `Language:          ${ext || 'text'}`,
+    `Level:             ${level}`,
+    `Mode:              ${modeDescription}`,
+    `Original lines:    ${originalLines}`,
+    `Compressed lines:  ${compressedLines}`,
+    `Original tokens:   ~${stats.originalTokens}`,
+    `Compressed tokens: ~${stats.compressedTokens}`,
+    `Ratio:             ${stats.ratio}`,
+    `Saved:             ${stats.savedPct}`,
+    `File refs indexed: ${fileRefs}`,
+    `Dynamic entries:   ${dynamicEntries}`,
+    `Detected changes:  ${detected.length ? detected.join(', ') : 'none detected'}`,
+    '----------------------------------------------------\n',
+  ].join('\n');
 }

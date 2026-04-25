@@ -19,9 +19,11 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ### v0.7.0: Trust and Measurement
 
+Status: delivered in the first v0.7.0 release slice.
+
 - Add a benchmark harness that compares original prompts versus compressed prompts across representative tasks.
-- Track compression ratio, answer quality, edit success rate, and hallucinated file references.
-- Add fixture-based tests for OpenAI, Anthropic, Gemini-compatible, and raw text payloads.
+- Track compression ratio, context fidelity score, edit success proxy, and hallucinated file references.
+- Add fixture-based coverage for OpenAI, Anthropic, Gemini-compatible, raw text, and ultra payloads.
 - Introduce `--explain` in the CLI to show what was compressed, elided, or preserved.
 - Publish a small public benchmark report in the README.
 

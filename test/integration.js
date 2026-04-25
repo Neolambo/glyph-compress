@@ -14,6 +14,8 @@
  */
 
 import assert from 'assert';
+import { execFileSync } from 'child_process';
+import { fileURLToPath } from 'url';
 import { GlyphCompressor, wrapOpenAI } from '../vscode-ext/glyph-middleware.js';
 let passed = 0;
 let failed = 0;
@@ -302,6 +304,21 @@ test(`Batch: overall compression > 1x (standalone text)`, () => {
   const ratio = parseFloat(batchStats.overallRatio);
   assert(ratio > 1, `Expected >1x, got ${batchStats.overallRatio}`);
   assert(batchStats.totalSavedTokens > 0, 'Should save some tokens');
+});
+
+// ═══════════════════════════════════════════════════════════
+console.log('\n═══ TEST: CLI Trust Features ═══\n');
+// ═══════════════════════════════════════════════════════════
+
+test('CLI: explain flag prints compression explanation', () => {
+  const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+  const output = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--explain'], {
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    encoding: 'utf8',
+  });
+  assert(output.includes('Compression explanation'), 'Should print explanation heading');
+  assert(output.includes('Level:             standard'), 'Should print selected compression level');
+  assert(output.includes('Detected changes:'), 'Should print detected compression changes');
 });
 
 // ═══════════════════════════════════════════════════════════

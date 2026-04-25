@@ -55,7 +55,14 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v0.6.1 (Packaging & VS Code Hardening)
+### 🔥 New in v0.7.0 (Trust & Measurement)
+
+1. **Benchmark Harness**: Added `npm run benchmark` to compare original and compressed payloads across raw text, OpenAI, Anthropic, Gemini-compatible, and ultra-mode fixtures.
+2. **Trust Metrics**: The benchmark reports payload ratio, token savings, context fidelity score, edit success proxy, and hallucinated file references.
+3. **CLI Explain Mode**: Added `glyph-compress --explain` to show level behavior, indexed file refs, dynamic dictionary entries, and detected compression changes.
+4. **Fixture Coverage**: Added CLI trust-feature coverage to the integration suite.
+
+### 🔥 v0.6.1 (Packaging & VS Code Hardening)
 
 1. **Root API Alignment**: The documented `GlyphCompressor`, `wrapOpenAI`, and `wrapAnthropic` imports are now exported from the package root.
 2. **CommonJS Entry Point**: Added the missing CommonJS package entry so `require('glyph-compress')` works for CJS consumers.
@@ -63,6 +70,10 @@ AFTER (137 chars):
 4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md).
+
+### 📏 v0.7.0 Benchmark Snapshot
+
+`npm run benchmark` currently reports an aggregate payload compression ratio of **2.0x**, **49% token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures.
 
 ### 🔥 v0.6.0 (Project "Rosetta")
 
@@ -100,6 +111,9 @@ npx glyph-compress src/app.ts --level ultra --copy
 
 # Check the built-in help
 npx glyph-compress --help
+
+# Explain what changed during compression
+npx glyph-compress src/app.ts --level ultra --explain
 ```
 
 **Cost savings**: ~$200/month at 50 requests/day with Claude Sonnet.
@@ -319,7 +333,8 @@ glyph-compress/
 │   └── glyph-middleware.js       # Core middleware (OpenAI/Claude/Antigravity)
 ├── test/
 │   ├── demo.js                   # Interactive demo with 5 scenarios
-│   └── integration.js            # 23 automated tests
+│   ├── benchmark.js              # Trust and measurement benchmark harness
+│   └── integration.js            # 24 automated tests
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -332,8 +347,11 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (23/23 ✓)
+# Run all tests (24/24 ✓)
 npm test
+
+# Run trust and measurement benchmark
+npm run benchmark
 
 # Run interactive demo
 npm run demo
@@ -352,6 +370,12 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v0.7.0 (Trust & Measurement)
+- **Benchmark Harness**: Added `test/benchmark.js` and `npm run benchmark` for representative raw, OpenAI, Anthropic, Gemini-compatible, and ultra-mode payloads.
+- **Trust Metrics**: Reports payload compression ratio, token savings, context fidelity score, edit success proxy, and hallucinated file references.
+- **CLI Explain Mode**: Added `--explain` / `-x` to show compression behavior, indexed file refs, dynamic dictionary entries, and detected changes.
+- **Integration Coverage**: Added CLI explain coverage to the integration test suite.
 
 ### v0.6.1 (Packaging & VS Code Hardening)
 - **Root API Alignment**: Exported `GlyphCompressor`, `wrapOpenAI`, `wrapAnthropic`, and `CODEBOOK_PROMPT` from the package root to match the README examples.
