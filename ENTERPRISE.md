@@ -1,6 +1,8 @@
 # Enterprise Deployment
 
-GlyphCompress is dual licensed under AGPL-3.0 and a commercial license. Organizations that need proprietary use, private redistribution, support, or custom deployment terms should use the commercial license path.
+GlyphCompress is dual licensed under AGPL-3.0-only and a commercial license. Organizations that need proprietary use, private redistribution, hosted/SaaS use without AGPL obligations, support, or custom deployment terms should use the commercial license path.
+
+The repository does not grant a commercial license automatically. Commercial rights require a separate written agreement with the copyright holder. See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) and [docs/licensing.md](docs/licensing.md).
 
 ## Recommended Controls
 

@@ -25,6 +25,12 @@ npm run package:vscode
 - Treat source maps, workspace codebooks, diagnostics, and file paths as potentially sensitive developer metadata.
 - Add tests for CLI behavior, package exports, source maps, workspace intelligence, and documentation metadata when those areas change.
 
+## Contribution Licensing
+
+By submitting a contribution, you confirm that you have the right to submit it and that it may be used, modified, distributed, sublicensed, and relicensed by the project maintainer under both the AGPL-3.0-only open-source license and separate commercial license terms.
+
+Do not submit code, documentation, datasets, benchmarks, prompts, or generated artifacts that you cannot license under these terms. Larger or company-sponsored contributions may require a separate contributor license agreement before they are merged.
+
 ## Test Expectations
 
 Before opening a pull request, run:

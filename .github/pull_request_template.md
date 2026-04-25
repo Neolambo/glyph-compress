@@ -9,6 +9,7 @@
 - [ ] Compression impact described.
 - [ ] Source map or codebook impact described.
 - [ ] Privacy impact reviewed; no secrets, credentials, private keys, tokens, customer data, or proprietary strings are included.
+- [ ] I have the right to contribute this work, and I agree it may be used under AGPL-3.0-only and separate commercial license terms.
 - [ ] ESM and CommonJS public API parity preserved when public exports changed.
 - [ ] `src/index.d.ts` updated when public APIs changed.
 

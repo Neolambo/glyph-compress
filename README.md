@@ -5,7 +5,8 @@
 </p>
 
 [![NPM Version](https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60)](https://www.npmjs.com/package/glyph-compress)
-[![License: AGPL 3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
+[![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
+[![Commercial License](https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg)](COMMERCIAL_LICENSE.md)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/Neolambo.glyph-compress?label=VS%20Code%20Extension)](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)
 
 **Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.**
@@ -55,7 +56,14 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.1.0 (Contributor & Release Hygiene)
+### 🔥 New in v1.1.1 (License Hardening)
+
+1. **AGPL-3.0-only Metadata**: Root package, VS Code extension, and package lock metadata now use the more precise `AGPL-3.0-only` SPDX identifier.
+2. **Commercial License Gate**: Added explicit commercial-use language clarifying that proprietary, hosted, SaaS, embedded, OEM, marketplace, or private redistribution rights require a separate written agreement.
+3. **NOTICE and Licensing Policy**: Added `NOTICE` and `docs/licensing.md` so npm, GitHub, and enterprise reviewers see the licensing posture directly.
+4. **Contributor Safeguards**: Added contribution licensing terms and a PR checklist item to preserve the dual-license model for future contributions.
+
+### 🔥 v1.1.0 (Contributor & Release Hygiene)
 
 1. **Contributor Guide**: Added `CONTRIBUTING.md` with setup, testing, documentation, and API stability expectations.
 2. **Release Documentation**: Added `docs/release.md` and `docs/architecture.md` for maintainers and technical reviewers.
@@ -99,7 +107,7 @@ AFTER (137 chars):
 3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
 4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
 
-For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
+For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
 ### 📏 v0.7.0 Benchmark Snapshot
 
@@ -390,6 +398,8 @@ glyph-compress/
 ├── SECURITY.md
 ├── PRIVACY.md
 ├── ENTERPRISE.md
+├── COMMERCIAL_LICENSE.md
+├── NOTICE
 ├── LICENSE
 ├── ROADMAP.md
 └── README.md
@@ -427,6 +437,12 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.1.1 (License Hardening)
+- **Precise SPDX Metadata**: Updated npm and VS Code extension metadata to `AGPL-3.0-only`.
+- **Commercial Gate**: Reworked commercial licensing language to state that proprietary, hosted, SaaS, embedded, OEM, marketplace, or private redistribution rights require a separate written agreement.
+- **NOTICE and Policy Docs**: Added `NOTICE` and `docs/licensing.md`, and included them in npm packaging.
+- **Contributor Terms**: Added contribution licensing terms and a pull request checklist item to protect future dual licensing.
 
 ### v1.1.0 (Contributor & Release Hygiene)
 - **Contributor Guide**: Added setup, testing, documentation style, public API, and release-process guidance.
@@ -498,7 +514,7 @@ The key insight: development communication is **highly structured** — the same
 - **VS Code Extension Fix**: The `Compress Selection` command now automatically detects the editor language and wraps raw text in markdown backticks, ensuring the "Ultra" semantic compressor triggers correctly for code snippets.
 
 ### v0.3.2 (Monetization & Legal)
-- **Monetization & Legal**: Migrated to Dual Licensing model (AGPL-3.0 for open source, Enterprise for commercial).
+- **Monetization & Legal**: Migrated to Dual Licensing model (AGPL-3.0-only for open source, Enterprise for commercial).
 - **Marketplace Publishing**: Added official support and documentation for the Visual Studio Code Marketplace.
 - **Funding Support**: Enabled GitHub Sponsors and NPM funding links natively.
 
@@ -520,12 +536,12 @@ The key insight: development communication is **highly structured** — the same
 
 ## ⚖️ Dual Licensing Model
 
-GlyphCompress is distributed under a **Dual License** model:
+GlyphCompress is distributed under a **dual-license** model:
 
-1. **Open Source (AGPL-3.0)**: Free for individuals, non-profits, and open-source projects. If you use it, you must share your changes and the source code of your derivative works.
-2. **Commercial License**: For enterprises and businesses integrating GlyphCompress into closed-source or commercial products (e.g., custom IDEs, internal developer portals, SaaS platforms). Contact the author for a dedicated enterprise license.
+1. **Open source: AGPL-3.0-only**. The public repository and npm package may be used under the AGPL-3.0-only terms in [LICENSE](LICENSE). If you modify, integrate, redistribute, or offer GlyphCompress over a network, make sure you can satisfy the AGPL obligations.
+2. **Commercial license**. Proprietary, closed-source, private redistribution, SaaS, hosted, embedded, OEM, marketplace, or enterprise use without AGPL obligations requires a separate written commercial agreement. Downloading, installing, forking, importing, or bundling the package does not grant commercial rights.
 
-See the [LICENSE](LICENSE) file for the full AGPL-3.0 text.
+See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md), [docs/licensing.md](docs/licensing.md), and [NOTICE](NOTICE) for the project licensing position. For commercial terms, contact `campiossasco1@gmail.com`.
 
 ## 🤝 Contributing
 
@@ -536,3 +552,5 @@ Contributions welcome! Areas of interest:
 - **VS Code marketplace** publishing
 - **Benchmark data** from real-world IDE sessions
 - **LLM comprehension tests** with different models
+
+By submitting a contribution, you confirm that it can be used under the project dual-license model described in [CONTRIBUTING.md](CONTRIBUTING.md).

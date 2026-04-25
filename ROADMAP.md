@@ -14,9 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.1.0` for contributor and release hygiene.
+- [x] Current target release is `v1.1.1` for license hardening and contributor/commercial safeguards.
 - [x] Last stable published release is `glyph-compress@1.0.0`.
-- [x] `npm test` is expected to pass with 38/38 tests after `v1.1.0`.
+- [x] `npm test` is expected to pass with 38/38 tests after `v1.1.1`.
 - [x] `npm run benchmark` reports 2.0x aggregate ratio, 49% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 

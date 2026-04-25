@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {
@@ -34,6 +34,7 @@
     "ROADMAP.md",
     "LICENSE",
     "COMMERCIAL_LICENSE.md",
+    "NOTICE",
     "SECURITY.md",
     "PRIVACY.md",
     "ENTERPRISE.md",
@@ -62,8 +63,8 @@
     "ide",
     "cost-optimization"
   ],
-  "author": "",
-  "license": "AGPL-3.0",
+  "author": "Neolambo <campiossasco1@gmail.com>",
+  "license": "AGPL-3.0-only",
   "funding": {
     "type": "github",
     "url": "https://github.com/sponsors/Neolambo"

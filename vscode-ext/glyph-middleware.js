@@ -290,7 +290,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.1.0',
+      version: '1.1.1',
       level: this.level,
       files: [],
       dynamic: [],

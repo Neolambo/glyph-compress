@@ -1,20 +1,46 @@
-# GlyphCompress Enterprise & Commercial License
+# GlyphCompress Commercial Licensing Notice
 
-## Copyright Notice
-© 2026 GlyphCompress. All rights reserved.
+Copyright (c) 2026 Neolambo. All rights reserved.
 
-The open-source version of GlyphCompress is distributed under the **AGPL-3.0 License**. This means that any entity integrating, modifying, or offering GlyphCompress as part of a service over a network MUST release their entire source code under the same AGPL-3.0 license.
+GlyphCompress is offered under a dual-license model:
 
-## Commercial Licensing
-If you represent a business, enterprise, or closed-source project that wishes to integrate GlyphCompress (the library, the CLI, or the algorithm) into your proprietary software, SaaS, or internal tools **without** the obligation of open-sourcing your code, you must purchase a Commercial License.
+1. **Open-source license**: AGPL-3.0-only, as provided in `LICENSE`.
+2. **Commercial license**: available only through a separate written agreement signed or otherwise expressly approved by the copyright holder.
 
-### Why purchase a Commercial License?
-- **Legal Protection**: Completely removes the AGPL-3.0 copyleft restrictions.
-- **Privacy**: Keep your proprietary codebase closed and secure.
-- **Support**: Priority email support and direct communication for custom integrations.
+This file is an offer to discuss commercial licensing. It is not itself a commercial license grant. No commercial, proprietary, private redistribution, OEM, SaaS, marketplace, embedded, or hosted-use rights are granted unless a separate written commercial agreement is completed.
 
-### How to purchase
-Currently, enterprise licenses are negotiated directly based on the scale of usage.
-Please contact the author to request a commercial license quote.
+## When a Commercial License Is Required
 
-**Email**: campiossasco1@gmail.com
+You should contact the copyright holder before using GlyphCompress in any context where you do not want the AGPL-3.0-only obligations to apply, including:
+
+- Closed-source products, extensions, SDKs, CLIs, developer tools, or IDE integrations.
+- Internal enterprise platforms, private developer portals, hosted services, or SaaS offerings.
+- Redistribution to customers, contractors, affiliates, or marketplace users under proprietary terms.
+- Modifications, forks, wrappers, or derived products that are not released under AGPL-3.0-only.
+- Bundling GlyphCompress with paid products, paid support, managed services, or proprietary AI tooling.
+
+## Rights Reserved
+
+Except for rights expressly granted under AGPL-3.0-only or a separate commercial agreement, all rights are reserved. This includes rights in the GlyphCompress name, logo, documentation, protocol descriptions, compression dictionaries, source maps, benchmarks, generated codebooks, extension packaging, and commercial distribution channels.
+
+No trademark, service mark, trade dress, endorsement, certification, or branding rights are granted by the open-source license or by this notice.
+
+## Commercial Agreement Topics
+
+Commercial licenses are negotiated case by case and may cover:
+
+- Proprietary integration and private redistribution.
+- SaaS, hosted, embedded, OEM, or marketplace usage.
+- Enterprise deployment, audit, compliance, and indemnity requirements.
+- Support, maintenance, private fixes, and custom roadmap work.
+- Seat, repository, server, product, revenue, or usage-based pricing.
+
+## Contact
+
+To request commercial terms, contact: campiossasco1@gmail.com
+
+Include your company name, intended use, distribution model, expected users or seats, whether GlyphCompress will be modified, and whether it will be offered over a network or bundled with another product.
+
+## Legal Review
+
+This notice is intended to make the licensing position clear for users and evaluators. It should be reviewed by qualified counsel before it is used as a final commercial agreement.
