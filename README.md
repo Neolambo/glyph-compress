@@ -192,10 +192,44 @@ If you want **100% automatic, invisible** compression without pressing *any* sho
    npx glyph-compress --proxy 8080
    ```
    *(Or from VS Code Command Palette: `GlyphCompress: Start Zero-Command Proxy`)*
-2. Configure your AI coding assistant (Cursor, Cline, Continue.dev, RooCode, etc.) to use an OpenAI-compatible custom endpoint:
-   - **API Base URL**: `http://localhost:8080/v1`
+2. Configure your AI coding assistant to use the custom local endpoint:
+   - **API Base URL / Override API URL**: `http://localhost:8080/v1`
    - **API Key**: *Your real OpenAI/Anthropic key*
-3. **Done!** You don't need to do anything else. When your IDE sends huge blocks of code to the LLM, the proxy intercepts the JSON request, minifies the code blocks, injects the codebook, and forwards the heavily compressed request to the real LLM API. 
+
+### 🛠️ Step-by-Step IDE Integration Guide
+
+**Cursor IDE**
+1. Open Cursor Settings (`Ctrl+Shift+J` or `Cmd+Shift+J`).
+2. Go to **Models**.
+3. Under **OpenAI API Key**, enter your real API key.
+4. Toggle **Override OpenAI Base URL** and set it to: `http://localhost:8080/v1`
+5. *Magic!* All Chat and Cmd+K requests will now be silently compressed.
+
+**Cline / RooCode (VS Code Extensions)**
+1. Open the Cline/RooCode settings panel.
+2. Select **OpenAI Compatible** as your API Provider.
+3. **Base URL**: `http://localhost:8080/v1`
+4. **API Key**: *Your real API key*
+5. **Model ID**: `gpt-4o` (or whichever you prefer).
+
+**Continue.dev**
+1. Open `~/.continue/config.json`.
+2. Add or edit your model configuration:
+```json
+{
+  "title": "GPT-4o (Glyph Proxy)",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "apiKey": "YOUR_REAL_API_KEY",
+  "apiBase": "http://localhost:8080/v1"
+}
+```
+
+**GitHub Copilot Chat**
+*Note: Microsoft locks the API URL for the official Copilot extension for security reasons. To use GlyphCompress with the official Copilot, please use the `Ctrl+Alt+G` (One-Click Ask) shortcut provided by the GlyphCompress VS Code Extension.*
+
+### 3. Done! 
+You don't need to do anything else. When your IDE sends huge blocks of code to the LLM, the proxy intercepts the JSON request, minifies the code blocks, injects the codebook, and forwards the heavily compressed request to the real LLM API. 
 
 ## 🔤 The Glyph Protocol
 
