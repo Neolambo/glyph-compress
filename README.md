@@ -62,6 +62,8 @@ AFTER (137 chars):
 3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
 4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
 
+For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md).
+
 ### 🔥 v0.6.0 (Project "Rosetta")
 
 1. **Adaptive Payload Dictionary (APD)**: Analyzes term frequency in real-time and maps the highest token-consuming strings (classes, functions, variables) to a dynamic Unicode "Rosetta Stone" on the fly.
@@ -323,6 +325,7 @@ glyph-compress/
 │   └── claude-example.js         # Claude usage example
 ├── package.json
 ├── LICENSE
+├── ROADMAP.md
 └── README.md
 ```
 
