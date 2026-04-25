@@ -418,9 +418,29 @@ class GlyphCompressor {
     let c = code;
     const l = (lang || '').toLowerCase();
 
-    // Cross-language common minifications
-    c = c.replace(/\breturn\b/g, '→');
+    // 1. Aggressive comment removal based on language family
+    if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript', 'java', 'cs', 'csharp', 'c', 'cpp', 'c++', 'h', 'hpp', 'go', 'golang', 'rs', 'rust'].includes(l) || !l) {
+      c = c.replace(/\/\/.*$/gm, ''); // inline comments
+      c = c.replace(/\/\*[\s\S]*?\*\//g, ''); // block comments
+    }
 
+    if (['py', 'python', 'rb', 'ruby', 'sh', 'bash', 'yaml', 'yml'].includes(l) || !l) {
+      c = c.replace(/(?<!['"])\s*#.*$/gm, ''); // hash comments
+    }
+
+    if (['html', 'xml', 'vue', 'svelte'].includes(l) || !l) {
+      c = c.replace(/<!--[\s\S]*?-->/g, ''); // HTML comments
+    }
+
+    if (['css', 'scss', 'less'].includes(l) || !l) {
+      c = c.replace(/\/\*[\s\S]*?\*\//g, ''); // CSS comments
+    }
+
+    // 2. Cross-language common minifications
+    c = c.replace(/\breturn\b/g, '→');
+    c = c.replace(/^\s*[\r\n]/gm, ''); // Remove empty lines for ALL languages
+
+    // 3. Keyword semantic minification
     if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript'].includes(l) || !l) {
       c = c.replace(/\bfunction\b/g, 'ƒ');
       c = c.replace(/\bconst\b/g, '◇');

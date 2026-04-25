@@ -324,6 +324,10 @@ The key insight: development communication is **highly structured** — the same
 
 ## 📜 Version History (Changelog)
 
+### v0.5.1 (Universal Minification & Gemini Integration)
+- **Universal Minification**: Expanded the `aggressive` minification to aggressively remove comments (`//`, `/* */`, `<!-- -->`, `#`) and empty lines across all supported languages (C-family, Python, Ruby, Web markup, CSS, etc.).
+- **Gemini Compatibility**: Enhanced the zero-command proxy to dynamically route standard OpenAI requests (`/v1/`) to Google Gemini's official OpenAI-compatible endpoint (`/v1beta/openai/`).
+
 ### v0.5.0 (Zero-Command Transparent Proxy)
 - **Invisible Proxy Middleware**: Added `src/proxy.js`, a local HTTP server that intercepts OpenAI-compatible API requests.
 - **True Zero Commands**: Configured your IDE's API Base URL to point to `localhost:8080`, and GlyphCompress automatically intercepts, parses, and minifies your code blocks before they hit the real API.

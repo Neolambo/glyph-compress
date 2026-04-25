@@ -92,6 +92,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show compression stats in status bar"
+        },
+        "glyphCompress.targetApiUrl": {
+          "type": "string",
+          "default": "https://api.openai.com",
+          "description": "Base URL to forward proxy traffic to (e.g., https://api.openai.com or https://generativelanguage.googleapis.com)"
         }
       }
     }

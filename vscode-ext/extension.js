@@ -75,7 +75,7 @@ function activate(context) {
       const stats = compressor.getStats();
       const lifetimeSaved = globalState.get('lifetimeTokensSaved', 0);
       const lifetimeCost = `$${(lifetimeSaved * (3 / 1000000)).toFixed(2)}`;
-      
+
       const panel = vscode.window.createWebviewPanel(
         'glyphStats', 'GlyphCompress Stats', vscode.ViewColumn.Beside,
         { enableScripts: false }
@@ -150,7 +150,7 @@ function activate(context) {
       outputChannel.appendLine(result.compressed);
       outputChannel.appendLine(`Saved: ${result.stats.savedPct}`);
       outputChannel.show();
-      
+
       // Also copy the compressed text to clipboard
       vscode.env.clipboard.writeText(result.compressed);
       vscode.window.showInformationMessage(`GlyphCompress: Copied ${result.stats.compressedTokens} tokens to clipboard!`);
@@ -174,12 +174,13 @@ function activate(context) {
         vscode.window.showInformationMessage('GlyphProxy is already running.');
         return;
       }
-      
+
       try {
         // Use dynamic import because proxy.js is ES module and this is CJS
-        import('../../src/proxy.js').then(({ startProxyServer }) => {
-          proxyServer = startProxyServer(8080, 'https://api.openai.com', compressor.level);
-          vscode.window.showInformationMessage('🚀 GlyphProxy started on http://localhost:8080. Configure your IDE/Agent to use this API base URL.');
+        import('./proxy.js').then(({ startProxyServer }) => {
+          const targetUrl = 'https://generativelanguage.googleapis.com';
+          proxyServer = startProxyServer(8080, targetUrl, compressor.level, compressor, outputChannel);
+          vscode.window.showInformationMessage(`🚀 GlyphProxy started on http://localhost:8080. Forwarding to ${targetUrl}`);
           outputChannel.appendLine('GlyphProxy started on port 8080');
         }).catch(err => {
           vscode.window.showErrorMessage(`Failed to start proxy module: ${err.message}`);
@@ -223,7 +224,7 @@ function activate(context) {
       await vscode.commands.executeCommand('workbench.action.chat.open', {
         query: '\n\n' + result.compressed + '\n\n'
       });
-      
+
       outputChannel.appendLine("Auto-compressed " + result.stats.originalTokens + " tokens to " + result.stats.compressedTokens + " tokens for chat.");
       vscode.window.showInformationMessage("GlyphCompress: Ready to ask! Saved " + result.stats.savedPct + ".");
     })
@@ -268,7 +269,7 @@ function updateStatusBar() {
     let lifetime = globalState.get('lifetimeTokensSaved', 0);
     // Since we don't have hooks into individual requests easily, 
     // we can track a baseline in the extension lifecycle
-    
+
     statusBarItem.text = `$(zap) GC: ${stats.overallRatio} | -${stats.totalSavedTokens} tok`;
     statusBarItem.tooltip = [
       `GlyphCompress Stats`,
@@ -339,13 +340,13 @@ function deactivate() {
     proxyServer.close();
     proxyServer = null;
   }
-  
+
   if (outputChannel) {
     const stats = compressor.getStats();
     // Persist final session stats
     const lifetime = globalState.get('lifetimeTokensSaved', 0);
     globalState.update('lifetimeTokensSaved', lifetime + stats.totalSavedTokens);
-    
+
     outputChannel.appendLine(`\nSession ended. Final stats:`);
     outputChannel.appendLine(JSON.stringify(stats, null, 2));
   }
@@ -355,16 +356,16 @@ function deactivate() {
 function updateWorkspaceRules() {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) return;
-  
+
   const rootPath = folders[0].uri.fsPath;
   const codebook = compressor.getCodebookPrompt();
-  
+
   const rulesHeader = "## GLYPHCOMPRESS DICTIONARY (DO NOT MODIFY MANUALLY)\n" +
     "You are communicating with a user who has semantic compression enabled.\n" +
     "Parse the following compressed syntax in all user queries:\n\n";
-    
+
   const content = rulesHeader + codebook + "\n\n";
-  
+
   // 1. Update .cursorrules
   try {
     const cursorPath = path.join(rootPath, '.cursorrules');
@@ -375,7 +376,7 @@ function updateWorkspaceRules() {
       existingCursor = existingCursor.replace(/## GLYPHCOMPRESS DICTIONARY[\s\S]*?\[\/GLYPH\]\n\n/g, '');
     }
     fs.writeFileSync(cursorPath, content + existingCursor);
-  } catch(e) {
+  } catch (e) {
     console.error('Failed to update .cursorrules', e);
   }
 
@@ -392,7 +393,7 @@ function updateWorkspaceRules() {
       existingCopilot = existingCopilot.replace(/## GLYPHCOMPRESS DICTIONARY[\s\S]*?\[\/GLYPH\]\n\n/g, '');
     }
     fs.writeFileSync(copilotPath, content + existingCopilot);
-  } catch(e) {
+  } catch (e) {
     console.error('Failed to update copilot-instructions.md', e);
   }
 }
