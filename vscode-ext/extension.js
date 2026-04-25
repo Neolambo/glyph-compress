@@ -143,6 +143,20 @@ function activate(context) {
       outputChannel.appendLine(result.compressed);
       outputChannel.appendLine(`Saved: ${result.stats.savedPct}`);
       outputChannel.show();
+      
+      // Also copy the compressed text to clipboard
+      vscode.env.clipboard.writeText(result.compressed);
+      vscode.window.showInformationMessage(`GlyphCompress: Copied ${result.stats.compressedTokens} tokens to clipboard!`);
+    })
+  );
+
+  // Copy Codebook to Clipboard
+  context.subscriptions.push(
+    vscode.commands.registerCommand('glyphCompress.copyCodebook', () => {
+      const codebook = compressor.getCodebookPrompt();
+      vscode.env.clipboard.writeText(codebook);
+      vscode.window.showInformationMessage('GlyphCompress: Codebook copied to clipboard! Paste it as a Custom Instruction in your LLM.');
+      outputChannel.appendLine('Codebook copied to clipboard.');
     })
   );
 

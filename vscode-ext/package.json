@@ -26,6 +26,10 @@
       {
         "command": "glyphCompress.compressSelection",
         "title": "GlyphCompress: Compress Selection"
+      },
+      {
+        "command": "glyphCompress.copyCodebook",
+        "title": "GlyphCompress: Copy System Codebook"
       }
     ],
     "configuration": {
