@@ -275,7 +275,7 @@ class GlyphCompressor {
       files: sourceMap.files,
       dynamic: sourceMap.dynamic,
       diagnostics: sourceMap.diagnostics,
-      codeBlocks: sourceMap.codeBlocks
+      codeBlocks: sourceMap.codeBlocks,
       symbols: sourceMap.symbols,
     };
   }
@@ -285,7 +285,7 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.3.0",
+      version: "1.4.0",
       level: this.level,
       files: [],
       dynamic: [],

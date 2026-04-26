@@ -17,7 +17,7 @@
  */
 
 const vscode = require('vscode');
-const { GlyphCompressor, CODEBOOK_PROMPT, DOMAIN_GLYPHS } = require('./glyph-middleware.js');
+const { GlyphCompressor, CODEBOOK_PROMPT, DOMAIN_GLYPHS } = require('./glyph-middleware.cjs');
 const fs = require('fs');
 const path = require('path');
 

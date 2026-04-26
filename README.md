@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.3.0 (Semantic Source Map Spans)
+### 🔥 New in v1.4.0 (Extension & Proxy Smoke Suites)
+
+1. **VS Code Activation Smoke Test**: Added a mocked VS Code host suite that verifies extension activation reaches ready state and registers every contributed command.
+2. **Proxy Forwarding Smoke Test**: Added a local proxy suite that confirms chat payload compression, glyph protocol injection, upstream path preservation, and corrected `content-length` forwarding.
+3. **Extension CJS Loading Hardening**: The VS Code extension now loads the CommonJS middleware artifact directly, preventing activation-path module format drift.
+4. **Focused Test Scripts**: Added `test:extension` and `test:proxy`, and wired both into `npm test` and release validation.
+5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, issue templates, npm metadata, and VS Code extension metadata for v1.4.0.
+
+### 🔥 v1.3.0 (Semantic Source Map Spans)
 
 1. **Line/Column Source Spans**: Source map entries now include `span.start` and `span.end` with line, column, and offset metadata for tracked replacements.
 2. **Symbol-Level Mappings**: Added a `sourceMap.symbols` array that maps generated glyphs back to their original prompt, tech name, file path, diagnostic, dynamic dictionary, or code block source.
@@ -435,6 +443,8 @@ npm test
 npm run test:unit
 npm run test:cli
 npm run test:workspace
+npm run test:extension
+npm run test:proxy
 npm run test:metadata
 npm run test:integration
 
@@ -464,6 +474,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.4.0 (Extension & Proxy Smoke Suites)
+- **VS Code Activation Coverage**: Added a mocked VS Code extension host smoke suite that checks activation, command registration, output logging, and subscription tracking.
+- **Proxy Coverage**: Added a local proxy smoke suite that stubs upstream HTTPS, verifies compressed chat forwarding, preserves OpenAI-compatible paths, and checks corrected `content-length`.
+- **Activation Hardening**: Updated the extension activation path to require `glyph-middleware.cjs`, keeping VS Code's CommonJS host aligned with the packaged middleware artifact.
+- **Focused Scripts**: Added `npm run test:extension` and `npm run test:proxy`, and included both in the full suite runner.
+- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.4.0`.
 
 ### v1.3.0 (Semantic Source Map Spans)
 - **Line/Column Ranges**: Added span metadata with line, column, and offset positions for prompt, tech, file, diagnostic, dynamic dictionary, and code block mappings.

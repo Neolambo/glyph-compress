@@ -319,7 +319,7 @@ console.log('\n═══ TEST: CLI Trust Features ═══\n');
 test('Source maps: expose reversible dictionaries', () => {
   const gc = new GlyphCompressor({ level: 'ultra' });
   const r = gc.compressText("Fix src/components/App.tsx. Property 'name' does not exist on type 'User'.\n```ts\nimport React from 'react';\nfunction App() { return null; }\n```");
-  assert(r.sourceMap.version === '1.3.0', 'Should include source map version');
+  assert(r.sourceMap.version === '1.4.0', 'Should include source map version');
   assert(r.sourceMap.files.some(file => file.path === 'src/components/App.tsx'), 'Should map file refs to paths');
   assert(r.sourceMap.diagnostics.some(diag => diag.original.includes("Property 'name'")), 'Should map diagnostics');
   assert(r.sourceMap.codeBlocks.some(block => block.mode === 'summary'), 'Should map summarized code blocks');
@@ -351,7 +351,7 @@ test('Source maps: CommonJS root export matches ESM behavior', () => {
   const cjs = require('..');
   const gc = new cjs.GlyphCompressor({ level: 'standard' });
   const r = gc.compressText('Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
-  assert(r.sourceMap.version === '1.3.0', 'Should expose source maps through require()');
+  assert(r.sourceMap.version === '1.4.0', 'Should expose source maps through require()');
   assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
   assert(typeof cjs.buildWorkspaceCodebook === 'function', 'Should expose workspace intelligence through require()');
 });
@@ -374,7 +374,7 @@ test('CLI: source-map flag prints source map JSON', () => {
     encoding: 'utf8',
   });
   assert(output.includes('Source map'), 'Should print source map heading');
-  assert(output.includes('"version": "1.3.0"'), 'Should print source map version');
+  assert(output.includes('"version": "1.4.0"'), 'Should print source map version');
   assert(output.includes('"files"'), 'Should include file dictionary');
 });
 
@@ -400,7 +400,7 @@ test('Workspace intelligence: builds persistent codebook and ranks relevant file
   const codebook = buildWorkspaceCodebook(dir);
   const codebookPath = saveWorkspaceCodebook(dir, codebook);
   const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
-  assert(codebook.version === '1.3.0', 'Should use v1.3.0 codebook schema');
+  assert(codebook.version === '1.4.0', 'Should use v1.4.0 codebook schema');
   assert(fs.existsSync(codebookPath), 'Should persist workspace codebook');
   assert(codebook.symbols.some(symbol => symbol.name === 'AuthenticationManager'), 'Should index symbols');
   assert(selection.intents.includes('fix_error'), 'Should detect fix intent');
@@ -420,7 +420,7 @@ test('Workspace intelligence: CLI inspect prints JSON summary', () => withTempWo
     encoding: 'utf8',
   });
   const result = JSON.parse(output);
-  assert(result.version === '1.3.0', 'Should print v1.3.0 inspect output');
+  assert(result.version === '1.4.0', 'Should print v1.4.0 inspect output');
   assert(result.intents.includes('fix_error'), 'Should include detected intent');
   assert(result.relevantFiles.some(file => file.path === 'src/services/auth.ts'), 'Should include relevant file');
 }));
@@ -436,7 +436,7 @@ console.log('\n═══ TEST: Stable Platform Metadata ═══\n');
 test('Stable platform: package exposes TypeScript declarations', () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const pkg = require('..' + '/package.json');
-  assert(pkg.version === '1.3.0', 'Package should be v1.3.0');
+  assert(pkg.version === '1.4.0', 'Package should be v1.4.0');
   assert(pkg.types === 'src/index.d.ts', 'Package should expose root types');
   assert(pkg.exports['.'].types === './src/index.d.ts', 'Root export should expose types');
   assert(pkg.exports['./middleware'].types === './vscode-ext/glyph-middleware.d.ts', 'Middleware export should expose types');

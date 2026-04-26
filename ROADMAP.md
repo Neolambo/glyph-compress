@@ -14,9 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.3.0` for semantic source map spans.
-- [x] Last stable published release is `glyph-compress@1.3.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, metadata, and integration suites after `v1.3.0`.
+- [x] Current target release is `v1.4.0` for extension and proxy smoke suites.
+- [x] Last stable published release is `glyph-compress@1.4.0`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.4.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -126,6 +126,16 @@ Status: delivered.
 - [x] Add TypeScript declarations for source positions, source spans, and symbol spans.
 - [x] Add integration coverage for multi-line file and diagnostic spans.
 
+### v1.4.0: Extension and Proxy Smoke Suites
+
+Status: delivered.
+
+- [x] Add a mocked VS Code activation smoke suite that verifies extension startup and contributed command registration.
+- [x] Add a proxy smoke suite that verifies compressed chat forwarding without calling a real upstream API.
+- [x] Add focused `test:extension` and `test:proxy` scripts and wire them into the full suite runner.
+- [x] Harden the VS Code activation path by loading the CommonJS middleware artifact directly.
+- [x] Keep npm, GitHub, VSIX, source map, workspace codebook, benchmark, README, and issue-template versions aligned for v1.4.0.
+
 ## Repository Improvements
 
 ### Packaging
@@ -145,7 +155,7 @@ Status: delivered.
 - [x] Regression coverage exists for package exports and CommonJS imports.
 - [x] Split tests into unit, CLI, workspace, metadata, and integration suites.
 - [x] Add tokenizer-aware tests using provider-specific token estimators where practical.
-- [ ] Add proxy and extension activation smoke suites.
+- [x] Add proxy and extension activation smoke suites.
 - [ ] Add regression fixtures for README badges, deleted links, and VS Code settings.
 - [ ] Add snapshot tests for compressed payloads so format drift is deliberate.
 
@@ -191,13 +201,13 @@ Status: delivered.
 - [ ] Partial: Median token savings target is tracked in benchmark output, but not yet measured across real user repositories.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
-- [ ] Partial: VS Code extension packaging and install are verified, but activation and command smoke tests are not automated in CI yet.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.3.0`.
+- [x] VS Code extension activation and command smoke tests are automated in the local test suite.
+- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.4.0`.
 
 ## Immediate Next Actions
 
-1. Add proxy and VS Code extension activation smoke suites.
-2. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
-3. Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
-4. Use provider estimator feedback to choose compression profiles automatically.
+1. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
+2. Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
+3. Use provider estimator feedback to choose compression profiles automatically.
+4. Add regression fixtures for README badges, deleted links, and VS Code settings.
 5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.

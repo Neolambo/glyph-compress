@@ -6,6 +6,8 @@ const suites = [
   ['unit', 'test/unit.js'],
   ['cli', 'test/cli.js'],
   ['workspace', 'test/workspace.js'],
+  ['extension', 'test/extension.js'],
+  ['proxy', 'test/proxy.js'],
   ['metadata', 'test/metadata.js'],
   ['integration', 'test/integration.js'],
 ];
