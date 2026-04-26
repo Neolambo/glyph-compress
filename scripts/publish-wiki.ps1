@@ -31,6 +31,8 @@ Copy-Item -Path (Join-Path $sourcePath "*") -Destination $workPath -Recurse -For
 
 Push-Location $workPath
 try {
+  git config user.name "Neolambo"
+  git config user.email "campiossasco1@gmail.com"
   git add .
   git diff --cached --quiet
   if ($LASTEXITCODE -ne 0) {
