@@ -7,6 +7,7 @@
 [![NPM Version](https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60)](https://www.npmjs.com/package/glyph-compress)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Commercial License](https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg)](COMMERCIAL_LICENSE.md)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/neolambo.glyph-compress?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)
 [![GitHub Release](https://img.shields.io/github/v/release/Neolambo/glyph-compress?label=GitHub%20Release)](https://github.com/Neolambo/glyph-compress/releases)
 
 **Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.**
@@ -364,14 +365,15 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 
 ### VS Code Extension
 
-1. Download the latest `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)**.
-2. Install it locally from the terminal:
+1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
+2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
    code.cmd --install-extension .\glyph-compress-1.8.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
-3. Optional future distribution channel: public VS Code Marketplace publishing is tracked in the roadmap.
-4. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
+3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
+
+The Marketplace listing exists publicly; GitHub Releases are also published for users who need a specific VSIX version immediately after each release.
 
 #### Zero-Friction Chat Integration (Copilot / Claude / Cursor)
 GlyphCompress provides a fluid workflow for native IDE chats. The extension can optionally write workspace rules so Copilot and Cursor understand compressed glyph context.
@@ -741,7 +743,7 @@ Contributions welcome! Areas of interest:
 
 - **New radicals** for emerging technologies
 - **Language support** for non-English prompts
-- **VS Code marketplace** publishing
+- **VS Code Marketplace** metadata, examples, and compatibility reports
 - **Benchmark data** from real-world IDE sessions
 - **LLM comprehension tests** with different models
 

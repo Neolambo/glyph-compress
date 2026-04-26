@@ -56,4 +56,16 @@ gh release view v<version> --json tagName,name,url,isDraft,isPrerelease,assets
 git status --short
 ```
 
-Confirm the README, npm version, GitHub tag, GitHub release, VSIX version, and VS Code installed version all match.
+Verify the Marketplace listing is visible under the published extension id:
+
+```powershell
+code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
+```
+
+Also verify the public listing page:
+
+```text
+https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress
+```
+
+Confirm the README, npm version, GitHub tag, GitHub release, VSIX version, Marketplace listing, and VS Code installed version all match.

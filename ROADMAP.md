@@ -17,6 +17,8 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 - [x] Current stable release is `v1.8.0` for safe compression trust policies.
 - [x] Last stable published release is `glyph-compress@1.8.0`.
 - [x] npm `latest` points to `1.8.0`.
+- [x] VS Code Marketplace listing exists as `neolambo.glyph-compress`.
+- [ ] Partial: VS Code Marketplace listing is public, but the page currently reports `1.6.0`; it still needs to be updated to `1.8.0`.
 - [x] GitHub release `v1.8.0` exists and includes `glyph-compress-1.8.0.vsix`.
 - [x] Local VS Code installation was verified as `neolambo.glyph-compress@1.8.0`.
 - [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.8.0`.
@@ -31,6 +33,7 @@ This section separates what is actually complete from what remains useful future
 
 - [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.8.0`.
 - [x] GitHub tag, GitHub release, npm latest, VSIX artifact, and local VS Code installation are aligned on `1.8.0`.
+- [ ] Partial: VS Code Marketplace distribution exists, but still needs the `1.8.0` package update.
 - [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
 - [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
 - [x] VS Code activation and configuration wiring cover enabled state, compression level, provider, and trust policy.
@@ -39,8 +42,8 @@ This section separates what is actually complete from what remains useful future
 
 ### Still Missing in Practice
 
-- [ ] Public VS Code Marketplace publication is not done; distribution currently relies on GitHub release VSIX artifacts and local installation.
 - [ ] Release automation is still manual for commit, tag, npm publish, GitHub release creation, VSIX upload, and post-release verification.
+- [ ] Marketplace publishing/version update is still manual and not yet part of the release helper or CI flow.
 - [ ] Real LLM task-success evaluation is not implemented; current fidelity and edit-success scores are deterministic benchmark proxies.
 - [ ] Provider-aware behavior does not yet automatically choose code block, context-router, and trust-warning strategies per provider.
 - [ ] Source maps do not yet provide full expression-level AST mappings for every minified code block.
@@ -138,7 +141,7 @@ Status: delivered as the first stable release.
 - [x] Add CI for Node LTS versions, packaging, npm pack validation, and VS Code extension validation.
 - [x] Add formal docs for security, privacy, licensing, telemetry, and enterprise deployment.
 - [x] Publish a stable VS Code extension artifact aligned with npm and GitHub tags.
-- [ ] Missing: Publish to the public VS Code Marketplace if that channel is desired beyond local VSIX/GitHub release distribution.
+- [ ] Partial: Public VS Code Marketplace listing exists as `neolambo.glyph-compress`, but it must be updated as part of each release so it does not lag npm/GitHub.
 
 ### v1.2.0: Provider Accuracy and Test Suites
 
@@ -278,14 +281,15 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.8.0`.
+- [ ] Partial: README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.8.0`; Marketplace listing exists but is not yet aligned to `1.8.0`.
 
 ## Immediate Next Actions
 
-1. Decide the extension distribution channel: publish to the VS Code Marketplace, or explicitly keep GitHub VSIX releases as the supported channel.
-2. Add a release helper script that verifies version alignment, runs checks, packages the VSIX, and prints/prefills npm and GitHub release commands.
-3. Add regression fixtures for README badges, deleted links, VS Code settings, and stable compressed payload snapshots.
-4. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
-5. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
-6. Add expression-level AST spans for code block minification where language-specific parsers are available.
-7. Expand `doctor` to validate installed extension version, proxy config, provider credentials, and local VS Code settings.
+1. Update the VS Code Marketplace package to `1.8.0` and verify the public listing shows the same version as npm/GitHub.
+2. Add a release helper script that verifies version alignment, runs checks, packages the VSIX, and prints/prefills npm, GitHub release, and Marketplace verification commands.
+3. Automate Marketplace post-release verification in CI or a dedicated release script.
+4. Add regression fixtures for README badges, deleted links, VS Code settings, and stable compressed payload snapshots.
+5. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+6. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
+7. Add expression-level AST spans for code block minification where language-specific parsers are available.
+8. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
