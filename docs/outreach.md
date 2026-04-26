@@ -90,7 +90,9 @@ Use these links consistently:
 - GitHub Wiki: `https://github.com/Neolambo/glyph-compress/wiki`
 - CLI Wiki: `https://github.com/Neolambo/glyph-compress/wiki/Command-Line-CLI`
 - Latest release: `https://github.com/Neolambo/glyph-compress/releases/tag/v1.8.0`
-- Demo video: `https://youtu.be/XRwRYEsReJU`
+- Published YouTube video: `https://www.youtube.com/watch?v=XRwRYEsReJU`
+- YouTube short link: `https://youtu.be/XRwRYEsReJU`
+- Distribution kit: `docs/youtube-distribution-kit.md`
 - Public feedback issue: `https://github.com/Neolambo/glyph-compress/issues/1`
 
 ## Launch Sequence
@@ -105,7 +107,8 @@ Use these links consistently:
 - [ ] Create one short benchmark image showing before/after compression.
 - [x] Create a 60-90 second demo video focused on installation and one useful workflow.
 - [x] Open a concise GitHub issue asking for integrations and benchmark feedback.
-- [ ] Add GitHub topics such as `llm`, `ai`, `vscode-extension`, `semantic-compression`, `prompt-engineering`, `coding-agents`, `token-optimization`, and `developer-tools`.
+- [x] Add GitHub topics such as `llm`, `ai`, `vscode-extension`, `semantic-compression`, `prompt-engineering`, `coding-agents`, `token-optimization`, and `developer-tools`.
+- [x] Prepare a YouTube distribution kit for the published video.
 
 ### Phase 2: Soft Launch To Technical Communities
 
@@ -131,6 +134,8 @@ Use these links consistently:
 - [ ] Track and respond quickly to issues from first users.
 
 ## Outreach Templates
+
+For channel-specific copy using the published YouTube video as the main asset, see `docs/youtube-distribution-kit.md`.
 
 ### Short Public Post
 
