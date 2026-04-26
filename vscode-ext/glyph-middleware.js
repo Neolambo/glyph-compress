@@ -299,6 +299,7 @@ class GlyphCompressor {
       dynamic: sourceMap.dynamic,
       diagnostics: sourceMap.diagnostics,
       codeBlocks: sourceMap.codeBlocks,
+      ast: sourceMap.ast,
       privacy: sourceMap.privacy,
       symbols: sourceMap.symbols,
     };
@@ -312,12 +313,13 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.5.0',
+      version: '1.6.0',
       level: this.level,
       files: [],
       dynamic: [],
       diagnostics: [],
       codeBlocks: [],
+      ast: [],
       privacy: [],
       symbols: [],
       replacements: [],
@@ -617,6 +619,8 @@ class GlyphCompressor {
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code, offset, input) => {
       const lines = code.trim().split('\n');
       const span = this._spanForRange(input, offset, offset + match.length);
+      const codeStartOffset = offset + match.indexOf('\n') + 1;
+      const tokens = this._extractCodeBlockTokens(code, lang, input, codeStartOffset);
       
       if (this.level === 'ultra') {
         const summary = this._summarizeCode(lines, lang);
@@ -629,7 +633,9 @@ class GlyphCompressor {
           originalChars: code.length,
           compressed,
           span,
+          tokens,
         });
+        this.sourceMap.ast.push(...tokens.map(token => ({ ...token, blockMode: 'summary' })));
         this._recordReplacement('codeBlock', `\`\`\`${lang}\n...\n\`\`\``, compressed, { lang: lang || 'text', mode: 'summary', span });
         this._recordSymbol(compressed, `\`\`\`${lang}\n...\n\`\`\``, 'codeBlock', span, { lang: lang || 'text', mode: 'summary' });
         return compressed;
@@ -645,10 +651,77 @@ class GlyphCompressor {
           originalChars: code.length,
           compressedChars: minified.length,
           span,
+          tokens,
         });
+        this.sourceMap.ast.push(...tokens.map(token => ({ ...token, blockMode: 'minified' })));
         return compressed;
       }
     });
+  }
+
+  _extractCodeBlockTokens(code, lang, sourceText, codeStartOffset) {
+    const l = (lang || '').toLowerCase();
+    const tokens = [];
+    const seen = new Set();
+    const addMatches = (pattern, kind, glyph, nameGroup = null) => {
+      for (const match of code.matchAll(pattern)) {
+        const original = match[0];
+        const relativeOffset = match.index || 0;
+        const key = `${kind}:${relativeOffset}:${original}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const span = this._spanForRange(sourceText, codeStartOffset + relativeOffset, codeStartOffset + relativeOffset + original.length);
+        tokens.push({
+          kind,
+          original,
+          glyph,
+          lang: l || 'text',
+          name: nameGroup ? match[nameGroup] : undefined,
+          span,
+        });
+      }
+    };
+
+    if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript'].includes(l) || !l) {
+      addMatches(/\bimport\b/g, 'import', 'imp');
+      addMatches(/\bexport\b/g, 'export', 'exp');
+      addMatches(/\bfunction\s+([A-Za-z_$][\w$]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)/g, 'declaration', '◇', 1);
+      addMatches(/\bclass\s+([A-Za-z_$][\w$]*)/g, 'class', '𝒞', 1);
+    }
+    if (['py', 'python'].includes(l) || !l) {
+      addMatches(/\b(?:import|from)\b/g, 'import', 'imp');
+      addMatches(/\bdef\s+([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\bself\./g, 'receiver', 's.');
+    }
+    if (['rs', 'rust'].includes(l) || !l) {
+      addMatches(/\buse\b/g, 'import', 'imp');
+      addMatches(/\bfn\s+([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\bstruct\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\b(?:pub|mut|impl|match)\b/g, 'modifier', 'mod');
+    }
+    if (['go', 'golang'].includes(l) || !l) {
+      addMatches(/\bimport\b/g, 'import', 'imp');
+      addMatches(/\bfunc\s+(?:\([^)]+\)\s+)?([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\btype\s+([A-Za-z_][\w]*)\s+struct\b/g, 'class', '𝒞', 1);
+      addMatches(/\bpackage\b/g, 'package', 'pkg');
+    }
+    if (['java', 'cs', 'csharp'].includes(l) || !l) {
+      addMatches(/\b(?:import|using)\b/g, 'import', 'imp');
+      addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\b(?:public|private|protected)\b/g, 'visibility', 'vis');
+      addMatches(/\bvoid\b/g, 'type', '◇t');
+    }
+    if (['c', 'cpp', 'c++', 'h', 'hpp'].includes(l) || !l) {
+      addMatches(/#include\b/g, 'import', 'imp');
+      addMatches(/\b(?:int|void|char|float|double|long|short)\b/g, 'type', '◇t');
+    }
+
+    addMatches(/\breturn\b/g, 'return', '→');
+    addMatches(/\byield\b/g, 'yield', '→');
+
+    return tokens.sort((a, b) => a.span.start.offset - b.span.start.offset);
   }
 
   _elideIrrelevantContext(code, userPrompt) {

@@ -56,13 +56,24 @@ export interface GlyphPrivacyRedaction {
   span: GlyphSourceSpan;
 }
 
+export interface GlyphAstTokenSpan {
+  kind: string;
+  original: string;
+  glyph: string;
+  lang: string;
+  name?: string;
+  blockMode?: string;
+  span: GlyphSourceSpan;
+}
+
 export interface GlyphSourceMap {
   version: string;
   level: CompressionLevel | string;
   files: Array<{ ref: string; path: string; domain: string; span?: GlyphSourceSpan }>;
   dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number }>;
   diagnostics: Array<{ original: string; compressed: string; pattern?: string; span?: GlyphSourceSpan }>;
-  codeBlocks: Array<Record<string, unknown>>;
+  codeBlocks: Array<Record<string, unknown> & { tokens?: GlyphAstTokenSpan[] }>;
+  ast: GlyphAstTokenSpan[];
   privacy: GlyphPrivacyRedaction[];
   symbols: GlyphSymbolSpan[];
   replacements: SourceMapEntry[];
@@ -96,7 +107,7 @@ export class GlyphCompressor {
   getStats(): SessionStats;
   resetFileIndex(): void;
   getSourceMap(): GlyphSourceMap;
-  getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks' | 'privacy' | 'symbols'>;
+  getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks' | 'ast' | 'privacy' | 'symbols'>;
   resetSourceMap(): void;
 }
 

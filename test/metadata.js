@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('..', import.meta.url));
 const pkg = require('../package.json');
 
-assert(pkg.version === '1.5.0', 'package should be v1.5.0');
+assert(pkg.version === '1.6.0', 'package should be v1.6.0');
 assert(pkg.scripts['test:unit'], 'unit test script should exist');
 assert(pkg.scripts['test:cli'], 'CLI test script should exist');
 assert(pkg.scripts['test:workspace'], 'workspace test script should exist');

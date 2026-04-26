@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.5.0 (Privacy Firewall Mode)
+### 🔥 New in v1.6.0 (AST-Like Code Block Source Spans)
+
+1. **Code Block Token Maps**: Minified and summarized code blocks now include `tokens` metadata for structural source tokens.
+2. **Top-Level AST Map**: Added `sourceMap.ast` so downstream tools can inspect structural code spans without walking every code block.
+3. **Language-Aware Tokens**: Tracks imports, exports, functions, classes, declarations, return/yield, package/use/using, visibility, and type markers across JS/TS, Python, Rust, Go, Java/C#, and C/C++ families.
+4. **Typed AST Spans**: TypeScript declarations now include `GlyphAstTokenSpan`, and `getReversibleDictionaries()` exposes `ast` metadata.
+5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, issue templates, npm metadata, and VS Code extension metadata for v1.6.0.
+
+### 🔥 v1.5.0 (Privacy Firewall Mode)
 
 1. **Opt-In Privacy Firewall**: Added `privacyFirewall: true` / `privacy: true` to redact secrets and sensitive identifiers before prompt compression.
 2. **Safe Redaction Placeholders**: API keys, tokens, secret assignments, emails, IP addresses, AWS keys, GitHub tokens, JWTs, and bearer tokens are replaced with stable placeholders such as `⟦SECRET_ASSIGNMENT_1⟧`.
@@ -485,6 +493,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.6.0 (AST-Like Code Block Source Spans)
+- **Code Block Token Maps**: Added `codeBlocks[].tokens` entries for structural tokens inside aggressive minified and ultra summarized code blocks.
+- **Top-Level AST Map**: Added `sourceMap.ast` with span metadata and block mode for fast inspection by debugging, explain, and editor workflows.
+- **Language-Aware Coverage**: Tracks imports, exports, functions, classes, declarations, return/yield, package/use/using, visibility, and type markers across common language families.
+- **TypeScript Declarations**: Added `GlyphAstTokenSpan` and exposed `ast` through `getReversibleDictionaries()`.
+- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.6.0`.
 
 ### v1.5.0 (Privacy Firewall Mode)
 - **Opt-In Redaction**: Added `privacyFirewall: true` / `privacy: true` for library consumers and `--privacy` for the CLI.

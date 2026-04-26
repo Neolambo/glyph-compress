@@ -14,9 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.5.0` for Privacy Firewall Mode.
-- [x] Last stable published release is `glyph-compress@1.5.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.5.0`.
+- [x] Current target release is `v1.6.0` for AST-like code block source spans.
+- [x] Last stable published release is `glyph-compress@1.6.0`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.6.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -41,8 +41,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
    - [x] CLI supports `--source-map`.
    - [x] Source maps include line/column ranges for tracked prompt, tech, file, diagnostic, dynamic dictionary, and code block replacements.
    - [x] Source maps include `symbols` entries that map emitted glyphs back to source text and replacement kind.
-   - [ ] Partial: Source maps do not yet map every minified token inside aggressive code blocks back to exact AST nodes.
-   - [ ] Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
+   - [x] Source maps include AST-like token spans for structural tokens inside aggressive and ultra code blocks.
+   - [ ] Partial: Source maps do not yet map every expression-level token inside aggressive code blocks back to exact AST nodes.
+   - [ ] Add deeper expression-level spans for minified code blocks and language-specific structural summaries.
 
 4. **Adaptive Workspace Memory**
    - [x] `glyph-compress inspect` writes `.glyphcompress/codebook.json`.
@@ -146,6 +147,16 @@ Status: delivered.
 - [x] Add `sourceMap.privacy` entries with placeholder, kind, label, span, and non-revealing short SHA-256 hash metadata.
 - [x] Expose privacy redaction metadata through `getReversibleDictionaries()` and TypeScript declarations.
 
+### v1.6.0: AST-Like Code Block Source Spans
+
+Status: delivered.
+
+- [x] Add `codeBlocks[].tokens` metadata for structural tokens inside minified and summarized code blocks.
+- [x] Add top-level `sourceMap.ast` entries with source spans and block mode metadata.
+- [x] Track imports, exports, functions, classes, declarations, return/yield, package/use/using, visibility, and type markers across common language families.
+- [x] Add TypeScript declarations for AST-like token spans.
+- [x] Add integration coverage for line-aware structural code block token spans.
+
 ## Repository Improvements
 
 ### Packaging
@@ -213,12 +224,12 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.5.0`.
+- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.6.0`.
 
 ## Immediate Next Actions
 
-1. Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
-2. Use provider estimator feedback to choose compression profiles automatically.
-3. Add regression fixtures for README badges, deleted links, and VS Code settings.
-4. Add explicit privacy trust-policy labels for lossless, reversible, privacy, and lossy modes.
+1. Use provider estimator feedback to choose compression profiles automatically.
+2. Add regression fixtures for README badges, deleted links, and VS Code settings.
+3. Add explicit privacy trust-policy labels for lossless, reversible, privacy, and lossy modes.
+4. Add expression-level AST spans for code block minification where language-specific parsers are available.
 5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.
