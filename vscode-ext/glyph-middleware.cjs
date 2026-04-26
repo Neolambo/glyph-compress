@@ -22,6 +22,7 @@ __export(glyph_middleware_exports, {
   GlyphCompressor: () => GlyphCompressor,
   PROVIDER_COMPRESSION_PROFILES: () => PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS: () => TECH_GLYPHS,
+  TRUST_POLICY_PROFILES: () => TRUST_POLICY_PROFILES,
   wrapAnthropic: () => wrapAnthropic,
   wrapOpenAI: () => wrapOpenAI
 });
@@ -156,6 +157,80 @@ const PROVIDER_COMPRESSION_PROFILES = {
     codebookHint: "Local-model profile uses more dynamic entries where tokenizer overhead is lower."
   }
 };
+const TRUST_POLICY_PROFILES = {
+  lossless: {
+    policy: "lossless",
+    label: "Lossless",
+    reversible: true,
+    redacts: false,
+    lossy: false,
+    allows: {
+      prompt: false,
+      tech: false,
+      files: false,
+      diagnostics: false,
+      dynamic: false,
+      codeMinify: false,
+      codeSummary: false,
+      redundancyStrip: false,
+      privacy: false
+    }
+  },
+  reversible: {
+    policy: "reversible",
+    label: "Reversible",
+    reversible: true,
+    redacts: false,
+    lossy: false,
+    allows: {
+      prompt: true,
+      tech: true,
+      files: true,
+      diagnostics: true,
+      dynamic: true,
+      codeMinify: false,
+      codeSummary: false,
+      redundancyStrip: false,
+      privacy: false
+    }
+  },
+  privacy: {
+    policy: "privacy",
+    label: "Privacy Firewall",
+    reversible: true,
+    redacts: true,
+    lossy: false,
+    allows: {
+      prompt: true,
+      tech: true,
+      files: true,
+      diagnostics: true,
+      dynamic: true,
+      codeMinify: false,
+      codeSummary: false,
+      redundancyStrip: false,
+      privacy: true
+    }
+  },
+  lossy: {
+    policy: "lossy",
+    label: "Lossy",
+    reversible: false,
+    redacts: false,
+    lossy: true,
+    allows: {
+      prompt: true,
+      tech: true,
+      files: true,
+      diagnostics: true,
+      dynamic: true,
+      codeMinify: true,
+      codeSummary: true,
+      redundancyStrip: true,
+      privacy: true
+    }
+  }
+};
 const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
@@ -171,11 +246,14 @@ class GlyphCompressor {
     this.level = options.level || "standard";
     this.provider = (0, import_token_estimator.normalizeProvider)(options.provider || "raw");
     this.providerProfile = this._resolveProviderProfile(this.provider);
+    this.requestedPrivacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    this.trustPolicy = this._resolveTrustPolicy(options.trustPolicy || options.policy);
+    this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
     this.fileIndex = /* @__PURE__ */ new Map();
     this.fileCounter = 0;
     this.dynamicDict = /* @__PURE__ */ new Map();
     this.dynamicCounter = 0;
-    this.privacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    this.privacyFirewall = this.requestedPrivacyFirewall || this.trustPolicy === "privacy";
     this.privacyTokens = /* @__PURE__ */ new Map();
     this.privacyCounter = 0;
     this.sourceMap = this._createSourceMap();
@@ -239,6 +317,7 @@ class GlyphCompressor {
         thisMessage: {
           provider: this.provider,
           profile: this.providerProfile.strategy,
+          trustPolicy: this.trustPolicy,
           originalTokens: origTokens,
           compressedTokens: compTokens,
           saved: origTokens - compTokens,
@@ -272,6 +351,7 @@ class GlyphCompressor {
       stats: {
         provider: this.provider,
         profile: this.providerProfile.strategy,
+        trustPolicy: this.trustPolicy,
         originalTokens: origTokens,
         compressedTokens: compTokens,
         ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + "x",
@@ -350,10 +430,12 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.7.0",
+      version: "1.8.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
+      trustPolicy: this.trustPolicy,
+      trust: this.trustProfile,
       files: [],
       dynamic: [],
       diagnostics: [],
@@ -371,6 +453,16 @@ class GlyphCompressor {
   _setProvider(provider) {
     this.provider = (0, import_token_estimator.normalizeProvider)(provider || this.provider || "raw");
     this.providerProfile = this._resolveProviderProfile(this.provider);
+  }
+  _resolveTrustPolicy(policy) {
+    const requested = String(policy || "auto").toLowerCase();
+    if (TRUST_POLICY_PROFILES[requested]) return requested;
+    if (this?.requestedPrivacyFirewall) return "privacy";
+    if (this?.level === "aggressive" || this?.level === "ultra") return "lossy";
+    return "reversible";
+  }
+  _allows(capability) {
+    return Boolean(this.trustProfile?.allows?.[capability]);
   }
   _recordReplacement(kind, original, compressed, extra = {}) {
     if (!original || original === compressed) return;
@@ -419,7 +511,7 @@ class GlyphCompressor {
     return { hash, placeholder: this.privacyTokens.get(hash) };
   }
   _applyPrivacyFirewall(text, record = true) {
-    if (!this.privacyFirewall || !text) return text;
+    if (!this.privacyFirewall || !text || !this._allows("privacy")) return text;
     let result = text;
     for (const rule of PRIVACY_REDACTION_PATTERNS) {
       result = result.replace(rule.pattern, (...args) => {
@@ -468,27 +560,30 @@ class GlyphCompressor {
   _compressUserMessage(content, allUserText) {
     if (!content) return content;
     let c = this._applyPrivacyFirewall(this._normalizeMessageContent(content));
-    if (this.level === "ultra") {
+    if (this.level === "ultra" && this._allows("redundancyStrip")) {
       c = this._stripRedundancy(c);
     }
-    if (this.level === "aggressive" || this.level === "ultra") {
+    if (this.level === "aggressive" && this._allows("codeMinify") || this.level === "ultra" && this._allows("codeSummary")) {
       c = this._compressCodeBlocks(c, allUserText);
     }
-    c = this._compressPrompt(c);
-    c = this._compressTechNames(c);
+    if (this._allows("prompt")) c = this._compressPrompt(c);
+    if (this._allows("tech")) c = this._compressTechNames(c);
     if (this.level === "light") {
-      return this._applyDynamicDictionary(c);
+      return this._allows("dynamic") ? this._applyDynamicDictionary(c) : c;
     }
-    c = this._compressFilePaths(c);
-    c = this._compressErrors(c);
-    c = this._compressDiagnostics(c);
-    c = this._applyDynamicDictionary(c);
+    if (this._allows("files")) c = this._compressFilePaths(c);
+    if (this._allows("diagnostics")) {
+      c = this._compressErrors(c);
+      c = this._compressDiagnostics(c);
+    }
+    if (this._allows("dynamic")) c = this._applyDynamicDictionary(c);
     return c;
   }
   _stripRedundancy(text) {
     return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
   }
   _buildDynamicDictionary(text) {
+    if (!this._allows("dynamic")) return;
     if (!text || this.dynamicDict.size >= this.providerProfile.maxDynamicEntries) return;
     const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{3,}\b/g) || [];
     const counts = /* @__PURE__ */ new Map();
@@ -616,7 +711,7 @@ class GlyphCompressor {
       const span = this._spanForRange(input, offset, offset + match.length);
       const codeStartOffset = offset + match.indexOf("\n") + 1;
       const tokens = this._extractCodeBlockTokens(code, lang, input, codeStartOffset);
-      if (this.level === "ultra") {
+      if (this.level === "ultra" && this._allows("codeSummary")) {
         const summary = this._summarizeCode(lines, lang);
         const techGlyph = TECH_GLYPHS[lang] || "";
         const compressed = `[${techGlyph}${summary}]`;
@@ -637,7 +732,7 @@ class GlyphCompressor {
 ...
 \`\`\``, "codeBlock", span, { lang: lang || "text", mode: "summary" });
         return compressed;
-      } else {
+      } else if (this._allows("codeMinify")) {
         let minified = this._minifySyntax(code, lang);
         minified = this._elideIrrelevantContext(minified, userPrompt);
         const compressed = "```" + lang + "\n" + minified + "\n```";
@@ -653,6 +748,7 @@ class GlyphCompressor {
         this.sourceMap.ast.push(...tokens.map((token) => ({ ...token, blockMode: "minified" })));
         return compressed;
       }
+      return match;
     });
   }
   _extractCodeBlockTokens(code, lang, sourceText, codeStartOffset) {
@@ -924,7 +1020,8 @@ if (typeof module !== "undefined" && module.exports) {
     CODEBOOK_PROMPT,
     DOMAIN_GLYPHS,
     TECH_GLYPHS,
-    PROVIDER_COMPRESSION_PROFILES
+    PROVIDER_COMPRESSION_PROFILES,
+    TRUST_POLICY_PROFILES
   };
 }
 // Annotate the CommonJS export names for ESM import in node:
@@ -934,6 +1031,7 @@ if (typeof module !== "undefined" && module.exports) {
   GlyphCompressor,
   PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS,
+  TRUST_POLICY_PROFILES,
   wrapAnthropic,
   wrapOpenAI
 });

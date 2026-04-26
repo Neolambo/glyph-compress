@@ -15,7 +15,7 @@ const sourceMap = execFileSync(process.execPath, [cliPath, 'package.json', '--le
   cwd: root,
   encoding: 'utf8',
 });
-assert(sourceMap.includes('"version": "1.7.0"'), 'CLI should print v1.7.0 source maps');
+assert(sourceMap.includes('"version": "1.8.0"'), 'CLI should print v1.8.0 source maps');
 assert(sourceMap.includes('"symbols"'), 'CLI should print source map symbol spans');
 
 const providerMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--provider', 'anthropic', '--source-map', '--explain'], {
@@ -25,6 +25,13 @@ const providerMap = execFileSync(process.execPath, [cliPath, 'package.json', '--
 assert(providerMap.includes('Provider:          anthropic'), 'CLI should print selected provider in explanations');
 assert(providerMap.includes('"provider": "anthropic"'), 'CLI source map should include normalized provider');
 assert(providerMap.includes('"strategy": "cache-stable"'), 'CLI source map should include provider compression profile');
+
+const trustMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'aggressive', '--trust', 'reversible', '--source-map', '--explain'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+assert(trustMap.includes('Trust policy:      reversible'), 'CLI should print selected trust policy');
+assert(trustMap.includes('"trustPolicy": "reversible"'), 'CLI source map should include trust policy');
 
 const privacyMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--privacy', '--source-map'], {
   cwd: root,

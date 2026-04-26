@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const CODEBOOK_DIR = '.glyphcompress';
 const CODEBOOK_FILE = 'codebook.json';
 const SUPPORTED_EXTENSIONS = new Set([

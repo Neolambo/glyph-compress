@@ -13,6 +13,6 @@
 export { RADICALS, DOMAIN_GLYPHS, ACTION_GLYPHS, TECH_GLYPHS, STRUCTURE_GLYPHS, ERROR_CODES, getAlphabetStats } from './radical-alphabet.js';
 export { Compressor, Codebook } from './compressor.js';
 export { generateSystemPrompt, estimateOverhead } from './system-prompt-generator.js';
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, PROVIDER_COMPRESSION_PROFILES } from '../vscode-ext/glyph-middleware.js';
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES } from '../vscode-ext/glyph-middleware.js';
 export { buildWorkspaceCodebook, saveWorkspaceCodebook, loadWorkspaceCodebook, selectRelevantFiles, detectIntent, runDoctor } from './workspace-intelligence.js';
 export { PROVIDER_TOKEN_PROFILES, normalizeProvider, estimateProviderTokens, compareTokenEstimates } from './token-estimator.js';

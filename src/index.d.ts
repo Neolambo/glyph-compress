@@ -1,9 +1,11 @@
 export type CompressionLevel = 'light' | 'standard' | 'aggressive' | 'ultra';
 export type Provider = 'auto' | 'raw' | 'openai' | 'anthropic' | 'antigravity' | 'gemini' | 'local' | 'gpt' | 'claude' | 'google' | 'ollama';
+export type TrustPolicy = 'auto' | 'lossless' | 'reversible' | 'privacy' | 'lossy';
 
 export interface CompressionStats {
   provider?: string;
   profile?: string;
+  trustPolicy?: string;
   originalTokens: number;
   compressedTokens: number;
   ratio: string;
@@ -76,11 +78,22 @@ export interface ProviderCompressionProfile {
   codebookHint: string;
 }
 
+export interface TrustPolicyProfile {
+  policy: Exclude<TrustPolicy, 'auto'>;
+  label: string;
+  reversible: boolean;
+  redacts: boolean;
+  lossy: boolean;
+  allows: Record<string, boolean>;
+}
+
 export interface GlyphSourceMap {
   version: string;
   level: CompressionLevel | string;
   provider: string;
   profile: ProviderCompressionProfile;
+  trustPolicy: string;
+  trust: TrustPolicyProfile;
   files: Array<{ ref: string; path: string; domain: string; span?: GlyphSourceSpan }>;
   dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number; provider?: string; profile?: string }>;
   diagnostics: Array<{ original: string; compressed: string; pattern?: string; span?: GlyphSourceSpan }>;
@@ -108,6 +121,8 @@ export interface GlyphCompressorOptions {
   enabled?: boolean;
   level?: CompressionLevel;
   provider?: Provider | string;
+  trustPolicy?: TrustPolicy | string;
+  policy?: TrustPolicy | string;
   privacyFirewall?: boolean;
   privacy?: boolean;
 }
@@ -129,6 +144,7 @@ export function wrapAnthropic<TClient>(client: TClient, options?: GlyphCompresso
 
 export const CODEBOOK_PROMPT: string;
 export const PROVIDER_COMPRESSION_PROFILES: Record<string, ProviderCompressionProfile>;
+export const TRUST_POLICY_PROFILES: Record<string, TrustPolicyProfile>;
 export const RADICALS: Record<string, unknown>;
 export const DOMAIN_GLYPHS: Record<string, string>;
 export const ACTION_GLYPHS: Record<string, string>;

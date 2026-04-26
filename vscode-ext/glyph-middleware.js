@@ -127,6 +127,81 @@ const PROVIDER_COMPRESSION_PROFILES = {
   },
 };
 
+const TRUST_POLICY_PROFILES = {
+  lossless: {
+    policy: 'lossless',
+    label: 'Lossless',
+    reversible: true,
+    redacts: false,
+    lossy: false,
+    allows: {
+      prompt: false,
+      tech: false,
+      files: false,
+      diagnostics: false,
+      dynamic: false,
+      codeMinify: false,
+      codeSummary: false,
+      redundancyStrip: false,
+      privacy: false,
+    },
+  },
+  reversible: {
+    policy: 'reversible',
+    label: 'Reversible',
+    reversible: true,
+    redacts: false,
+    lossy: false,
+    allows: {
+      prompt: true,
+      tech: true,
+      files: true,
+      diagnostics: true,
+      dynamic: true,
+      codeMinify: false,
+      codeSummary: false,
+      redundancyStrip: false,
+      privacy: false,
+    },
+  },
+  privacy: {
+    policy: 'privacy',
+    label: 'Privacy Firewall',
+    reversible: true,
+    redacts: true,
+    lossy: false,
+    allows: {
+      prompt: true,
+      tech: true,
+      files: true,
+      diagnostics: true,
+      dynamic: true,
+      codeMinify: false,
+      codeSummary: false,
+      redundancyStrip: false,
+      privacy: true,
+    },
+  },
+  lossy: {
+    policy: 'lossy',
+    label: 'Lossy',
+    reversible: false,
+    redacts: false,
+    lossy: true,
+    allows: {
+      prompt: true,
+      tech: true,
+      files: true,
+      diagnostics: true,
+      dynamic: true,
+      codeMinify: true,
+      codeSummary: true,
+      redundancyStrip: true,
+      privacy: true,
+    },
+  },
+};
+
 // ═══════════════════════════════════════════════════════════
 // CODEBOOK SYSTEM PROMPT
 // ═══════════════════════════════════════════════════════════
@@ -151,11 +226,14 @@ class GlyphCompressor {
     this.level = options.level || 'standard'; // light | standard | aggressive | ultra
     this.provider = normalizeProvider(options.provider || 'raw');
     this.providerProfile = this._resolveProviderProfile(this.provider);
+    this.requestedPrivacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    this.trustPolicy = this._resolveTrustPolicy(options.trustPolicy || options.policy);
+    this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
     this.fileIndex = new Map();
     this.fileCounter = 0;
     this.dynamicDict = new Map();
     this.dynamicCounter = 0;
-    this.privacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    this.privacyFirewall = this.requestedPrivacyFirewall || this.trustPolicy === 'privacy';
     this.privacyTokens = new Map();
     this.privacyCounter = 0;
     this.sourceMap = this._createSourceMap();
@@ -232,6 +310,7 @@ class GlyphCompressor {
         thisMessage: {
           provider: this.provider,
           profile: this.providerProfile.strategy,
+          trustPolicy: this.trustPolicy,
           originalTokens: origTokens,
           compressedTokens: compTokens,
           saved: origTokens - compTokens,
@@ -270,6 +349,7 @@ class GlyphCompressor {
       stats: {
         provider: this.provider,
         profile: this.providerProfile.strategy,
+        trustPolicy: this.trustPolicy,
         originalTokens: origTokens,
         compressedTokens: compTokens,
         ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
@@ -359,10 +439,12 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.7.0',
+      version: '1.8.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
+      trustPolicy: this.trustPolicy,
+      trust: this.trustProfile,
       files: [],
       dynamic: [],
       diagnostics: [],
@@ -382,6 +464,18 @@ class GlyphCompressor {
   _setProvider(provider) {
     this.provider = normalizeProvider(provider || this.provider || 'raw');
     this.providerProfile = this._resolveProviderProfile(this.provider);
+  }
+
+  _resolveTrustPolicy(policy) {
+    const requested = String(policy || 'auto').toLowerCase();
+    if (TRUST_POLICY_PROFILES[requested]) return requested;
+    if (this?.requestedPrivacyFirewall) return 'privacy';
+    if (this?.level === 'aggressive' || this?.level === 'ultra') return 'lossy';
+    return 'reversible';
+  }
+
+  _allows(capability) {
+    return Boolean(this.trustProfile?.allows?.[capability]);
   }
 
   _recordReplacement(kind, original, compressed, extra = {}) {
@@ -438,7 +532,7 @@ class GlyphCompressor {
   }
 
   _applyPrivacyFirewall(text, record = true) {
-    if (!this.privacyFirewall || !text) return text;
+    if (!this.privacyFirewall || !text || !this._allows('privacy')) return text;
 
     let result = text;
     for (const rule of PRIVACY_REDACTION_PATTERNS) {
@@ -499,30 +593,32 @@ class GlyphCompressor {
     let c = this._applyPrivacyFirewall(this._normalizeMessageContent(content));
 
     // Ultra level: remove redundancy before processing
-    if (this.level === 'ultra') {
+    if (this.level === 'ultra' && this._allows('redundancyStrip')) {
       c = this._stripRedundancy(c);
     }
 
     // Level 3 first: Aggressive — compress code blocks BEFORE tech name substitution
-    if (this.level === 'aggressive' || this.level === 'ultra') {
+    if ((this.level === 'aggressive' && this._allows('codeMinify')) || (this.level === 'ultra' && this._allows('codeSummary'))) {
       c = this._compressCodeBlocks(c, allUserText);
     }
 
     // Level 1: Always — compress prompts
-    c = this._compressPrompt(c);
-    c = this._compressTechNames(c);
+    if (this._allows('prompt')) c = this._compressPrompt(c);
+    if (this._allows('tech')) c = this._compressTechNames(c);
 
     if (this.level === 'light') {
-      return this._applyDynamicDictionary(c);
+      return this._allows('dynamic') ? this._applyDynamicDictionary(c) : c;
     }
 
     // Level 2: Standard — compress file paths and errors
-    c = this._compressFilePaths(c);
-    c = this._compressErrors(c);
-    c = this._compressDiagnostics(c);
+    if (this._allows('files')) c = this._compressFilePaths(c);
+    if (this._allows('diagnostics')) {
+      c = this._compressErrors(c);
+      c = this._compressDiagnostics(c);
+    }
 
     // Apply dynamic dictionary LAST so regexes expecting \w+ still work
-    c = this._applyDynamicDictionary(c);
+    if (this._allows('dynamic')) c = this._applyDynamicDictionary(c);
 
     return c;
   }
@@ -535,6 +631,7 @@ class GlyphCompressor {
   }
 
   _buildDynamicDictionary(text) {
+    if (!this._allows('dynamic')) return;
     if (!text || this.dynamicDict.size >= this.providerProfile.maxDynamicEntries) return;
 
     // Find all potential identifiers (words >= 4 chars, containing letters)
@@ -688,7 +785,7 @@ class GlyphCompressor {
       const codeStartOffset = offset + match.indexOf('\n') + 1;
       const tokens = this._extractCodeBlockTokens(code, lang, input, codeStartOffset);
       
-      if (this.level === 'ultra') {
+      if (this.level === 'ultra' && this._allows('codeSummary')) {
         const summary = this._summarizeCode(lines, lang);
         const techGlyph = TECH_GLYPHS[lang] || '';
         const compressed = `[${techGlyph}${summary}]`;
@@ -705,7 +802,7 @@ class GlyphCompressor {
         this._recordReplacement('codeBlock', `\`\`\`${lang}\n...\n\`\`\``, compressed, { lang: lang || 'text', mode: 'summary', span });
         this._recordSymbol(compressed, `\`\`\`${lang}\n...\n\`\`\``, 'codeBlock', span, { lang: lang || 'text', mode: 'summary' });
         return compressed;
-      } else {
+      } else if (this._allows('codeMinify')) {
         // aggressive mode
         let minified = this._minifySyntax(code, lang);
         minified = this._elideIrrelevantContext(minified, userPrompt);
@@ -722,6 +819,7 @@ class GlyphCompressor {
         this.sourceMap.ast.push(...tokens.map(token => ({ ...token, blockMode: 'minified' })));
         return compressed;
       }
+      return match;
     });
   }
 
@@ -1098,4 +1196,4 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // ESM export for modern usage
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES };
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES };

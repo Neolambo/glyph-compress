@@ -21,7 +21,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GlyphCompressor, wrapOpenAI } from '../vscode-ext/glyph-middleware.js';
-import { PROVIDER_COMPRESSION_PROFILES } from '../src/index.js';
+import { PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES } from '../src/index.js';
 import { buildWorkspaceCodebook, detectIntent, runDoctor, saveWorkspaceCodebook, selectRelevantFiles } from '../src/workspace-intelligence.js';
 const require = createRequire(import.meta.url);
 let passed = 0;
@@ -95,6 +95,38 @@ test('Privacy firewall: redacts secrets before compression', () => {
   assert(r.sourceMap.privacy.length >= 3, 'Should record privacy redactions');
   assert(r.sourceMap.privacy.every(entry => !entry.hash.includes('SECRET')), 'Privacy metadata should not include raw secret values');
   assert(r.sourceMap.replacements.some(entry => entry.kind === 'privacy' && entry.redacted), 'Should record safe privacy replacement entries');
+  assert(r.sourceMap.trustPolicy === 'privacy', 'Privacy firewall should select privacy trust policy');
+});
+
+test('Trust policies: lossless preserves user text exactly', () => {
+  const gc = new GlyphCompressor({ level: 'ultra', trustPolicy: 'lossless' });
+  const input = "fix src/app.tsx. Property 'name' does not exist on type 'User'.\n```ts\nimport React from 'react';\nfunction App() { return null; }\n```";
+  const r = gc.compressText(input);
+  assert(r.compressed === input, 'Lossless trust policy should not transform text');
+  assert(r.sourceMap.trustPolicy === 'lossless', 'Should record lossless policy');
+  assert(r.sourceMap.replacements.length === 0, 'Lossless policy should not record replacements');
+});
+
+test('Trust policies: reversible blocks lossy code minification', () => {
+  const gc = new GlyphCompressor({ level: 'aggressive', trustPolicy: 'reversible' });
+  const input = 'Fix this code:\n```ts\nimport React from "react";\nexport function App() {\n  return <div>Hello</div>;\n}\n```';
+  const r = gc.compressText(input);
+  assert(r.sourceMap.trustPolicy === 'reversible', 'Should record reversible policy');
+  assert(!r.compressed.includes('imp ℜ'), 'Reversible policy should not minify code blocks');
+  assert(!r.sourceMap.codeBlocks.some(block => block.mode === 'minified'), 'Reversible policy should not emit minified code block maps');
+});
+
+test('Trust policies: lossy allows ultra summaries', () => {
+  const gc = new GlyphCompressor({ level: 'ultra', trustPolicy: 'lossy' });
+  const r = gc.compressText('```ts\nimport React from "react";\nfunction App() { return null; }\n```');
+  assert(r.sourceMap.trustPolicy === 'lossy', 'Should record lossy policy');
+  assert(r.sourceMap.trust.lossy === true, 'Should expose lossy trust metadata');
+  assert(r.sourceMap.codeBlocks.some(block => block.mode === 'summary'), 'Lossy policy should allow ultra code summaries');
+});
+
+test('Trust policies: public profile table is exported', () => {
+  assert(TRUST_POLICY_PROFILES.lossless.allows.dynamic === false, 'Lossless profile should block dynamic dictionary');
+  assert(TRUST_POLICY_PROFILES.lossy.allows.codeSummary === true, 'Lossy profile should allow code summaries');
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -143,7 +175,7 @@ test('Provider profiles: tune dynamic dictionary thresholds by provider', () => 
   const raw = new GlyphCompressor({ level: 'standard', provider: 'raw' }).compressText(text);
   const anthropic = new GlyphCompressor({ level: 'standard', provider: 'anthropic' }).compressText(text, 'anthropic');
   const local = new GlyphCompressor({ level: 'standard', provider: 'local' }).compressText(text, 'local');
-  assert(raw.sourceMap.version === '1.7.0', 'Should include v1.7.0 source map version');
+  assert(raw.sourceMap.version === '1.8.0', 'Should include v1.8.0 source map version');
   assert(anthropic.sourceMap.provider === 'anthropic', 'Should store normalized provider in source map');
   assert(anthropic.sourceMap.profile.strategy === 'cache-stable', 'Should store provider profile metadata');
   assert(local.sourceMap.profile.strategy === 'aggressive-local', 'Should support local profile metadata');
@@ -352,7 +384,7 @@ console.log('\n═══ TEST: CLI Trust Features ═══\n');
 test('Source maps: expose reversible dictionaries', () => {
   const gc = new GlyphCompressor({ level: 'ultra' });
   const r = gc.compressText("Fix src/components/App.tsx. Property 'name' does not exist on type 'User'.\n```ts\nimport React from 'react';\nfunction App() { return null; }\n```");
-  assert(r.sourceMap.version === '1.7.0', 'Should include source map version');
+  assert(r.sourceMap.version === '1.8.0', 'Should include source map version');
   assert(r.sourceMap.files.some(file => file.path === 'src/components/App.tsx'), 'Should map file refs to paths');
   assert(r.sourceMap.diagnostics.some(diag => diag.original.includes("Property 'name'")), 'Should map diagnostics');
   assert(r.sourceMap.codeBlocks.some(block => block.mode === 'summary'), 'Should map summarized code blocks');
@@ -395,7 +427,7 @@ test('Source maps: CommonJS root export matches ESM behavior', () => {
   const cjs = require('..');
   const gc = new cjs.GlyphCompressor({ level: 'standard' });
   const r = gc.compressText('Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
-  assert(r.sourceMap.version === '1.7.0', 'Should expose source maps through require()');
+  assert(r.sourceMap.version === '1.8.0', 'Should expose source maps through require()');
   assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
   assert(typeof cjs.buildWorkspaceCodebook === 'function', 'Should expose workspace intelligence through require()');
 });
@@ -418,7 +450,7 @@ test('CLI: source-map flag prints source map JSON', () => {
     encoding: 'utf8',
   });
   assert(output.includes('Source map'), 'Should print source map heading');
-  assert(output.includes('"version": "1.7.0"'), 'Should print source map version');
+  assert(output.includes('"version": "1.8.0"'), 'Should print source map version');
   assert(output.includes('"files"'), 'Should include file dictionary');
 });
 
@@ -444,7 +476,7 @@ test('Workspace intelligence: builds persistent codebook and ranks relevant file
   const codebook = buildWorkspaceCodebook(dir);
   const codebookPath = saveWorkspaceCodebook(dir, codebook);
   const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
-  assert(codebook.version === '1.7.0', 'Should use v1.7.0 codebook schema');
+  assert(codebook.version === '1.8.0', 'Should use v1.8.0 codebook schema');
   assert(fs.existsSync(codebookPath), 'Should persist workspace codebook');
   assert(codebook.symbols.some(symbol => symbol.name === 'AuthenticationManager'), 'Should index symbols');
   assert(selection.intents.includes('fix_error'), 'Should detect fix intent');
@@ -464,7 +496,7 @@ test('Workspace intelligence: CLI inspect prints JSON summary', () => withTempWo
     encoding: 'utf8',
   });
   const result = JSON.parse(output);
-  assert(result.version === '1.7.0', 'Should print v1.7.0 inspect output');
+  assert(result.version === '1.8.0', 'Should print v1.8.0 inspect output');
   assert(result.intents.includes('fix_error'), 'Should include detected intent');
   assert(result.relevantFiles.some(file => file.path === 'src/services/auth.ts'), 'Should include relevant file');
 }));
@@ -480,7 +512,7 @@ console.log('\n═══ TEST: Stable Platform Metadata ═══\n');
 test('Stable platform: package exposes TypeScript declarations', () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const pkg = require('..' + '/package.json');
-  assert(pkg.version === '1.7.0', 'Package should be v1.7.0');
+  assert(pkg.version === '1.8.0', 'Package should be v1.8.0');
   assert(pkg.types === 'src/index.d.ts', 'Package should expose root types');
   assert(pkg.exports['.'].types === './src/index.d.ts', 'Root export should expose types');
   assert(pkg.exports['./middleware'].types === './vscode-ext/glyph-middleware.d.ts', 'Middleware export should expose types');
@@ -534,6 +566,7 @@ test('Provider estimates: public estimator API is exported', () => {
   const api = require('..');
   assert(typeof api.estimateProviderTokens === 'function', 'Should export provider token estimator');
   assert(api.PROVIDER_COMPRESSION_PROFILES.local.strategy === 'aggressive-local', 'Should export provider compression profiles');
+  assert(api.TRUST_POLICY_PROFILES.privacy.redacts === true, 'Should export trust policy profiles');
   assert(api.normalizeProvider('claude') === 'anthropic', 'Should normalize provider aliases');
 });
 

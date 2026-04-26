@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.7.0 (Provider-Aware Compression Profiles)
+### 🔥 New in v1.8.0 (Safe Compression Trust Policies)
+
+1. **Explicit Trust Policies**: Added `lossless`, `reversible`, `privacy`, and `lossy` trust policies so consumers can choose which transformations are allowed.
+2. **Transformation Gating**: `lossless` preserves user text, `reversible` blocks code minification/summaries, `privacy` enables redaction, and `lossy` permits aggressive/ultra summaries.
+3. **Trust Metadata**: Source maps now include `sourceMap.trustPolicy` and `sourceMap.trust` so downstream tools can audit compression guarantees.
+4. **CLI Trust Flag**: Added `--trust <policy>` / `--policy <policy>` and explanation output for selected trust policy.
+5. **VS Code Trust Setting**: Added `glyphCompress.trustPolicy` to the extension settings and wired it into compressor activation.
+
+### 🔥 v1.7.0 (Provider-Aware Compression Profiles)
 
 1. **Provider Compression Profiles**: Added provider-specific compression profiles for `raw`, `openai`, `anthropic`, `gemini`, and `local` model workflows.
 2. **Estimator-Guided Dynamic Dictionaries**: Dynamic dictionary thresholds now adapt per provider so OpenAI/local profiles can be more compact while Anthropic stays more cache-stable.
@@ -501,6 +509,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.8.0 (Safe Compression Trust Policies)
+- **Explicit Trust Policies**: Added `TRUST_POLICY_PROFILES` for `lossless`, `reversible`, `privacy`, and `lossy` modes.
+- **Policy-Enforced Transformations**: Lossless mode preserves input text, reversible mode blocks code minification/summaries, privacy mode redacts sensitive values, and lossy mode allows aggressive/ultra transformations.
+- **Source Map Trust Metadata**: Added `sourceMap.trustPolicy` and `sourceMap.trust` for audit-friendly downstream tooling.
+- **CLI and VS Code Controls**: Added CLI `--trust <policy>` / `--policy <policy>` and VS Code `glyphCompress.trustPolicy` setting.
+- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.8.0`.
 
 ### v1.7.0 (Provider-Aware Compression Profiles)
 - **Provider Compression Profiles**: Added `PROVIDER_COMPRESSION_PROFILES` for raw, OpenAI, Anthropic, Gemini-compatible, and local-model targets.

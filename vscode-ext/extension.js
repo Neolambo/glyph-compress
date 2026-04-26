@@ -37,6 +37,8 @@ function activate(context) {
   compressor = new GlyphCompressor({
     enabled: config.get('enabled', true),
     level: config.get('compressionLevel', 'standard'),
+    provider: config.get('provider', 'auto'),
+    trustPolicy: config.get('trustPolicy', 'auto'),
   });
 
   if (config.get('autoUpdateWorkspaceRules', false)) {
@@ -311,10 +313,14 @@ function activate(context) {
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('glyphCompress')) {
         const newConfig = vscode.workspace.getConfiguration('glyphCompress');
-        compressor.enabled = newConfig.get('enabled', true);
-        compressor.level = newConfig.get('compressionLevel', 'standard');
+        compressor = new GlyphCompressor({
+          enabled: newConfig.get('enabled', true),
+          level: newConfig.get('compressionLevel', 'standard'),
+          provider: newConfig.get('provider', 'auto'),
+          trustPolicy: newConfig.get('trustPolicy', 'auto'),
+        });
         outputChannel.appendLine(
-          `Config updated: enabled=${compressor.enabled}, level=${compressor.level}`
+          `Config updated: enabled=${compressor.enabled}, level=${compressor.level}, trust=${compressor.trustPolicy}`
         );
       }
     })
@@ -326,6 +332,7 @@ function activate(context) {
   outputChannel.appendLine('GlyphCompress ready');
   outputChannel.appendLine(`  Provider: ${config.get('provider', 'auto')}`);
   outputChannel.appendLine(`  Level: ${config.get('compressionLevel', 'standard')}`);
+  outputChannel.appendLine(`  Trust: ${config.get('trustPolicy', 'auto')}`);
   outputChannel.appendLine(`  Codebook: ${CODEBOOK_PROMPT.length} chars (≈${Math.ceil(CODEBOOK_PROMPT.length / 4)} tokens)`);
 }
 
