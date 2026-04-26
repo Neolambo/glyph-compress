@@ -24,6 +24,8 @@ node scripts/render-demo-video.js
 
 ## Optional Nano Banana Key Visual Prompt
 
+Nano Banana and fal.ai MCP servers are configured in the VS Code user profile. For the full professional video prompt, model guidance, and runtime instructions, see `docs/professional-video-mcp-brief.md`.
+
 If a Nano Banana MCP image-generation tool is available in your local VS Code setup, use this prompt to create a more cinematic first-frame background or social preview. Save the generated image as `assets/demo-video/nano-banana-key-visual.png` and use it as a launch thumbnail or as a future renderer background.
 
 ```text
