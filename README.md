@@ -7,7 +7,7 @@
 [![NPM Version](https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60)](https://www.npmjs.com/package/glyph-compress)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Commercial License](https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg)](COMMERCIAL_LICENSE.md)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/Neolambo.glyph-compress?label=VS%20Code%20Extension)](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)
+[![GitHub Release](https://img.shields.io/github/v/release/Neolambo/glyph-compress?label=GitHub%20Release)](https://github.com/Neolambo/glyph-compress/releases)
 
 **Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.**
 
@@ -225,6 +225,66 @@ npx glyph-compress doctor
 npx glyph-compress benchmark
 ```
 
+### Command Line (CLI): Available Commands
+
+```bash
+npx glyph-compress [file|command] [options]
+```
+
+| Command | Purpose | Example |
+|---|---|---|
+| `[file]` | Compress a single file and print the compressed payload plus the shared codebook. | `npx glyph-compress src/app.ts` |
+| `inspect [query]` | Build `.glyphcompress/codebook.json`, detect intent, and rank relevant workspace files. | `npx glyph-compress inspect "fix auth error"` |
+| `doctor` | Check repository readiness for GlyphCompress workflows. | `npx glyph-compress doctor` |
+| `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
+
+### Command Line (CLI): Options
+
+| Option | Values | Purpose | Example |
+|---|---|---|---|
+| `-l, --level <level>` | `light`, `standard`, `aggressive`, `ultra` | Select compression aggressiveness. Default: `standard`. | `npx glyph-compress src/app.ts --level ultra` |
+| `-c, --copy` | flag | Copy compressed output to the system clipboard. | `npx glyph-compress src/app.ts --copy` |
+| `-x, --explain` | flag | Print what was compressed, indexed, preserved, or transformed. | `npx glyph-compress src/app.ts --explain` |
+| `--source-map` | flag | Print reversible source map JSON, including file refs, dynamic entries, diagnostics, symbols, AST/code block metadata, privacy metadata, provider metadata, and trust metadata. | `npx glyph-compress src/app.ts --source-map` |
+| `--privacy` | flag | Redact common secrets and sensitive identifiers before compression/output. | `npx glyph-compress .env --privacy --source-map` |
+| `--provider <provider>` | `raw`, `openai`, `anthropic`, `gemini`, `local` | Select provider-aware estimates and compression profile. Default: `raw`. | `npx glyph-compress src/app.ts --provider openai --explain` |
+| `--trust <policy>` | `lossless`, `reversible`, `privacy`, `lossy` | Select allowed transformation policy. Default: auto. | `npx glyph-compress src/app.ts --trust reversible --source-map` |
+| `--policy <policy>` | `lossless`, `reversible`, `privacy`, `lossy` | Alias for `--trust`. | `npx glyph-compress src/app.ts --policy privacy` |
+| `--json` | flag | Print machine-readable JSON for supported commands such as `inspect` and `doctor`. | `npx glyph-compress inspect "review diff" --json` |
+| `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. Default port: `8080`. | `npx glyph-compress --proxy 8080` |
+| `-h, --help` | flag | Show built-in CLI help. | `npx glyph-compress --help` |
+
+### Command Line (CLI): Practical Examples
+
+```bash
+# Standard file compression
+npx glyph-compress README.md
+
+# Maximum compression for a TypeScript source file
+npx glyph-compress src/app.ts --level ultra
+
+# Provider-aware compression for OpenAI chat payloads
+npx glyph-compress src/app.ts --provider openai --level standard --explain
+
+# Anthropic/cache-stable profile with reversible source map metadata
+npx glyph-compress src/app.ts --provider anthropic --trust reversible --source-map
+
+# Exact-preservation mode: useful when you want metadata without transformations
+npx glyph-compress src/app.ts --trust lossless --source-map
+
+# Privacy-first mode for files that may contain secrets or customer data
+npx glyph-compress .env --privacy --trust privacy --source-map
+
+# JSON workspace inspection for automation or CI scripts
+npx glyph-compress inspect "implement billing validation" --json
+
+# Repository readiness check in JSON form
+npx glyph-compress doctor --json
+
+# Start the local OpenAI-compatible compression proxy
+npx glyph-compress --proxy 8080
+```
+
 **Cost savings**: ~$200/month at 50 requests/day with Claude Sonnet.
 
 ## 🚀 Quick Start
@@ -304,8 +364,14 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 
 ### VS Code Extension
 
-1. Install directly from the **[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Neolambo.glyph-compress)** (Search for `GlyphCompress`).
-2. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
+1. Download the latest `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)**.
+2. Install it locally from the terminal:
+   ```powershell
+   code.cmd --install-extension .\glyph-compress-1.8.0.vsix --force
+   code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
+   ```
+3. Optional future distribution channel: public VS Code Marketplace publishing is tracked in the roadmap.
+4. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
 #### Zero-Friction Chat Integration (Copilot / Claude / Cursor)
 GlyphCompress provides a fluid workflow for native IDE chats. The extension can optionally write workspace rules so Copilot and Cursor understand compressed glyph context.
@@ -321,14 +387,19 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
 - `GlyphCompress: Compress Selection` — Compress code and auto-copy to clipboard
 - `GlyphCompress: Build Project Codebook` — Index your workspace files
 - `GlyphCompress: Toggle Compression On/Off`
-- `GlyphCompress: Show Stats` — Dashboard with session statistics
+- `GlyphCompress: Show Compression Stats` — Dashboard with session statistics
+- `GlyphCompress: Start Zero-Command Proxy` — Start the local compression proxy
+- `GlyphCompress: Stop Zero-Command Proxy` — Stop the local compression proxy
+- `GlyphCompress: Compress Entire Workspace` — Generate a compressed workspace summary
 
 **Settings:**
 ```json
 {
   "glyphCompress.enabled": true,
-  "glyphCompress.provider": "auto",        // "openai" | "anthropic" | "antigravity"
+  "glyphCompress.provider": "auto",        // "auto" | "raw" | "openai" | "anthropic" | "antigravity" | "gemini" | "local"
   "glyphCompress.compressionLevel": "standard", // "light" | "standard" | "aggressive" | "ultra"
+  "glyphCompress.trustPolicy": "auto",     // "auto" | "lossless" | "reversible" | "privacy" | "lossy"
+  "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
   "glyphCompress.targetApiUrl": "https://api.openai.com"
 }

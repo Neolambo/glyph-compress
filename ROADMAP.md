@@ -14,11 +14,41 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.8.0` for safe compression trust policies.
+- [x] Current stable release is `v1.8.0` for safe compression trust policies.
 - [x] Last stable published release is `glyph-compress@1.8.0`.
+- [x] npm `latest` points to `1.8.0`.
+- [x] GitHub release `v1.8.0` exists and includes `glyph-compress-1.8.0.vsix`.
+- [x] Local VS Code installation was verified as `neolambo.glyph-compress@1.8.0`.
 - [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.8.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
+
+## Release Reality Check
+
+This section separates what is actually complete from what remains useful future work.
+
+### Verified as Complete Through v1.8.0
+
+- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.8.0`.
+- [x] GitHub tag, GitHub release, npm latest, VSIX artifact, and local VS Code installation are aligned on `1.8.0`.
+- [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
+- [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
+- [x] VS Code activation and configuration wiring cover enabled state, compression level, provider, and trust policy.
+- [x] Automated validation covers unit, CLI, workspace, extension, proxy, metadata, integration, benchmark, link checking, and npm pack dry-run.
+- [x] Documentation exists for architecture, release process, licensing, security, privacy, enterprise usage, contributing, and roadmap planning.
+
+### Still Missing in Practice
+
+- [ ] Public VS Code Marketplace publication is not done; distribution currently relies on GitHub release VSIX artifacts and local installation.
+- [ ] Release automation is still manual for commit, tag, npm publish, GitHub release creation, VSIX upload, and post-release verification.
+- [ ] Real LLM task-success evaluation is not implemented; current fidelity and edit-success scores are deterministic benchmark proxies.
+- [ ] Provider-aware behavior does not yet automatically choose code block, context-router, and trust-warning strategies per provider.
+- [ ] Source maps do not yet provide full expression-level AST mappings for every minified code block.
+- [ ] Workspace intelligence does not yet feed ranked context automatically into normal compression calls.
+- [ ] `doctor` does not yet validate installed VS Code extension version, proxy config, provider credentials, or local VS Code settings.
+- [ ] README badge/link deletion regressions, VS Code setting snapshots, and compressed payload snapshots still need dedicated fixtures.
+- [ ] Structured redaction-aware debug logging for proxy and extension diagnostics is still missing.
+- [ ] Release notes are not generated from conventional commits.
 
 ## Product Bets
 
@@ -252,8 +282,10 @@ Status: delivered.
 
 ## Immediate Next Actions
 
-1. Add regression fixtures for README badges, deleted links, and VS Code settings.
-2. Extend provider profiles to tune code block minification and context-router behavior.
-3. Add provider-specific trust warnings and richer VS Code UI surfacing for risky transformations.
-4. Add expression-level AST spans for code block minification where language-specific parsers are available.
-5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.
+1. Decide the extension distribution channel: publish to the VS Code Marketplace, or explicitly keep GitHub VSIX releases as the supported channel.
+2. Add a release helper script that verifies version alignment, runs checks, packages the VSIX, and prints/prefills npm and GitHub release commands.
+3. Add regression fixtures for README badges, deleted links, VS Code settings, and stable compressed payload snapshots.
+4. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+5. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
+6. Add expression-level AST spans for code block minification where language-specific parsers are available.
+7. Expand `doctor` to validate installed extension version, proxy config, provider credentials, and local VS Code settings.
