@@ -103,7 +103,7 @@ Use these links consistently:
 - [x] Publish real GitHub Wiki.
 - [x] Document CLI commands and examples.
 - [ ] Create one short benchmark image showing before/after compression.
-- [ ] Create a 60-90 second demo video focused on installation and one useful workflow.
+- [x] Create a 60-90 second demo video focused on installation and one useful workflow.
 - [x] Open a concise GitHub issue asking for integrations and benchmark feedback.
 - [ ] Add GitHub topics such as `llm`, `ai`, `vscode-extension`, `semantic-compression`, `prompt-engineering`, `coding-agents`, `token-optimization`, and `developer-tools`.
 
