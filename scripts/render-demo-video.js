@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = join(repositoryRoot, 'assets', 'demo-video');
 const temporaryDirectory = join(outputDirectory, '.tmp');
-const outputPath = join(outputDirectory, 'glyphcompress-demo-75s.mp4');
+const outputPath = join(outputDirectory, 'glyphcompress-demo-pro-75s.mp4');
+const coverPath = join(outputDirectory, 'glyphcompress-demo-pro-cover.png');
 const concatListPath = join(temporaryDirectory, 'concat.txt');
 const ffmpegPath = resolveFfmpegPath();
 
@@ -20,13 +21,15 @@ const monoFont = 'C\\:/Windows/Fonts/consola.ttf';
 const scenes = [
   {
     seconds: 8,
+    kicker: 'Launch Demo',
     title: 'GlyphCompress in 75 seconds',
-    subtitle: 'Semantic compression for IDE-to-LLM context',
-    bullets: ['CLI, npm, VS Code Marketplace, local proxy', 'Source maps, privacy redaction, provider profiles', 'Trust policies: lossless, reversible, privacy, lossy'],
+    subtitle: 'Semantic compression for IDE-to-LLM context, built for coding agents and developer tools.',
+    bullets: ['CLI, npm, VS Code Marketplace, local proxy', 'Source maps, privacy redaction, provider profiles', 'Trust policies for safer compression choices'],
     accent: '0x3bb273',
   },
   {
     seconds: 11,
+    kicker: 'Install',
     title: 'Install from the terminal',
     subtitle: 'No setup ceremony. Try the CLI directly with npx.',
     terminal: [
@@ -38,6 +41,7 @@ const scenes = [
   },
   {
     seconds: 12,
+    kicker: 'Workflow',
     title: 'Compress one useful workflow',
     subtitle: 'Send richer coding context while spending fewer tokens.',
     terminal: [
@@ -50,6 +54,7 @@ const scenes = [
   },
   {
     seconds: 12,
+    kicker: 'Auditability',
     title: 'Keep compression auditable',
     subtitle: 'Reversible mode blocks risky code minification and emits source-map metadata.',
     terminal: [
@@ -63,6 +68,7 @@ const scenes = [
   },
   {
     seconds: 11,
+    kicker: 'Editor Flow',
     title: 'Use it inside VS Code',
     subtitle: 'Install the Marketplace extension for one-click compressed context.',
     terminal: [
@@ -76,6 +82,7 @@ const scenes = [
   },
   {
     seconds: 10,
+    kicker: 'Middleware',
     title: 'Proxy workflows are available too',
     subtitle: 'Route OpenAI-compatible tools through a local compression proxy.',
     terminal: [
@@ -88,6 +95,7 @@ const scenes = [
   },
   {
     seconds: 11,
+    kicker: 'Call To Action',
     title: 'Try it, benchmark it, challenge it',
     subtitle: 'GlyphCompress v1.8.0 is published on npm, GitHub, and the VS Code Marketplace.',
     bullets: [
@@ -106,7 +114,7 @@ mkdirSync(temporaryDirectory, { recursive: true });
 
 const scenePaths = scenes.map((scene, sceneIndex) => {
   const scenePath = join(temporaryDirectory, `scene-${String(sceneIndex + 1).padStart(2, '0')}.mp4`);
-  renderScene(scene, scenePath);
+  renderScene(scene, scenePath, sceneIndex);
   return scenePath;
 });
 
@@ -130,38 +138,63 @@ runFfmpeg([
   outputPath,
 ]);
 
+runFfmpeg([
+  '-y',
+  '-hide_banner',
+  '-ss',
+  '00:00:02',
+  '-i',
+  outputPath,
+  '-frames:v',
+  '1',
+  coverPath,
+]);
+
 rmSync(temporaryDirectory, { recursive: true, force: true });
 console.log(`Rendered ${outputPath}`);
+console.log(`Rendered ${coverPath}`);
 
-function renderScene(scene, scenePath) {
+function renderScene(scene, scenePath, sceneIndex) {
+  const progressWidth = Math.round(videoWidth * ((sceneIndex + 1) / scenes.length));
+  const sceneCounter = `${String(sceneIndex + 1).padStart(2, '0')} / ${String(scenes.length).padStart(2, '0')}`;
   const filters = [
     `drawbox=x=0:y=0:w=${videoWidth}:h=${videoHeight}:color=0x121826:t=fill`,
-    `drawbox=x=0:y=0:w=${videoWidth}:h=18:color=${scene.accent}:t=fill`,
-    `drawbox=x=88:y=96:w=1744:h=792:color=0x182236@0.92:t=fill`,
-    `drawbox=x=88:y=96:w=10:h=792:color=${scene.accent}:t=fill`,
-    drawText('GlyphCompress', 124, 126, 34, '0xc8d3f5', bodyFont),
-    drawText('v1.8.0 demo', 1610, 126, 30, '0x93a4c7', bodyFont),
-    drawText(scene.title, 124, 202, 72, '0xffffff', titleFont),
-    ...drawWrappedText(scene.subtitle, 124, 306, 44, 72, '0xdce6ff', bodyFont, 58),
+    `drawbox=x=0:y=0:w=${videoWidth}:h=92:color=0x0b1020:t=fill`,
+    `drawbox=x=0:y=92:w=${progressWidth}:h=8:color=${scene.accent}:t=fill`,
+    `drawbox=x=0:y=100:w=${videoWidth}:h=1:color=0x2a3654:t=fill`,
+    `drawbox=x=96:y=132:w=1728:h=758:color=0x172033@0.96:t=fill`,
+    `drawbox=x=96:y=132:w=1728:h=1:color=0x34415f:t=fill`,
+    `drawbox=x=96:y=132:w=10:h=758:color=${scene.accent}:t=fill`,
+    `drawbox=x=124:y=26:w=54:h=54:color=${scene.accent}:t=fill`,
+    drawText('GC', 136, 36, 28, '0x0b1020', titleFont),
+    drawText('GlyphCompress', 198, 28, 32, '0xf8fbff', titleFont),
+    drawText('Semantic context compression for AI coding tools', 198, 62, 20, '0x9fb0d0', bodyFont),
+    drawText(sceneCounter, 1644, 28, 26, '0xdce6ff', monoFont),
+    drawText('v1.8.0', 1644, 60, 22, '0x9fb0d0', bodyFont),
+    drawText(scene.kicker, 134, 166, 28, scene.accent, titleFont),
+    drawText(scene.title, 134, 214, 68, '0xffffff', titleFont),
+    ...drawWrappedText(scene.subtitle, 134, 318, 40, 62, '0xdce6ff', bodyFont, 66),
   ];
 
   if (scene.terminal) {
-    filters.push(...drawTerminal(scene.terminal, 124, 410, 1670, 300, scene.accent));
+    filters.push(...drawTerminal(scene.terminal, 134, 432, 1652, 286, scene.accent));
   }
 
   if (scene.bullets) {
-    filters.push(...drawBullets(scene.bullets, 142, 430, scene.accent));
+    filters.push(...drawBullets(scene.bullets, 152, 448, scene.accent));
   }
 
   if (scene.stats) {
-    filters.push(...drawStats(scene.stats, 124, 740, scene.accent));
+    filters.push(...drawStats(scene.stats, 134, 748, scene.accent));
   }
 
   if (scene.caption) {
-    filters.push(drawText(scene.caption, 124, 914, 38, '0xffffff', bodyFont));
+    filters.push(`drawbox=x=96:y=908:w=1728:h=72:color=0x0f1728:t=fill`);
+    filters.push(drawText(scene.caption, 134, 926, 34, '0xffffff', bodyFont));
   }
 
-  filters.push(drawText('github.com/Neolambo/glyph-compress', 124, 992, 30, '0x93a4c7', bodyFont));
+  filters.push(drawText('github.com/Neolambo/glyph-compress', 124, 1012, 28, '0x9fb0d0', bodyFont));
+  filters.push(drawText('npm | VS Code Marketplace | GitHub Wiki', 1260, 1012, 28, '0x9fb0d0', bodyFont));
 
   runFfmpeg([
     '-y',

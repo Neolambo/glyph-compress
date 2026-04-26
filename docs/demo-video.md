@@ -4,10 +4,13 @@ This demo asset is designed for outreach posts, GitHub, Product Hunt, Hacker New
 
 ## Rendered Asset
 
-- Video file: `assets/demo-video/glyphcompress-demo-75s.mp4`
+- Video file: `assets/demo-video/glyphcompress-demo-pro-75s.mp4`
+- Cover image: `assets/demo-video/glyphcompress-demo-pro-cover.png`
 - Duration: 75 seconds
 - Format: 1920x1080 MP4, H.264, silent audio track
 - Focus: installation plus one useful workflow using CLI compression, source maps, trust policies, VS Code, and proxy integration
+
+The repository also keeps the first simple render at `assets/demo-video/glyphcompress-demo-75s.mp4`; use the `pro` version for public outreach.
 
 ## Render Command
 
@@ -18,6 +21,16 @@ $env:npm_config_package_lock='false'
 npm install --no-save @ffmpeg-installer/ffmpeg
 node scripts/render-demo-video.js
 ```
+
+## Optional Nano Banana Key Visual Prompt
+
+If a Nano Banana MCP image-generation tool is available in your local VS Code setup, use this prompt to create a more cinematic first-frame background or social preview. Save the generated image as `assets/demo-video/nano-banana-key-visual.png` and use it as a launch thumbnail or as a future renderer background.
+
+```text
+Create a professional 16:9 launch key visual for GlyphCompress, a developer tool for semantic compression of IDE-to-LLM context. Style: premium AI infrastructure product, clean dark interface, subtle code editor panels, compact glowing glyph tokens flowing into an LLM context window, readable product title "GlyphCompress", small subtitle "Semantic compression for AI coding tools", accents in green, cyan, and warm amber, no clutter, no fake logos, no tiny illegible UI text, suitable for GitHub, Product Hunt, Hacker News, LinkedIn, and YouTube thumbnail.
+```
+
+Do not claim this key visual is a real product screenshot; label it as launch artwork when used publicly.
 
 ## Timeline And Voiceover
 
