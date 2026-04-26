@@ -59,6 +59,7 @@ git status --short
 Verify the Marketplace listing is visible under the published extension id:
 
 ```powershell
+npx @vscode/vsce show Neolambo.glyph-compress
 code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
 ```
 
