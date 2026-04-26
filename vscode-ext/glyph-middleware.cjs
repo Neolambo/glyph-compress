@@ -276,6 +276,7 @@ class GlyphCompressor {
       dynamic: sourceMap.dynamic,
       diagnostics: sourceMap.diagnostics,
       codeBlocks: sourceMap.codeBlocks
+      symbols: sourceMap.symbols,
     };
   }
   resetSourceMap() {
@@ -284,18 +285,39 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.2.0",
+      version: "1.3.0",
       level: this.level,
       files: [],
       dynamic: [],
       diagnostics: [],
       codeBlocks: [],
+      symbols: [],
       replacements: []
     };
   }
   _recordReplacement(kind, original, compressed, extra = {}) {
     if (!original || original === compressed) return;
     this.sourceMap.replacements.push({ kind, original, compressed, ...extra });
+  }
+  _lineColumnAt(text, offset) {
+    const safeOffset = Math.max(0, Math.min(offset, text.length));
+    const before = text.slice(0, safeOffset);
+    const lines = before.split(/\r?\n/);
+    return {
+      line: lines.length,
+      column: lines[lines.length - 1].length + 1,
+      offset: safeOffset
+    };
+  }
+  _spanForRange(text, startOffset, endOffset) {
+    return {
+      start: this._lineColumnAt(text, startOffset),
+      end: this._lineColumnAt(text, endOffset)
+    };
+  }
+  _recordSymbol(glyph, original, kind, span, extra = {}) {
+    if (!glyph || !original || !span) return;
+    this.sourceMap.symbols.push({ glyph, original, kind, span, ...extra });
   }
   _injectCodebook(systemPrompt, provider) {
     if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
@@ -359,11 +381,12 @@ class GlyphCompressor {
     let result = text;
     for (const [word, glyph] of this.dynamicDict) {
       const regex = new RegExp(`\\b${word}\\b`, "g");
-      const matches = result.match(regex);
-      if (matches) {
-        this._recordReplacement("dynamic", word, glyph, { count: matches.length });
-      }
-      result = result.replace(regex, glyph);
+      result = result.replace(regex, (match, offset, input) => {
+        const span = this._spanForRange(input, offset, offset + match.length);
+        this._recordReplacement("dynamic", match, glyph, { span });
+        this._recordSymbol(glyph, match, "dynamic", span);
+        return glyph;
+      });
     }
     return result;
   }
@@ -371,7 +394,17 @@ class GlyphCompressor {
     let result = text;
     for (const [pattern, replacement] of PROMPT_PATTERNS) {
       if (pattern.test(result)) {
-        result = result.replace(pattern, replacement);
+        result = result.replace(pattern, (...args) => {
+          const original = args[0];
+          const groups = args.slice(1, -2);
+          const offset = args[args.length - 2];
+          const input = args[args.length - 1];
+          const compressed = this._expandReplacement(replacement, groups);
+          const span = this._spanForRange(input, offset, offset + original.length);
+          this._recordReplacement("prompt", original, compressed, { span });
+          this._recordSymbol(compressed.trim().split(/\s+/)[0], original, "prompt", span);
+          return compressed;
+        });
         break;
       }
     }
@@ -382,14 +415,20 @@ class GlyphCompressor {
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
     for (const [name, glyph] of entries) {
       const regex = new RegExp(`\\b${name}\\b`, "gi");
-      result = result.replace(regex, glyph);
+      result = result.replace(regex, (match, offset, input) => {
+        const span = this._spanForRange(input, offset, offset + match.length);
+        this._recordReplacement("tech", match, glyph, { span, canonical: name });
+        this._recordSymbol(glyph, match, "tech", span, { canonical: name });
+        return glyph;
+      });
     }
     return result;
   }
   _compressFilePaths(text) {
     return text.replace(
       /(?:[\w\-./\\]+\/)?[\w\-]+\.(tsx?|jsx?|py|rs|go|rb|java|cs|vue|svelte|css|scss|ya?ml|json|md)/gi,
-      (match) => {
+      (match, _extension, offset, input) => {
+        const span = this._spanForRange(input, offset, offset + match.length);
         if (!this.fileIndex.has(match)) {
           this.fileCounter++;
           const domain = this._detectDomain(match);
@@ -398,10 +437,12 @@ class GlyphCompressor {
           this.sourceMap.files.push({
             ref: this.fileIndex.get(match),
             path: match,
-            domain
+            domain,
+            span
           });
         }
-        this._recordReplacement("file", match, this.fileIndex.get(match));
+        this._recordReplacement("file", match, this.fileIndex.get(match), { span });
+        this._recordSymbol(this.fileIndex.get(match), match, "file", span);
         return this.fileIndex.get(match);
       }
     );
@@ -412,9 +453,13 @@ class GlyphCompressor {
       result = result.replace(pattern, (...args) => {
         const original = args[0];
         const groups = args.slice(1, -2);
+        const offset = args[args.length - 2];
+        const input = args[args.length - 1];
         const compressed = this._expandReplacement(replacement, groups);
-        this.sourceMap.diagnostics.push({ original, compressed, pattern: pattern.source });
-        this._recordReplacement("diagnostic", original, compressed);
+        const span = this._spanForRange(input, offset, offset + original.length);
+        this.sourceMap.diagnostics.push({ original, compressed, pattern: pattern.source, span });
+        this._recordReplacement("diagnostic", original, compressed, { span });
+        this._recordSymbol(compressed, original, "diagnostic", span);
         return compressed;
       });
     }
@@ -427,8 +472,9 @@ class GlyphCompressor {
     return text.replace(/error TS(\d+):/gi, "\u2717TS$1:").replace(/warning:/gi, "\u26A0:").replace(/\bat line (\d+)/gi, ":$1").replace(/on line (\d+)/gi, ":$1").replace(/\bline (\d+)/gi, ":$1").replace(/\bcolumn (\d+)/gi, "c$1");
   }
   _compressCodeBlocks(text, userPrompt) {
-    return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code) => {
+    return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code, offset, input) => {
       const lines = code.trim().split("\n");
+      const span = this._spanForRange(input, offset, offset + match.length);
       if (this.level === "ultra") {
         const summary = this._summarizeCode(lines, lang);
         const techGlyph = TECH_GLYPHS[lang] || "";
@@ -438,11 +484,15 @@ class GlyphCompressor {
           lang: lang || "text",
           originalLines: lines.length,
           originalChars: code.length,
-          compressed
+          compressed,
+          span
         });
         this._recordReplacement("codeBlock", `\`\`\`${lang}
 ...
-\`\`\``, compressed, { lang: lang || "text", mode: "summary" });
+\`\`\``, compressed, { lang: lang || "text", mode: "summary", span });
+        this._recordSymbol(compressed, `\`\`\`${lang}
+...
+\`\`\``, "codeBlock", span, { lang: lang || "text", mode: "summary" });
         return compressed;
       } else {
         let minified = this._minifySyntax(code, lang);
@@ -453,7 +503,8 @@ class GlyphCompressor {
           lang: lang || "text",
           originalLines: lines.length,
           originalChars: code.length,
-          compressedChars: minified.length
+          compressedChars: minified.length,
+          span
         });
         return compressed;
       }

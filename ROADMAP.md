@@ -14,9 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.2.0` for provider-aware token estimates and split test suites.
-- [x] Last stable published release is `glyph-compress@1.2.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, metadata, and integration suites after `v1.2.0`.
+- [x] Current target release is `v1.3.0` for semantic source map spans.
+- [x] Last stable published release is `glyph-compress@1.3.0`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, metadata, and integration suites after `v1.3.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -39,8 +39,10 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
    - [x] `compressText()` and `compressMessages()` return `sourceMap`.
    - [x] Source maps include files, dynamic dictionary entries, diagnostics, code blocks, and replacements.
    - [x] CLI supports `--source-map`.
-   - [ ] Partial: Source maps do not yet map every glyph back to exact original line and symbol spans.
-   - [ ] Add line/column ranges and richer symbol-level mappings.
+   - [x] Source maps include line/column ranges for tracked prompt, tech, file, diagnostic, dynamic dictionary, and code block replacements.
+   - [x] Source maps include `symbols` entries that map emitted glyphs back to source text and replacement kind.
+   - [ ] Partial: Source maps do not yet map every minified token inside aggressive code blocks back to exact AST nodes.
+   - [ ] Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
 
 4. **Adaptive Workspace Memory**
    - [x] `glyph-compress inspect` writes `.glyphcompress/codebook.json`.
@@ -114,6 +116,16 @@ Status: delivered.
 - [x] Split validation into focused unit, CLI, workspace, metadata, and integration suites.
 - [x] Keep the legacy integration suite for broad regression coverage while making focused suites callable individually.
 
+### v1.3.0: Semantic Source Map Spans
+
+Status: delivered.
+
+- [x] Add line/column/offset spans for tracked source map replacements.
+- [x] Add `sourceMap.symbols` for glyph-to-source mappings.
+- [x] Expose symbol spans through `getReversibleDictionaries()`.
+- [x] Add TypeScript declarations for source positions, source spans, and symbol spans.
+- [x] Add integration coverage for multi-line file and diagnostic spans.
+
 ## Repository Improvements
 
 ### Packaging
@@ -180,12 +192,12 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [ ] Partial: VS Code extension packaging and install are verified, but activation and command smoke tests are not automated in CI yet.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.2.0`.
+- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.3.0`.
 
 ## Immediate Next Actions
 
 1. Add proxy and VS Code extension activation smoke suites.
-2. Expand source maps with line/column and symbol-span mappings.
-3. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
+2. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
+3. Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
 4. Use provider estimator feedback to choose compression profiles automatically.
 5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.

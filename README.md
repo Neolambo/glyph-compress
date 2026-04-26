@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.2.0 (Provider Accuracy & Test Suites)
+### 🔥 New in v1.3.0 (Semantic Source Map Spans)
+
+1. **Line/Column Source Spans**: Source map entries now include `span.start` and `span.end` with line, column, and offset metadata for tracked replacements.
+2. **Symbol-Level Mappings**: Added a `sourceMap.symbols` array that maps generated glyphs back to their original prompt, tech name, file path, diagnostic, dynamic dictionary, or code block source.
+3. **Reversible Span Access**: `getReversibleDictionaries()` now exposes `symbols` alongside files, dynamic entries, diagnostics, and code blocks.
+4. **Typed Source Maps**: TypeScript declarations now include `GlyphSourcePosition`, `GlyphSourceSpan`, and `GlyphSymbolSpan`.
+5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, and VS Code extension metadata for v1.3.0.
+
+### 🔥 v1.2.0 (Provider Accuracy & Test Suites)
 
 1. **Provider-Aware Token Estimates**: Added OpenAI, Anthropic, Gemini-compatible, local-model, and raw text estimator profiles for more realistic savings metrics.
 2. **Public Estimator API**: Added `estimateProviderTokens()`, `compareTokenEstimates()`, `normalizeProvider()`, and `PROVIDER_TOKEN_PROFILES` to the stable package exports.
@@ -402,7 +410,7 @@ glyph-compress/
 │   ├── workspace.js              # Workspace intelligence smoke checks
 │   ├── metadata.js               # Package/docs metadata checks
 │   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 40 legacy integration checks
+│   └── integration.js            # 41 legacy integration checks
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -456,6 +464,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.3.0 (Semantic Source Map Spans)
+- **Line/Column Ranges**: Added span metadata with line, column, and offset positions for prompt, tech, file, diagnostic, dynamic dictionary, and code block mappings.
+- **Symbol-Level Source Maps**: Added `sourceMap.symbols` to map emitted glyphs back to their original source text and replacement kind.
+- **Reversible Dictionaries**: Added symbol spans to `getReversibleDictionaries()` for downstream inspection and debugging workflows.
+- **TypeScript Declarations**: Added typed source position, source span, and symbol span interfaces.
+- **Integration Coverage**: Expanded integration coverage to 41 checks with multi-line span assertions.
 
 ### v1.2.0 (Provider Accuracy & Test Suites)
 - **Provider-Aware Estimates**: Added reusable token estimator profiles for raw text, OpenAI, Anthropic, Gemini-compatible, and local-model payloads.

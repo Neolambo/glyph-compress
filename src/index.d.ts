@@ -25,16 +25,37 @@ export interface SourceMapEntry {
   original: string;
   compressed: string;
   count?: number;
+  span?: GlyphSourceSpan;
+  [key: string]: unknown;
+}
+
+export interface GlyphSourcePosition {
+  line: number;
+  column: number;
+  offset: number;
+}
+
+export interface GlyphSourceSpan {
+  start: GlyphSourcePosition;
+  end: GlyphSourcePosition;
+}
+
+export interface GlyphSymbolSpan {
+  glyph: string;
+  original: string;
+  kind: string;
+  span: GlyphSourceSpan;
   [key: string]: unknown;
 }
 
 export interface GlyphSourceMap {
   version: string;
   level: CompressionLevel | string;
-  files: Array<{ ref: string; path: string; domain: string }>;
+  files: Array<{ ref: string; path: string; domain: string; span?: GlyphSourceSpan }>;
   dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number }>;
-  diagnostics: Array<{ original: string; compressed: string; pattern?: string }>;
+  diagnostics: Array<{ original: string; compressed: string; pattern?: string; span?: GlyphSourceSpan }>;
   codeBlocks: Array<Record<string, unknown>>;
+  symbols: GlyphSymbolSpan[];
   replacements: SourceMapEntry[];
 }
 
@@ -64,7 +85,7 @@ export class GlyphCompressor {
   getStats(): SessionStats;
   resetFileIndex(): void;
   getSourceMap(): GlyphSourceMap;
-  getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks'>;
+  getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks' | 'symbols'>;
   resetSourceMap(): void;
 }
 
