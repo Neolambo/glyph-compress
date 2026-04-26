@@ -12,6 +12,33 @@ Use this kit to distribute the published GlyphCompress video as the main public 
 - VS Code Marketplace: `https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress`
 - Feedback issue: `https://github.com/Neolambo/glyph-compress/issues/1`
 
+## Composio MCP Workflow
+
+VS Code is configured with a remote `composio` MCP server for outreach actions. The server URL is:
+
+```text
+https://connect.composio.dev/mcp
+```
+
+The required `X-CONSUMER-API-KEY` is requested through a secure VS Code MCP input prompt and must not be committed to the repository.
+
+Use the reusable VS Code prompt:
+
+```text
+/distribute-glyphcompress-with-composio
+```
+
+Recommended use:
+
+1. Reload VS Code so the `composio` MCP server is available.
+2. Run `/distribute-glyphcompress-with-composio` from Copilot Chat.
+3. Insert the Composio key only when VS Code asks through the secure input prompt.
+4. Ask Composio which connected tools are available before publishing anything.
+5. Confirm every irreversible public post before sending it.
+6. Track each outreach action in the table at the end of this document.
+
+Do not use Composio for bulk unsolicited messages. Treat it as a workflow accelerator for tailored posts, tracking, community research, and approved publishing.
+
 ## Core Positioning
 
 GlyphCompress is semantic compression for IDE-to-LLM context. The video should be shared as a quick visual explanation of how verbose coding context can be transformed into compact semantic glyph payloads while preserving auditability through source maps, provider profiles, privacy mode, and trust policies.
@@ -122,6 +149,14 @@ It may be relevant for your coverage of coding agents, context engineering, deve
 6. Product Hunt after the benchmark image is ready.
 7. Reddit: `r/LocalLLaMA`, `r/programming`, `r/vscode`, `r/OpenAI`, `r/ClaudeAI`.
 8. Newsletters: TLDR AI, Ben's Bites, The Batch, Latent Space, AI Engineer.
+
+## First Composio Task
+
+Use this prompt after `/distribute-glyphcompress-with-composio` starts:
+
+```text
+Check which connected Composio tools are available for community outreach. I want to promote this YouTube video responsibly: https://www.youtube.com/watch?v=XRwRYEsReJU. Start by preparing a Hacker News Show HN submission and tailored posts for AI Engineer, LangChain, LlamaIndex, Continue, Cline/Roo Code, and Reddit communities. Do not publish anything until I confirm the channel and final text.
+```
 
 ## Posting Cadence
 
