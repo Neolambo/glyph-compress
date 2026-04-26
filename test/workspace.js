@@ -20,7 +20,7 @@ try {
   const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
   const doctor = runDoctor(dir);
 
-  assert(codebook.version === '1.6.0', 'workspace codebook should use v1.6.0 schema');
+  assert(codebook.version === '1.7.0', 'workspace codebook should use v1.7.0 schema');
   assert(fs.existsSync(codebookPath), 'workspace codebook should be written');
   assert(selection.files.some((file) => file.path === 'src/services/auth.ts'), 'workspace selection should rank auth service');
   assert(detectIntent('write unit tests').includes('write_tests'), 'intent detection should include tests');

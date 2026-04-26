@@ -1,7 +1,9 @@
 export type CompressionLevel = 'light' | 'standard' | 'aggressive' | 'ultra';
-export type Provider = 'auto' | 'raw' | 'openai' | 'anthropic' | 'antigravity' | 'gemini' | 'local';
+export type Provider = 'auto' | 'raw' | 'openai' | 'anthropic' | 'antigravity' | 'gemini' | 'local' | 'gpt' | 'claude' | 'google' | 'ollama';
 
 export interface CompressionStats {
+  provider?: string;
+  profile?: string;
   originalTokens: number;
   compressedTokens: number;
   ratio: string;
@@ -66,11 +68,21 @@ export interface GlyphAstTokenSpan {
   span: GlyphSourceSpan;
 }
 
+export interface ProviderCompressionProfile {
+  provider: string;
+  strategy: string;
+  dynamicMinSavedChars: number;
+  maxDynamicEntries: number;
+  codebookHint: string;
+}
+
 export interface GlyphSourceMap {
   version: string;
   level: CompressionLevel | string;
+  provider: string;
+  profile: ProviderCompressionProfile;
   files: Array<{ ref: string; path: string; domain: string; span?: GlyphSourceSpan }>;
-  dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number }>;
+  dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number; provider?: string; profile?: string }>;
   diagnostics: Array<{ original: string; compressed: string; pattern?: string; span?: GlyphSourceSpan }>;
   codeBlocks: Array<Record<string, unknown> & { tokens?: GlyphAstTokenSpan[] }>;
   ast: GlyphAstTokenSpan[];
@@ -95,13 +107,14 @@ export interface CompressMessagesResult<TMessage = { role: string; content: unkn
 export interface GlyphCompressorOptions {
   enabled?: boolean;
   level?: CompressionLevel;
+  provider?: Provider | string;
   privacyFirewall?: boolean;
   privacy?: boolean;
 }
 
 export class GlyphCompressor {
   constructor(options?: GlyphCompressorOptions);
-  compressText(text: string): CompressTextResult;
+  compressText(text: string, provider?: Provider | string): CompressTextResult;
   compressMessages<TMessage extends { role: string; content: unknown }>(messages: TMessage[], provider?: Provider): CompressMessagesResult<TMessage>;
   getCodebookPrompt(): string;
   getStats(): SessionStats;
@@ -115,6 +128,7 @@ export function wrapOpenAI<TClient>(client: TClient, options?: GlyphCompressorOp
 export function wrapAnthropic<TClient>(client: TClient, options?: GlyphCompressorOptions): TClient;
 
 export const CODEBOOK_PROMPT: string;
+export const PROVIDER_COMPRESSION_PROFILES: Record<string, ProviderCompressionProfile>;
 export const RADICALS: Record<string, unknown>;
 export const DOMAIN_GLYPHS: Record<string, string>;
 export const ACTION_GLYPHS: Record<string, string>;

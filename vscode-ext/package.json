@@ -2,7 +2,7 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
   "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",
   "engines": {
@@ -75,9 +75,12 @@
           "type": "string",
           "enum": [
             "auto",
+            "raw",
             "openai",
             "anthropic",
-            "antigravity"
+            "antigravity",
+            "gemini",
+            "local"
           ],
           "default": "auto",
           "description": "LLM provider to optimize for"

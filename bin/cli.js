@@ -31,6 +31,7 @@ let printSourceMap = false;
 let command = null;
 let jsonOutput = false;
 let privacyFirewall = false;
+let provider = 'raw';
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -47,6 +48,8 @@ for (let i = 0; i < args.length; i++) {
     printSourceMap = true;
   } else if (arg === '--privacy') {
     privacyFirewall = true;
+  } else if (arg === '--provider') {
+    provider = args[++i] || provider;
   } else if (arg === '--json') {
     jsonOutput = true;
   } else if (arg === '--proxy' || arg === '-p') {
@@ -70,6 +73,7 @@ Options:
   -x, --explain         Explain what changed during compression
   --source-map          Print the reversible source map JSON
   --privacy             Redact secrets and sensitive identifiers before compression
+  --provider <provider> Provider profile: raw, openai, anthropic, gemini, local (default: raw)
   --json                Print command output as JSON
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
@@ -104,13 +108,14 @@ if (!fs.existsSync(targetPath)) {
 const content = fs.readFileSync(targetPath, 'utf8');
 const ext = path.extname(targetPath).substring(1);
 
-const gc = new GlyphCompressor({ level, privacyFirewall });
+const gc = new GlyphCompressor({ level, privacyFirewall, provider });
 // Wrap in backticks to trigger full semantic code block compression if in aggressive/ultra mode
-const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
+const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``, provider);
 
 const output = `${gc.getCodebookPrompt()}\n\n${compressed}`;
 const explanation = explain ? buildExplanation({
   level,
+  provider,
   fileToCompress,
   ext,
   original: content,
@@ -217,7 +222,7 @@ function runCommand(command, args, { jsonOutput }) {
   }
 }
 
-function buildExplanation({ level, fileToCompress, ext, original, compressed, stats, compressor }) {
+function buildExplanation({ level, provider, fileToCompress, ext, original, compressed, stats, compressor }) {
   const originalLines = original.split(/\r?\n/).length;
   const compressedLines = compressed.split(/\r?\n/).length;
   const fileRefs = compressor.fileIndex ? compressor.fileIndex.size : 0;
@@ -245,6 +250,8 @@ function buildExplanation({ level, fileToCompress, ext, original, compressed, st
     `File:              ${fileToCompress}`,
     `Language:          ${ext || 'text'}`,
     `Level:             ${level}`,
+    `Provider:          ${stats.provider || provider}`,
+    `Profile:           ${stats.profile || 'balanced'}`,
     `Mode:              ${modeDescription}`,
     `Original lines:    ${originalLines}`,
     `Compressed lines:  ${compressedLines}`,

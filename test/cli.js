@@ -15,8 +15,16 @@ const sourceMap = execFileSync(process.execPath, [cliPath, 'package.json', '--le
   cwd: root,
   encoding: 'utf8',
 });
-assert(sourceMap.includes('"version": "1.6.0"'), 'CLI should print v1.6.0 source maps');
+assert(sourceMap.includes('"version": "1.7.0"'), 'CLI should print v1.7.0 source maps');
 assert(sourceMap.includes('"symbols"'), 'CLI should print source map symbol spans');
+
+const providerMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--provider', 'anthropic', '--source-map', '--explain'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+assert(providerMap.includes('Provider:          anthropic'), 'CLI should print selected provider in explanations');
+assert(providerMap.includes('"provider": "anthropic"'), 'CLI source map should include normalized provider');
+assert(providerMap.includes('"strategy": "cache-stable"'), 'CLI source map should include provider compression profile');
 
 const privacyMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--privacy', '--source-map'], {
   cwd: root,

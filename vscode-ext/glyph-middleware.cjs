@@ -20,6 +20,7 @@ __export(glyph_middleware_exports, {
   CODEBOOK_PROMPT: () => CODEBOOK_PROMPT,
   DOMAIN_GLYPHS: () => DOMAIN_GLYPHS,
   GlyphCompressor: () => GlyphCompressor,
+  PROVIDER_COMPRESSION_PROFILES: () => PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS: () => TECH_GLYPHS,
   wrapAnthropic: () => wrapAnthropic,
   wrapOpenAI: () => wrapOpenAI
@@ -118,6 +119,43 @@ const PRIVACY_REDACTION_PATTERNS = [
   { kind: "email", label: "email address", pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi },
   { kind: "ipv4", label: "IPv4 address", pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g }
 ];
+const PROVIDER_COMPRESSION_PROFILES = {
+  raw: {
+    provider: "raw",
+    strategy: "balanced",
+    dynamicMinSavedChars: 10,
+    maxDynamicEntries: 60,
+    codebookHint: "Generic text profile with balanced dynamic dictionary compression."
+  },
+  openai: {
+    provider: "openai",
+    strategy: "chat-compact",
+    dynamicMinSavedChars: 8,
+    maxDynamicEntries: 72,
+    codebookHint: "OpenAI chat profile favors compact repeated identifiers and low message overhead."
+  },
+  anthropic: {
+    provider: "anthropic",
+    strategy: "cache-stable",
+    dynamicMinSavedChars: 14,
+    maxDynamicEntries: 48,
+    codebookHint: "Anthropic profile keeps the codebook stable for cache-friendly system prompts."
+  },
+  gemini: {
+    provider: "gemini",
+    strategy: "structure-preserving",
+    dynamicMinSavedChars: 12,
+    maxDynamicEntries: 56,
+    codebookHint: "Gemini-compatible profile favors structural clarity with moderate dictionary growth."
+  },
+  local: {
+    provider: "local",
+    strategy: "aggressive-local",
+    dynamicMinSavedChars: 6,
+    maxDynamicEntries: 80,
+    codebookHint: "Local-model profile uses more dynamic entries where tokenizer overhead is lower."
+  }
+};
 const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
@@ -131,6 +169,8 @@ class GlyphCompressor {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
     this.level = options.level || "standard";
+    this.provider = (0, import_token_estimator.normalizeProvider)(options.provider || "raw");
+    this.providerProfile = this._resolveProviderProfile(this.provider);
     this.fileIndex = /* @__PURE__ */ new Map();
     this.fileCounter = 0;
     this.dynamicDict = /* @__PURE__ */ new Map();
@@ -155,8 +195,9 @@ class GlyphCompressor {
    * @param {string} provider - 'openai' | 'anthropic' | 'antigravity'
    * @returns {Object} { messages, stats }
    */
-  compressMessages(messages, provider = "auto") {
+  compressMessages(messages, provider = this.provider) {
     if (!this.enabled) return { messages, stats: this.stats };
+    this._setProvider(provider);
     this.resetSourceMap();
     const allUserText = messages.filter((m) => m.role === "user").map((m) => this._normalizeMessageContent(m.content)).join("\n");
     const safeUserText = this._applyPrivacyFirewall(allUserText, false);
@@ -182,7 +223,7 @@ class GlyphCompressor {
     if (!codebookInjected) {
       compressed.unshift({
         role: "system",
-        content: CODEBOOK_PROMPT
+        content: this._injectCodebook("", provider).trim()
       });
     }
     const origTokens = this._estimateTokens(messages, provider);
@@ -196,6 +237,8 @@ class GlyphCompressor {
       stats: {
         ...this.stats,
         thisMessage: {
+          provider: this.provider,
+          profile: this.providerProfile.strategy,
           originalTokens: origTokens,
           compressedTokens: compTokens,
           saved: origTokens - compTokens,
@@ -210,14 +253,15 @@ class GlyphCompressor {
    * @param {string} text - Raw context text
    * @returns {Object} { compressed, original, stats }
    */
-  compressText(text) {
+  compressText(text, provider = this.provider) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
+    this._setProvider(provider);
     this.resetSourceMap();
     const safeText = this._applyPrivacyFirewall(text, false);
     this._buildDynamicDictionary(safeText);
     const compressed = this._compressUserMessage(text, safeText);
-    const origTokens = this._estimateTokens([{ content: text }], "raw");
-    const compTokens = this._estimateTokens([{ content: compressed }], "raw");
+    const origTokens = this._estimateTokens([{ content: text }], this.provider);
+    const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
@@ -226,6 +270,8 @@ class GlyphCompressor {
       original: text,
       sourceMap: this.getSourceMap(),
       stats: {
+        provider: this.provider,
+        profile: this.providerProfile.strategy,
         originalTokens: origTokens,
         compressedTokens: compTokens,
         ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + "x",
@@ -304,8 +350,10 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.6.0",
+      version: "1.7.0",
       level: this.level,
+      provider: this.provider,
+      profile: this.providerProfile,
       files: [],
       dynamic: [],
       diagnostics: [],
@@ -315,6 +363,14 @@ class GlyphCompressor {
       symbols: [],
       replacements: []
     };
+  }
+  _resolveProviderProfile(provider) {
+    const normalized = (0, import_token_estimator.normalizeProvider)(provider);
+    return PROVIDER_COMPRESSION_PROFILES[normalized] || PROVIDER_COMPRESSION_PROFILES.raw;
+  }
+  _setProvider(provider) {
+    this.provider = (0, import_token_estimator.normalizeProvider)(provider || this.provider || "raw");
+    this.providerProfile = this._resolveProviderProfile(this.provider);
   }
   _recordReplacement(kind, original, compressed, extra = {}) {
     if (!original || original === compressed) return;
@@ -396,10 +452,15 @@ class GlyphCompressor {
   }
   _injectCodebook(systemPrompt, provider) {
     if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
+    this._setProvider(provider);
     let modifiedCodebook = CODEBOOK_PROMPT;
     if (this.dynamicDict.size > 0) {
       const dyn = [...this.dynamicDict].map(([w, g]) => `${g}=${w}`).join(" | ");
       modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `DYN: ${dyn}
+[/GLYPH]`);
+    }
+    if (this.provider !== "raw") {
+      modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}
 [/GLYPH]`);
     }
     return modifiedCodebook + "\n\n" + systemPrompt;
@@ -428,7 +489,7 @@ class GlyphCompressor {
     return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
   }
   _buildDynamicDictionary(text) {
-    if (!text || this.dynamicDict.size >= 60) return;
+    if (!text || this.dynamicDict.size >= this.providerProfile.maxDynamicEntries) return;
     const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{3,}\b/g) || [];
     const counts = /* @__PURE__ */ new Map();
     for (const w of words) {
@@ -439,15 +500,17 @@ class GlyphCompressor {
     const DYN_SYMBOLS = "\u03B1\u03B2\u03B3\u03B4\u03B5\u03B6\u03B7\u03B8\u03B9\u03BA\u03BB\u03BC\u03BD\u03BE\u03BF\u03C0\u03C1\u03C3\u03C4\u03C5\u03C6\u03C7\u03C8\u03C9\u0393\u0394\u0398\u039B\u039E\u03A0\u03A3\u03A6\u03A8\u03A9\u0411\u0412\u0413\u0414\u0416\u0417\u0418\u041A\u041B\u041F\u0424\u0426\u0427\u0428\u0429\u042E\u042F".split("");
     const savings = [...counts.entries()].map(([word, freq]) => {
       return { word, freq, save: freq * (word.length - 1) };
-    }).filter((x) => x.save > 10).sort((a, b) => b.save - a.save);
+    }).filter((x) => x.save > this.providerProfile.dynamicMinSavedChars).sort((a, b) => b.save - a.save);
     for (const item of savings) {
-      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length) {
+      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
         this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
         this.sourceMap.dynamic.push({
           glyph: DYN_SYMBOLS[this.dynamicCounter],
           original: item.word,
           frequency: item.freq,
-          estimatedSavedChars: item.save
+          estimatedSavedChars: item.save,
+          provider: this.provider,
+          profile: this.providerProfile.strategy
         });
         this.dynamicCounter++;
       }
@@ -860,7 +923,8 @@ if (typeof module !== "undefined" && module.exports) {
     wrapAnthropic,
     CODEBOOK_PROMPT,
     DOMAIN_GLYPHS,
-    TECH_GLYPHS
+    TECH_GLYPHS,
+    PROVIDER_COMPRESSION_PROFILES
   };
 }
 // Annotate the CommonJS export names for ESM import in node:
@@ -868,6 +932,7 @@ if (typeof module !== "undefined" && module.exports) {
   CODEBOOK_PROMPT,
   DOMAIN_GLYPHS,
   GlyphCompressor,
+  PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS,
   wrapAnthropic,
   wrapOpenAI

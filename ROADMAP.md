@@ -14,9 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.6.0` for AST-like code block source spans.
-- [x] Last stable published release is `glyph-compress@1.6.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.6.0`.
+- [x] Current target release is `v1.7.0` for provider-aware compression profiles.
+- [x] Last stable published release is `glyph-compress@1.7.0`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.7.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -32,8 +32,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
    - [x] OpenAI and Anthropic middleware wrappers exist.
    - [x] Benchmark fixtures cover raw, OpenAI, Anthropic, Gemini-compatible, and ultra payloads.
    - [x] Provider-specific token estimators exist for raw text, OpenAI, Anthropic, Gemini-compatible, and local-model payloads.
-   - [ ] Partial: Compression behavior is not yet tuned by provider tokenizer or prompt convention.
-   - [ ] Add provider-specific compression profiles that use estimator feedback to choose safer compression strategies.
+   - [x] Provider-specific compression profiles tune dynamic dictionary thresholds and source map metadata for raw, OpenAI, Anthropic, Gemini-compatible, and local-model targets.
+   - [ ] Partial: Code block minification and router behavior are not yet fully tuned by provider prompt convention.
+   - [ ] Extend provider profiles to choose code block and context-router strategies automatically.
 
 3. **Semantic Source Maps**
    - [x] `compressText()` and `compressMessages()` return `sourceMap`.
@@ -157,6 +158,16 @@ Status: delivered.
 - [x] Add TypeScript declarations for AST-like token spans.
 - [x] Add integration coverage for line-aware structural code block token spans.
 
+### v1.7.0: Provider-Aware Compression Profiles
+
+Status: delivered.
+
+- [x] Add provider compression profiles for raw, OpenAI, Anthropic, Gemini-compatible, and local-model targets.
+- [x] Use provider estimator feedback to tune dynamic dictionary savings thresholds and dictionary caps.
+- [x] Add `sourceMap.provider`, `sourceMap.profile`, and dynamic-entry provider metadata for debugging and downstream tooling.
+- [x] Add CLI `--provider <provider>` support and explanation output for selected provider/profile strategy.
+- [x] Export `PROVIDER_COMPRESSION_PROFILES` and `ProviderCompressionProfile` through ESM, CommonJS, and TypeScript declarations.
+
 ## Repository Improvements
 
 ### Packaging
@@ -224,12 +235,12 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.6.0`.
+- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.7.0`.
 
 ## Immediate Next Actions
 
-1. Use provider estimator feedback to choose compression profiles automatically.
+1. Add explicit privacy trust-policy labels for lossless, reversible, privacy, and lossy modes.
 2. Add regression fixtures for README badges, deleted links, and VS Code settings.
-3. Add explicit privacy trust-policy labels for lossless, reversible, privacy, and lossy modes.
+3. Extend provider profiles to tune code block minification and context-router behavior.
 4. Add expression-level AST spans for code block minification where language-specific parsers are available.
 5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.

@@ -14,7 +14,7 @@ body:
     id: version
     attributes:
       label: Version
-      placeholder: "glyph-compress 1.6.0"
+      placeholder: "glyph-compress 1.7.0"
     validations:
       required: true
   - type: dropdown

@@ -20,7 +20,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { estimateProviderTokens } from '../src/token-estimator.js';
+import { estimateProviderTokens, normalizeProvider } from '../src/token-estimator.js';
 
 // ═══════════════════════════════════════════════════════════
 // RADICAL ALPHABET (embedded — no external dependencies)
@@ -89,6 +89,44 @@ const PRIVACY_REDACTION_PATTERNS = [
   { kind: 'ipv4', label: 'IPv4 address', pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g },
 ];
 
+const PROVIDER_COMPRESSION_PROFILES = {
+  raw: {
+    provider: 'raw',
+    strategy: 'balanced',
+    dynamicMinSavedChars: 10,
+    maxDynamicEntries: 60,
+    codebookHint: 'Generic text profile with balanced dynamic dictionary compression.',
+  },
+  openai: {
+    provider: 'openai',
+    strategy: 'chat-compact',
+    dynamicMinSavedChars: 8,
+    maxDynamicEntries: 72,
+    codebookHint: 'OpenAI chat profile favors compact repeated identifiers and low message overhead.',
+  },
+  anthropic: {
+    provider: 'anthropic',
+    strategy: 'cache-stable',
+    dynamicMinSavedChars: 14,
+    maxDynamicEntries: 48,
+    codebookHint: 'Anthropic profile keeps the codebook stable for cache-friendly system prompts.',
+  },
+  gemini: {
+    provider: 'gemini',
+    strategy: 'structure-preserving',
+    dynamicMinSavedChars: 12,
+    maxDynamicEntries: 56,
+    codebookHint: 'Gemini-compatible profile favors structural clarity with moderate dictionary growth.',
+  },
+  local: {
+    provider: 'local',
+    strategy: 'aggressive-local',
+    dynamicMinSavedChars: 6,
+    maxDynamicEntries: 80,
+    codebookHint: 'Local-model profile uses more dynamic entries where tokenizer overhead is lower.',
+  },
+};
+
 // ═══════════════════════════════════════════════════════════
 // CODEBOOK SYSTEM PROMPT
 // ═══════════════════════════════════════════════════════════
@@ -111,6 +149,8 @@ class GlyphCompressor {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
     this.level = options.level || 'standard'; // light | standard | aggressive | ultra
+    this.provider = normalizeProvider(options.provider || 'raw');
+    this.providerProfile = this._resolveProviderProfile(this.provider);
     this.fileIndex = new Map();
     this.fileCounter = 0;
     this.dynamicDict = new Map();
@@ -137,8 +177,9 @@ class GlyphCompressor {
    * @param {string} provider - 'openai' | 'anthropic' | 'antigravity'
    * @returns {Object} { messages, stats }
    */
-  compressMessages(messages, provider = 'auto') {
+  compressMessages(messages, provider = this.provider) {
     if (!this.enabled) return { messages, stats: this.stats };
+    this._setProvider(provider);
     this.resetSourceMap();
 
     // Build dynamic dictionary from user messages
@@ -172,7 +213,7 @@ class GlyphCompressor {
     if (!codebookInjected) {
       compressed.unshift({
         role: 'system',
-        content: CODEBOOK_PROMPT,
+        content: this._injectCodebook('', provider).trim(),
       });
     }
 
@@ -189,6 +230,8 @@ class GlyphCompressor {
       stats: {
         ...this.stats,
         thisMessage: {
+          provider: this.provider,
+          profile: this.providerProfile.strategy,
           originalTokens: origTokens,
           compressedTokens: compTokens,
           saved: origTokens - compTokens,
@@ -204,15 +247,16 @@ class GlyphCompressor {
    * @param {string} text - Raw context text
    * @returns {Object} { compressed, original, stats }
    */
-  compressText(text) {
+  compressText(text, provider = this.provider) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
+    this._setProvider(provider);
     this.resetSourceMap();
 
     const safeText = this._applyPrivacyFirewall(text, false);
     this._buildDynamicDictionary(safeText);
     const compressed = this._compressUserMessage(text, safeText);
-    const origTokens = this._estimateTokens([{ content: text }], 'raw');
-    const compTokens = this._estimateTokens([{ content: compressed }], 'raw');
+    const origTokens = this._estimateTokens([{ content: text }], this.provider);
+    const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
 
     // Track stats
     this.stats.totalOriginalTokens += origTokens;
@@ -224,6 +268,8 @@ class GlyphCompressor {
       original: text,
       sourceMap: this.getSourceMap(),
       stats: {
+        provider: this.provider,
+        profile: this.providerProfile.strategy,
         originalTokens: origTokens,
         compressedTokens: compTokens,
         ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
@@ -313,8 +359,10 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.6.0',
+      version: '1.7.0',
       level: this.level,
+      provider: this.provider,
+      profile: this.providerProfile,
       files: [],
       dynamic: [],
       diagnostics: [],
@@ -324,6 +372,16 @@ class GlyphCompressor {
       symbols: [],
       replacements: [],
     };
+  }
+
+  _resolveProviderProfile(provider) {
+    const normalized = normalizeProvider(provider);
+    return PROVIDER_COMPRESSION_PROFILES[normalized] || PROVIDER_COMPRESSION_PROFILES.raw;
+  }
+
+  _setProvider(provider) {
+    this.provider = normalizeProvider(provider || this.provider || 'raw');
+    this.providerProfile = this._resolveProviderProfile(this.provider);
   }
 
   _recordReplacement(kind, original, compressed, extra = {}) {
@@ -419,10 +477,16 @@ class GlyphCompressor {
     // Don't double-inject
     if (systemPrompt.includes('[GLYPH PROTOCOL')) return systemPrompt;
 
+    this._setProvider(provider);
+
     let modifiedCodebook = CODEBOOK_PROMPT;
     if (this.dynamicDict.size > 0) {
       const dyn = [...this.dynamicDict].map(([w, g]) => `${g}=${w}`).join(' | ');
       modifiedCodebook = modifiedCodebook.replace('[/GLYPH]', `DYN: ${dyn}\n[/GLYPH]`);
+    }
+
+    if (this.provider !== 'raw') {
+      modifiedCodebook = modifiedCodebook.replace('[/GLYPH]', `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}\n[/GLYPH]`);
     }
 
     // Prepend codebook (it's small: ~150 tokens)
@@ -471,7 +535,7 @@ class GlyphCompressor {
   }
 
   _buildDynamicDictionary(text) {
-    if (!text || this.dynamicDict.size >= 60) return;
+    if (!text || this.dynamicDict.size >= this.providerProfile.maxDynamicEntries) return;
 
     // Find all potential identifiers (words >= 4 chars, containing letters)
     const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{3,}\b/g) || [];
@@ -488,17 +552,19 @@ class GlyphCompressor {
     const savings = [...counts.entries()].map(([word, freq]) => {
       // Assume replacement glyph is 1 char. Saving is frequency * (length - 1)
       return { word, freq, save: freq * (word.length - 1) };
-    }).filter(x => x.save > 10) // Only keep if we save at least 10 chars overall
+    }).filter(x => x.save > this.providerProfile.dynamicMinSavedChars) // Provider-aware minimum savings threshold
       .sort((a, b) => b.save - a.save);
 
     for (const item of savings) {
-      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length) {
+      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
         this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
         this.sourceMap.dynamic.push({
           glyph: DYN_SYMBOLS[this.dynamicCounter],
           original: item.word,
           frequency: item.freq,
           estimatedSavedChars: item.save,
+          provider: this.provider,
+          profile: this.providerProfile.strategy,
         });
         this.dynamicCounter++;
       }
@@ -1032,4 +1098,4 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // ESM export for modern usage
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS };
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES };

@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.6.0 (AST-Like Code Block Source Spans)
+### 🔥 New in v1.7.0 (Provider-Aware Compression Profiles)
+
+1. **Provider Compression Profiles**: Added provider-specific compression profiles for `raw`, `openai`, `anthropic`, `gemini`, and `local` model workflows.
+2. **Estimator-Guided Dynamic Dictionaries**: Dynamic dictionary thresholds now adapt per provider so OpenAI/local profiles can be more compact while Anthropic stays more cache-stable.
+3. **Source Map Profile Metadata**: Source maps now include `provider` and `profile` metadata, and dynamic entries record which provider strategy selected them.
+4. **CLI Provider Flag**: Added `--provider <provider>` so command-line compression can estimate and profile output for OpenAI, Anthropic, Gemini-compatible, local, or raw text targets.
+5. **Typed Public Profiles**: TypeScript declarations now expose `ProviderCompressionProfile` and `PROVIDER_COMPRESSION_PROFILES` for downstream tooling.
+
+### 🔥 v1.6.0 (AST-Like Code Block Source Spans)
 
 1. **Code Block Token Maps**: Minified and summarized code blocks now include `tokens` metadata for structural source tokens.
 2. **Top-Level AST Map**: Added `sourceMap.ast` so downstream tools can inspect structural code spans without walking every code block.
@@ -493,6 +501,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.7.0 (Provider-Aware Compression Profiles)
+- **Provider Compression Profiles**: Added `PROVIDER_COMPRESSION_PROFILES` for raw, OpenAI, Anthropic, Gemini-compatible, and local-model targets.
+- **Estimator-Guided Thresholds**: Dynamic dictionary selection now uses provider-specific savings thresholds and dictionary caps.
+- **Source Map Metadata**: Added top-level `sourceMap.provider` and `sourceMap.profile`, with provider/profile metadata on dynamic entries.
+- **CLI Provider Selection**: Added `--provider <provider>` and explanation output for the selected provider/profile strategy.
+- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.7.0`.
 
 ### v1.6.0 (AST-Like Code Block Source Spans)
 - **Code Block Token Maps**: Added `codeBlocks[].tokens` entries for structural tokens inside aggressive minified and ultra summarized code blocks.
