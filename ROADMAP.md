@@ -14,10 +14,10 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.1.1` for license hardening and contributor/commercial safeguards.
-- [x] Last stable published release is `glyph-compress@1.0.0`.
-- [x] `npm test` is expected to pass with 38/38 tests after `v1.1.1`.
-- [x] `npm run benchmark` reports 2.0x aggregate ratio, 49% savings, 100% fidelity proxy, and 0 hallucinated refs.
+- [x] Current target release is `v1.2.0` for provider-aware token estimates and split test suites.
+- [x] Last stable published release is `glyph-compress@1.2.0`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, metadata, and integration suites after `v1.2.0`.
+- [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
 ## Product Bets
@@ -31,8 +31,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 2. **Provider-Aware Compression**
    - [x] OpenAI and Anthropic middleware wrappers exist.
    - [x] Benchmark fixtures cover raw, OpenAI, Anthropic, Gemini-compatible, and ultra payloads.
+   - [x] Provider-specific token estimators exist for raw text, OpenAI, Anthropic, Gemini-compatible, and local-model payloads.
    - [ ] Partial: Compression behavior is not yet tuned by provider tokenizer or prompt convention.
-   - [ ] Add provider-specific token estimators and compression profiles.
+   - [ ] Add provider-specific compression profiles that use estimator feedback to choose safer compression strategies.
 
 3. **Semantic Source Maps**
    - [x] `compressText()` and `compressMessages()` return `sourceMap`.
@@ -103,6 +104,16 @@ Status: delivered as the first stable release.
 - [x] Publish a stable VS Code extension artifact aligned with npm and GitHub tags.
 - [ ] Missing: Publish to the public VS Code Marketplace if that channel is desired beyond local VSIX/GitHub release distribution.
 
+### v1.2.0: Provider Accuracy and Test Suites
+
+Status: delivered.
+
+- [x] Add provider-specific token estimators for raw text, OpenAI, Anthropic, Gemini-compatible, and local-model payloads.
+- [x] Export estimator helpers from ESM, CommonJS, and TypeScript declarations.
+- [x] Update benchmark fixtures to use provider-aware estimates for chat payloads.
+- [x] Split validation into focused unit, CLI, workspace, metadata, and integration suites.
+- [x] Keep the legacy integration suite for broad regression coverage while making focused suites callable individually.
+
 ## Repository Improvements
 
 ### Packaging
@@ -120,8 +131,9 @@ Status: delivered as the first stable release.
 - [x] Integration tests cover core compression, provider wrappers, source maps, CLI trust features, workspace intelligence, package metadata, and governance docs.
 - [x] Benchmark fixtures cover raw, OpenAI, Anthropic, Gemini-compatible, and ultra payloads.
 - [x] Regression coverage exists for package exports and CommonJS imports.
-- [ ] Split tests into unit, integration, proxy, CLI, and extension smoke suites.
-- [ ] Add tokenizer-aware tests using provider-specific token estimators where practical.
+- [x] Split tests into unit, CLI, workspace, metadata, and integration suites.
+- [x] Add tokenizer-aware tests using provider-specific token estimators where practical.
+- [ ] Add proxy and extension activation smoke suites.
 - [ ] Add regression fixtures for README badges, deleted links, and VS Code settings.
 - [ ] Add snapshot tests for compressed payloads so format drift is deliberate.
 
@@ -140,7 +152,8 @@ Status: delivered as the first stable release.
 - [x] Add examples for OpenAI, Anthropic, CLI, and workspace intelligence through README/CLI usage.
 - [x] Add `glyph-compress doctor` to validate repository readiness.
 - [ ] Partial: `doctor` does not yet validate proxy config, VS Code settings, installed extension version, or provider credentials.
-- [ ] Add explicit CommonJS, ESM, Gemini-compatible proxy, and VS Code usage examples.
+- [ ] Partial: CommonJS, ESM, and workspace intelligence examples exist through docs/tests, but Gemini-compatible proxy and VS Code walkthroughs need expansion.
+- [ ] Add explicit Gemini-compatible proxy and VS Code usage examples.
 - [ ] Add structured debug logging with redaction for API keys and request bodies.
 
 ### Governance and Quality
@@ -167,12 +180,12 @@ Status: delivered as the first stable release.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [ ] Partial: VS Code extension packaging and install are verified, but activation and command smoke tests are not automated in CI yet.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.0.0`.
+- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.2.0`.
 
 ## Immediate Next Actions
 
-1. Split the integration test file into focused unit, CLI, proxy, workspace, and extension smoke suites.
-2. Add provider-specific tokenizer estimates and benchmark scenarios for OpenAI, Anthropic, Gemini, and local models.
-3. Expand source maps with line/column and symbol-span mappings.
-4. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
+1. Add proxy and VS Code extension activation smoke suites.
+2. Expand source maps with line/column and symbol-span mappings.
+3. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
+4. Use provider estimator feedback to choose compression profiles automatically.
 5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.

@@ -19,6 +19,8 @@
  * 3. Antigravity skill
  */
 
+import { estimateProviderTokens } from '../src/token-estimator.js';
+
 // ═══════════════════════════════════════════════════════════
 // RADICAL ALPHABET (embedded — no external dependencies)
 // ═══════════════════════════════════════════════════════════
@@ -158,8 +160,8 @@ class GlyphCompressor {
     }
 
     // Update stats
-    const origTokens = this._estimateTokens(messages);
-    const compTokens = this._estimateTokens(compressed);
+    const origTokens = this._estimateTokens(messages, provider);
+    const compTokens = this._estimateTokens(compressed, provider);
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
@@ -191,8 +193,8 @@ class GlyphCompressor {
 
     this._buildDynamicDictionary(text);
     const compressed = this._compressUserMessage(text, text);
-    const origTokens = this._estimateTokens([{ content: text }]);
-    const compTokens = this._estimateTokens([{ content: compressed }]);
+    const origTokens = this._estimateTokens([{ content: text }], 'raw');
+    const compTokens = this._estimateTokens([{ content: compressed }], 'raw');
 
     // Track stats
     this.stats.totalOriginalTokens += origTokens;
@@ -290,7 +292,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.1.1',
+      version: '1.2.0',
       level: this.level,
       files: [],
       dynamic: [],
@@ -674,14 +676,8 @@ class GlyphCompressor {
     return 'language';
   }
 
-  _estimateTokens(messages) {
-    // Rough: 1 token ≈ 4 chars (English avg)
-    let chars = 0;
-    for (const m of messages) {
-      if (typeof m.content === 'string') chars += m.content.length;
-      else if (m.content) chars += JSON.stringify(m.content).length;
-    }
-    return Math.ceil(chars / 4);
+  _estimateTokens(messages, provider = 'raw') {
+    return estimateProviderTokens(messages, provider);
   }
 }
 

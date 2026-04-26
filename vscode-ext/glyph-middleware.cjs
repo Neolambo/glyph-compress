@@ -25,6 +25,7 @@ __export(glyph_middleware_exports, {
   wrapOpenAI: () => wrapOpenAI
 });
 module.exports = __toCommonJS(glyph_middleware_exports);
+var import_token_estimator = require("../src/token-estimator.cjs");
 const DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -168,8 +169,8 @@ class GlyphCompressor {
         content: CODEBOOK_PROMPT
       });
     }
-    const origTokens = this._estimateTokens(messages);
-    const compTokens = this._estimateTokens(compressed);
+    const origTokens = this._estimateTokens(messages, provider);
+    const compTokens = this._estimateTokens(compressed, provider);
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
@@ -198,8 +199,8 @@ class GlyphCompressor {
     this.resetSourceMap();
     this._buildDynamicDictionary(text);
     const compressed = this._compressUserMessage(text, text);
-    const origTokens = this._estimateTokens([{ content: text }]);
-    const compTokens = this._estimateTokens([{ content: compressed }]);
+    const origTokens = this._estimateTokens([{ content: text }], "raw");
+    const compTokens = this._estimateTokens([{ content: compressed }], "raw");
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
@@ -283,7 +284,7 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.1.1",
+      version: "1.2.0",
       level: this.level,
       files: [],
       dynamic: [],
@@ -574,13 +575,8 @@ class GlyphCompressor {
     if (/security|auth|guard/i.test(p)) return "security";
     return "language";
   }
-  _estimateTokens(messages) {
-    let chars = 0;
-    for (const m of messages) {
-      if (typeof m.content === "string") chars += m.content.length;
-      else if (m.content) chars += JSON.stringify(m.content).length;
-    }
-    return Math.ceil(chars / 4);
+  _estimateTokens(messages, provider = "raw") {
+    return (0, import_token_estimator.estimateProviderTokens)(messages, provider);
   }
 }
 function wrapOpenAI(client, options = {}) {

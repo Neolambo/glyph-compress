@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.1.1 (License Hardening)
+### 🔥 New in v1.2.0 (Provider Accuracy & Test Suites)
+
+1. **Provider-Aware Token Estimates**: Added OpenAI, Anthropic, Gemini-compatible, local-model, and raw text estimator profiles for more realistic savings metrics.
+2. **Public Estimator API**: Added `estimateProviderTokens()`, `compareTokenEstimates()`, `normalizeProvider()`, and `PROVIDER_TOKEN_PROFILES` to the stable package exports.
+3. **Split Test Suites**: Added focused `test:unit`, `test:cli`, `test:workspace`, `test:metadata`, and `test:integration` scripts, with `npm test` running the full suite runner.
+4. **Benchmark Alignment**: The benchmark now uses provider-specific estimates for chat payloads instead of a single generic character heuristic.
+5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, and VS Code extension metadata for v1.2.0.
+
+### 🔥 v1.1.1 (License Hardening)
 
 1. **AGPL-3.0-only Metadata**: Root package, VS Code extension, and package lock metadata now use the more precise `AGPL-3.0-only` SPDX identifier.
 2. **Commercial License Gate**: Added explicit commercial-use language clarifying that proprietary, hosted, SaaS, embedded, OEM, marketplace, or private redistribution rights require a separate written agreement.
@@ -111,7 +119,7 @@ For future release planning and repository improvement priorities, see the [Glyp
 
 ### 📏 v0.7.0 Benchmark Snapshot
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **2.0x**, **49% token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **2.1x**, **53% token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures.
 
 ### 🔥 v0.6.0 (Project "Rosetta")
 
@@ -388,9 +396,13 @@ glyph-compress/
 │   ├── extension.js              # Extension activation & commands
 │   └── glyph-middleware.js       # Core middleware (OpenAI/Claude/Antigravity)
 ├── test/
-│   ├── demo.js                   # Interactive demo with 5 scenarios
+│   ├── run-suites.js             # Runs focused test suites
+│   ├── unit.js                   # Core compressor and estimator checks
+│   ├── cli.js                    # CLI explain/source-map smoke checks
+│   ├── workspace.js              # Workspace intelligence smoke checks
+│   ├── metadata.js               # Package/docs metadata checks
 │   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 38 automated tests
+│   └── integration.js            # 40 legacy integration checks
 ├── examples/
 │   ├── openai-example.js         # OpenAI usage example
 │   └── claude-example.js         # Claude usage example
@@ -408,8 +420,15 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all tests (38/38 ✓)
+# Run all test suites
 npm test
+
+# Run focused suites
+npm run test:unit
+npm run test:cli
+npm run test:workspace
+npm run test:metadata
+npm run test:integration
 
 # Run the stable release validation bundle
 npm run check
@@ -437,6 +456,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.2.0 (Provider Accuracy & Test Suites)
+- **Provider-Aware Estimates**: Added reusable token estimator profiles for raw text, OpenAI, Anthropic, Gemini-compatible, and local-model payloads.
+- **Public API Exports**: Exposed `estimateProviderTokens()`, `compareTokenEstimates()`, `normalizeProvider()`, and `PROVIDER_TOKEN_PROFILES` from ESM, CommonJS, and TypeScript declarations.
+- **Benchmark Accuracy**: Updated the benchmark to use provider-specific estimates for chat-style fixtures.
+- **Split Test Suites**: Added focused unit, CLI, workspace, metadata, and integration suite scripts, with `npm test` orchestrating all suites.
+- **Integration Coverage**: Expanded integration metadata coverage to 40 checks.
 
 ### v1.1.1 (License Hardening)
 - **Precise SPDX Metadata**: Updated npm and VS Code extension metadata to `AGPL-3.0-only`.

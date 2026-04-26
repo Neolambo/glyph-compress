@@ -6,6 +6,7 @@
  */
 
 import { GlyphCompressor } from '../vscode-ext/glyph-middleware.js';
+import { estimateProviderTokens } from '../src/token-estimator.js';
 
 const fixtures = [
   {
@@ -56,7 +57,7 @@ The component uses React, TypeScript, and fetchAnalytics from ../api/analytics.`
 ];
 
 function estimateTokens(value) {
-  return Math.ceil(JSON.stringify(value).length / 4);
+  return estimateProviderTokens(value, 'raw');
 }
 
 function containsAll(text, markers) {
@@ -83,9 +84,9 @@ function runFixture(fixture) {
     const result = compressor.compressMessages(fixture.messages, fixture.provider);
     const originalUserMessages = fixture.messages.filter((message) => message.role === 'user');
     const compressedUserMessages = result.messages.filter((message) => message.role === 'user');
-    originalTokens = estimateTokens(originalUserMessages);
-    compressedTokens = estimateTokens(compressedUserMessages);
-    totalTokens = estimateTokens(result.messages);
+    originalTokens = estimateProviderTokens(originalUserMessages, fixture.provider);
+    compressedTokens = estimateProviderTokens(compressedUserMessages, fixture.provider);
+    totalTokens = estimateProviderTokens(result.messages, fixture.provider);
     compressedText = JSON.stringify(result.messages);
   } else {
     const result = compressor.compressText(fixture.input);
@@ -137,7 +138,7 @@ const totals = results.reduce((acc, item) => {
   hallucinatedFileRefs: 0,
 });
 
-console.log('\nGlyphCompress Benchmark v1.1.1');
+console.log('\nGlyphCompress Benchmark v1.2.0');
 console.log('='.repeat(72));
 console.log('Scenario | Provider | Level | Payload | Saved | Fidelity | Edit OK | Bad refs');
 console.log('-'.repeat(72));

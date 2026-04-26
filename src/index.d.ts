@@ -1,5 +1,5 @@
 export type CompressionLevel = 'light' | 'standard' | 'aggressive' | 'ultra';
-export type Provider = 'auto' | 'openai' | 'anthropic' | 'antigravity';
+export type Provider = 'auto' | 'raw' | 'openai' | 'anthropic' | 'antigravity' | 'gemini' | 'local';
 
 export interface CompressionStats {
   originalTokens: number;
@@ -91,6 +91,17 @@ export class Codebook {
 export function generateSystemPrompt(...args: unknown[]): string;
 export function estimateOverhead(...args: unknown[]): unknown;
 
+export interface ProviderTokenProfile {
+  charsPerToken: number;
+  messageOverhead: number;
+  systemOverhead: number;
+  name: string;
+}
+
+export const PROVIDER_TOKEN_PROFILES: Record<string, ProviderTokenProfile>;
+export function normalizeProvider(provider?: string): string;
+export function estimateProviderTokens(value: unknown, provider?: Provider | string): number;
+export function compareTokenEstimates(original: unknown, compressed: unknown, provider?: Provider | string): CompressionStats & { provider: string };
 export interface WorkspaceCodebookFile {
   path: string;
   ext: string;
