@@ -30,6 +30,7 @@ let explain = false;
 let printSourceMap = false;
 let command = null;
 let jsonOutput = false;
+let privacyFirewall = false;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -44,6 +45,8 @@ for (let i = 0; i < args.length; i++) {
     explain = true;
   } else if (arg === '--source-map') {
     printSourceMap = true;
+  } else if (arg === '--privacy') {
+    privacyFirewall = true;
   } else if (arg === '--json') {
     jsonOutput = true;
   } else if (arg === '--proxy' || arg === '-p') {
@@ -66,6 +69,7 @@ Options:
   -c, --copy            Copy compressed output to clipboard
   -x, --explain         Explain what changed during compression
   --source-map          Print the reversible source map JSON
+  --privacy             Redact secrets and sensitive identifiers before compression
   --json                Print command output as JSON
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
@@ -100,7 +104,7 @@ if (!fs.existsSync(targetPath)) {
 const content = fs.readFileSync(targetPath, 'utf8');
 const ext = path.extname(targetPath).substring(1);
 
-const gc = new GlyphCompressor({ level });
+const gc = new GlyphCompressor({ level, privacyFirewall });
 // Wrap in backticks to trigger full semantic code block compression if in aggressive/ultra mode
 const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
 

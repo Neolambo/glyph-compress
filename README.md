@@ -56,7 +56,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.4.0 (Extension & Proxy Smoke Suites)
+### 🔥 New in v1.5.0 (Privacy Firewall Mode)
+
+1. **Opt-In Privacy Firewall**: Added `privacyFirewall: true` / `privacy: true` to redact secrets and sensitive identifiers before prompt compression.
+2. **Safe Redaction Placeholders**: API keys, tokens, secret assignments, emails, IP addresses, AWS keys, GitHub tokens, JWTs, and bearer tokens are replaced with stable placeholders such as `⟦SECRET_ASSIGNMENT_1⟧`.
+3. **Non-Revealing Source Maps**: Added `sourceMap.privacy` entries with redaction kind, label, placeholder, line/column span, and short SHA-256 hash metadata without storing the raw secret.
+4. **CLI Privacy Flag**: Added `--privacy` so command-line compression can redact sensitive values before output, clipboard copy, or source-map printing.
+5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, issue templates, npm metadata, and VS Code extension metadata for v1.5.0.
+
+### 🔥 v1.4.0 (Extension & Proxy Smoke Suites)
 
 1. **VS Code Activation Smoke Test**: Added a mocked VS Code host suite that verifies extension activation reaches ready state and registers every contributed command.
 2. **Proxy Forwarding Smoke Test**: Added a local proxy suite that confirms chat payload compression, glyph protocol injection, upstream path preservation, and corrected `content-length` forwarding.
@@ -179,6 +187,9 @@ npx glyph-compress src/app.ts --level ultra --explain
 
 # Print reversible source map metadata
 npx glyph-compress src/app.ts --level ultra --source-map
+
+# Redact secrets before printing or copying compressed output
+npx glyph-compress .env --privacy --source-map
 
 # Build a persistent workspace codebook and rank relevant files
 npx glyph-compress inspect "fix AuthenticationManager error"
@@ -474,6 +485,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.5.0 (Privacy Firewall Mode)
+- **Opt-In Redaction**: Added `privacyFirewall: true` / `privacy: true` for library consumers and `--privacy` for the CLI.
+- **Sensitive Pattern Coverage**: Redacts common API keys, secret assignments, bearer tokens, JWTs, GitHub tokens, AWS access keys, emails, and IPv4 addresses before compression.
+- **Safe Source Map Metadata**: Added `sourceMap.privacy` with placeholder, kind, label, span, and short SHA-256 hash metadata without retaining raw sensitive values.
+- **Reversible Dictionary Access**: Added privacy redaction entries to `getReversibleDictionaries()` for inspection workflows.
+- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.5.0`.
 
 ### v1.4.0 (Extension & Proxy Smoke Suites)
 - **VS Code Activation Coverage**: Added a mocked VS Code extension host smoke suite that checks activation, command registration, output logging, and subscription tracking.

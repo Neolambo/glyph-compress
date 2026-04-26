@@ -12,4 +12,11 @@ const comparison = compareTokenEstimates('AuthenticationManager AuthenticationMa
 assert(comparison.provider === 'anthropic', 'comparison should report normalized provider');
 assert(comparison.originalTokens > comparison.compressedTokens, 'comparison should show savings');
 
+const privateCompressor = new GlyphCompressor({ level: 'standard', privacyFirewall: true });
+const privateResult = privateCompressor.compressText('API_KEY=sk-testSECRETSECRETSECRETSECRETSECRET and email admin@example.com');
+assert(!privateResult.compressed.includes('sk-testSECRET'), 'privacy firewall should redact API keys');
+assert(!privateResult.compressed.includes('admin@example.com'), 'privacy firewall should redact emails');
+assert(privateResult.sourceMap.privacy.length >= 2, 'privacy firewall should expose redaction metadata');
+assert(privateResult.sourceMap.privacy.every((entry) => !entry.hash.includes('sk-testSECRET')), 'privacy metadata should not expose raw secrets');
+
 console.log('unit suite ok');

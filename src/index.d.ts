@@ -48,6 +48,14 @@ export interface GlyphSymbolSpan {
   [key: string]: unknown;
 }
 
+export interface GlyphPrivacyRedaction {
+  kind: string;
+  label: string;
+  placeholder: string;
+  hash: string;
+  span: GlyphSourceSpan;
+}
+
 export interface GlyphSourceMap {
   version: string;
   level: CompressionLevel | string;
@@ -55,6 +63,7 @@ export interface GlyphSourceMap {
   dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number }>;
   diagnostics: Array<{ original: string; compressed: string; pattern?: string; span?: GlyphSourceSpan }>;
   codeBlocks: Array<Record<string, unknown>>;
+  privacy: GlyphPrivacyRedaction[];
   symbols: GlyphSymbolSpan[];
   replacements: SourceMapEntry[];
 }
@@ -75,6 +84,8 @@ export interface CompressMessagesResult<TMessage = { role: string; content: unkn
 export interface GlyphCompressorOptions {
   enabled?: boolean;
   level?: CompressionLevel;
+  privacyFirewall?: boolean;
+  privacy?: boolean;
 }
 
 export class GlyphCompressor {
@@ -85,7 +96,7 @@ export class GlyphCompressor {
   getStats(): SessionStats;
   resetFileIndex(): void;
   getSourceMap(): GlyphSourceMap;
-  getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks' | 'symbols'>;
+  getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks' | 'privacy' | 'symbols'>;
   resetSourceMap(): void;
 }
 

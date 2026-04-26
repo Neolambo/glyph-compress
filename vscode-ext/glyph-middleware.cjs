@@ -26,6 +26,7 @@ __export(glyph_middleware_exports, {
 });
 module.exports = __toCommonJS(glyph_middleware_exports);
 var import_token_estimator = require("../src/token-estimator.cjs");
+var import_node_crypto = require("node:crypto");
 const DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -106,6 +107,17 @@ const PROMPT_PATTERNS = [
   [/test (.+)/i, "\u25BA $1"],
   [/document (.+)/i, "\u25A0 $1"]
 ];
+const PRIVACY_REDACTION_PATTERNS = [
+  { kind: "openai_key", label: "OpenAI API key", pattern: /\bsk-[A-Za-z0-9_-]{20,}\b/g },
+  { kind: "github_token", label: "GitHub token", pattern: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b/g },
+  { kind: "github_token", label: "GitHub fine-grained token", pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g },
+  { kind: "aws_access_key", label: "AWS access key", pattern: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g },
+  { kind: "jwt", label: "JSON Web Token", pattern: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g },
+  { kind: "bearer_token", label: "Bearer token", pattern: /\bBearer\s+([A-Za-z0-9._~+/=-]{20,})\b/g, valueGroup: 1 },
+  { kind: "secret_assignment", label: "secret assignment", pattern: /\b((?:api[_-]?key|token|secret|password|passwd|pwd|client[_-]?secret|access[_-]?token)\s*[:=]\s*)(["']?)([^"'\s,;]+)\2/gi, valueGroup: 3 },
+  { kind: "email", label: "email address", pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi },
+  { kind: "ipv4", label: "IPv4 address", pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g }
+];
 const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
@@ -123,6 +135,9 @@ class GlyphCompressor {
     this.fileCounter = 0;
     this.dynamicDict = /* @__PURE__ */ new Map();
     this.dynamicCounter = 0;
+    this.privacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    this.privacyTokens = /* @__PURE__ */ new Map();
+    this.privacyCounter = 0;
     this.sourceMap = this._createSourceMap();
     this.stats = {
       totalOriginalTokens: 0,
@@ -143,8 +158,9 @@ class GlyphCompressor {
   compressMessages(messages, provider = "auto") {
     if (!this.enabled) return { messages, stats: this.stats };
     this.resetSourceMap();
-    const allUserText = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n");
-    this._buildDynamicDictionary(allUserText);
+    const allUserText = messages.filter((m) => m.role === "user").map((m) => this._normalizeMessageContent(m.content)).join("\n");
+    const safeUserText = this._applyPrivacyFirewall(allUserText, false);
+    this._buildDynamicDictionary(safeUserText);
     const compressed = [];
     let codebookInjected = false;
     for (const msg of messages) {
@@ -157,7 +173,7 @@ class GlyphCompressor {
       } else if (msg.role === "user") {
         compressed.push({
           role: "user",
-          content: this._compressUserMessage(msg.content, allUserText)
+          content: this._compressUserMessage(msg.content, safeUserText)
         });
       } else {
         compressed.push(msg);
@@ -197,8 +213,9 @@ class GlyphCompressor {
   compressText(text) {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
     this.resetSourceMap();
-    this._buildDynamicDictionary(text);
-    const compressed = this._compressUserMessage(text, text);
+    const safeText = this._applyPrivacyFirewall(text, false);
+    this._buildDynamicDictionary(safeText);
+    const compressed = this._compressUserMessage(text, safeText);
     const origTokens = this._estimateTokens([{ content: text }], "raw");
     const compTokens = this._estimateTokens([{ content: compressed }], "raw");
     this.stats.totalOriginalTokens += origTokens;
@@ -276,6 +293,7 @@ class GlyphCompressor {
       dynamic: sourceMap.dynamic,
       diagnostics: sourceMap.diagnostics,
       codeBlocks: sourceMap.codeBlocks,
+      privacy: sourceMap.privacy,
       symbols: sourceMap.symbols,
     };
   }
@@ -285,12 +303,13 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.4.0",
+      version: "1.5.0",
       level: this.level,
       files: [],
       dynamic: [],
       diagnostics: [],
       codeBlocks: [],
+      privacy: [],
       symbols: [],
       replacements: []
     };
@@ -319,6 +338,60 @@ class GlyphCompressor {
     if (!glyph || !original || !span) return;
     this.sourceMap.symbols.push({ glyph, original, kind, span, ...extra });
   }
+  _normalizeMessageContent(content) {
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content.map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part.text === "string") return part.text;
+        return "";
+      }).join("\n");
+    }
+    return content == null ? "" : String(content);
+  }
+  _privacyHash(value) {
+    return (0, import_node_crypto.createHash)("sha256").update(String(value)).digest("hex").slice(0, 16);
+  }
+  _privacyPlaceholder(kind, value) {
+    const hash = this._privacyHash(value);
+    if (!this.privacyTokens.has(hash)) {
+      this.privacyCounter++;
+      this.privacyTokens.set(hash, `\u27E6${kind.toUpperCase()}_${this.privacyCounter}\u27E7`);
+    }
+    return { hash, placeholder: this.privacyTokens.get(hash) };
+  }
+  _applyPrivacyFirewall(text, record = true) {
+    if (!this.privacyFirewall || !text) return text;
+    let result = text;
+    for (const rule of PRIVACY_REDACTION_PATTERNS) {
+      result = result.replace(rule.pattern, (...args) => {
+        const match = args[0];
+        const groups = args.slice(1, -2);
+        const offset = args[args.length - 2];
+        const input = args[args.length - 1];
+        const sensitiveValue = rule.valueGroup ? groups[rule.valueGroup - 1] : match;
+        if (!sensitiveValue) return match;
+        const valueOffset = match.indexOf(sensitiveValue);
+        const safeValueOffset = valueOffset >= 0 ? valueOffset : 0;
+        const { hash, placeholder } = this._privacyPlaceholder(rule.kind, sensitiveValue);
+        const span = this._spanForRange(input, offset + safeValueOffset, offset + safeValueOffset + sensitiveValue.length);
+        const replacement = match.slice(0, safeValueOffset) + placeholder + match.slice(safeValueOffset + sensitiveValue.length);
+        if (record) {
+          this.sourceMap.privacy.push({
+            kind: rule.kind,
+            label: rule.label,
+            placeholder,
+            hash: `sha256:${hash}`,
+            span
+          });
+          this._recordReplacement("privacy", `[${rule.kind}]`, placeholder, { span, redacted: true, label: rule.label });
+          this._recordSymbol(placeholder, `[${rule.kind}]`, "privacy", span, { redacted: true, label: rule.label });
+        }
+        return replacement;
+      });
+    }
+    return result;
+  }
   _injectCodebook(systemPrompt, provider) {
     if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
     let modifiedCodebook = CODEBOOK_PROMPT;
@@ -331,7 +404,7 @@ class GlyphCompressor {
   }
   _compressUserMessage(content, allUserText) {
     if (!content) return content;
-    let c = content;
+    let c = this._applyPrivacyFirewall(this._normalizeMessageContent(content));
     if (this.level === "ultra") {
       c = this._stripRedundancy(c);
     }
@@ -358,6 +431,7 @@ class GlyphCompressor {
     const counts = /* @__PURE__ */ new Map();
     for (const w of words) {
       if (["this", "that", "from", "with", "true", "false", "null"].includes(w)) continue;
+      if (/^(?:OPENAI_KEY|GITHUB_TOKEN|AWS_ACCESS_KEY|JWT|BEARER_TOKEN|SECRET_ASSIGNMENT|EMAIL|IPV4)_\d+$/.test(w)) continue;
       counts.set(w, (counts.get(w) || 0) + 1);
     }
     const DYN_SYMBOLS = "\u03B1\u03B2\u03B3\u03B4\u03B5\u03B6\u03B7\u03B8\u03B9\u03BA\u03BB\u03BC\u03BD\u03BE\u03BF\u03C0\u03C1\u03C3\u03C4\u03C5\u03C6\u03C7\u03C8\u03C9\u0393\u0394\u0398\u039B\u039E\u03A0\u03A3\u03A6\u03A8\u03A9\u0411\u0412\u0413\u0414\u0416\u0417\u0418\u041A\u041B\u041F\u0424\u0426\u0427\u0428\u0429\u042E\u042F".split("");

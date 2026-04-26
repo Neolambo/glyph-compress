@@ -14,9 +14,9 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current target release is `v1.4.0` for extension and proxy smoke suites.
-- [x] Last stable published release is `glyph-compress@1.4.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.4.0`.
+- [x] Current target release is `v1.5.0` for Privacy Firewall Mode.
+- [x] Last stable published release is `glyph-compress@1.5.0`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.5.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -53,7 +53,7 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 5. **Safe Compression Modes**
    - [x] Compression levels exist: `light`, `standard`, `aggressive`, and `ultra`.
    - [x] Reversible dictionaries and source maps are exposed for inspection.
-   - [ ] Partial: Lossless, reversible, and lossy modes are not yet explicit trust policies.
+   - [ ] Partial: Lossless, reversible, privacy, and lossy modes are not yet explicit trust policies.
    - [ ] Add mode guarantees, safety labels, and tests that enforce which transformations are allowed per mode.
 
 6. **Agentic Context Router**
@@ -136,6 +136,16 @@ Status: delivered.
 - [x] Harden the VS Code activation path by loading the CommonJS middleware artifact directly.
 - [x] Keep npm, GitHub, VSIX, source map, workspace codebook, benchmark, README, and issue-template versions aligned for v1.4.0.
 
+### v1.5.0: Privacy Firewall Mode
+
+Status: delivered.
+
+- [x] Add opt-in privacy firewall support for library consumers through `privacyFirewall: true` / `privacy: true`.
+- [x] Add CLI `--privacy` support for redacting sensitive values before output, clipboard copy, or source-map printing.
+- [x] Redact common API keys, token assignments, bearer tokens, JWTs, GitHub tokens, AWS access keys, emails, and IPv4 addresses before compression.
+- [x] Add `sourceMap.privacy` entries with placeholder, kind, label, span, and non-revealing short SHA-256 hash metadata.
+- [x] Expose privacy redaction metadata through `getReversibleDictionaries()` and TypeScript declarations.
+
 ## Repository Improvements
 
 ### Packaging
@@ -176,7 +186,8 @@ Status: delivered.
 - [ ] Partial: `doctor` does not yet validate proxy config, VS Code settings, installed extension version, or provider credentials.
 - [ ] Partial: CommonJS, ESM, and workspace intelligence examples exist through docs/tests, but Gemini-compatible proxy and VS Code walkthroughs need expansion.
 - [ ] Add explicit Gemini-compatible proxy and VS Code usage examples.
-- [ ] Add structured debug logging with redaction for API keys and request bodies.
+- [x] Add privacy firewall redaction for API keys and sensitive request text before compression.
+- [ ] Add structured debug logging with redaction-aware log sinks for proxy and extension diagnostics.
 
 ### Governance and Quality
 
@@ -194,7 +205,7 @@ Status: delivered.
 - [ ] Semantic Diff Compression: Compress only what changed since the previous chat turn, using stable references for unchanged context.
 - [ ] Team Codebook Registry: Allow teams to share project-specific dictionaries across repositories and agents.
 - [ ] LLM Comprehension Tests: Ask multiple models to decode and solve tasks from compressed prompts, then score accuracy against expected edits.
-- [ ] Privacy Firewall Mode: Redact secrets, credentials, customer identifiers, and proprietary strings before payload compression.
+- [x] Privacy Firewall Mode: Redact secrets, credentials, and common customer identifiers before payload compression.
 
 ## Success Metrics
 
@@ -202,12 +213,12 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.4.0`.
+- [x] README, npm version, GitHub tag, VSIX version, and GitHub release version stayed aligned through `v1.5.0`.
 
 ## Immediate Next Actions
 
-1. Add Privacy Firewall Mode for secrets and proprietary identifier redaction.
-2. Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
-3. Use provider estimator feedback to choose compression profiles automatically.
-4. Add regression fixtures for README badges, deleted links, and VS Code settings.
+1. Add deeper AST-level spans for minified code blocks and language-specific structural summaries.
+2. Use provider estimator feedback to choose compression profiles automatically.
+3. Add regression fixtures for README badges, deleted links, and VS Code settings.
+4. Add explicit privacy trust-policy labels for lossless, reversible, privacy, and lossy modes.
 5. Decide whether to publish the VS Code extension to the public Marketplace, or keep distributing VSIX through GitHub releases.

@@ -15,7 +15,13 @@ const sourceMap = execFileSync(process.execPath, [cliPath, 'package.json', '--le
   cwd: root,
   encoding: 'utf8',
 });
-assert(sourceMap.includes('"version": "1.4.0"'), 'CLI should print v1.4.0 source maps');
+assert(sourceMap.includes('"version": "1.5.0"'), 'CLI should print v1.5.0 source maps');
 assert(sourceMap.includes('"symbols"'), 'CLI should print source map symbol spans');
+
+const privacyMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--privacy', '--source-map'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+assert(privacyMap.includes('"privacy"'), 'CLI should print privacy redaction metadata when privacy mode is enabled');
 
 console.log('cli suite ok');
