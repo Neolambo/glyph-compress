@@ -27,12 +27,12 @@ try {
   process.env.GLYPHCOMPRESS_DOCTOR_HOME = fakeHome;
   process.env.OPENAI_API_KEY = 'test-key';
   fs.mkdirSync(path.join(fakeHome, '.continue'), { recursive: true });
-  fs.mkdirSync(path.join(fakeHome, '.vscode', 'extensions', 'neolambo.glyph-compress-1.10.0'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHome, '.vscode', 'extensions', 'neolambo.glyph-compress-1.11.0'), { recursive: true });
   fs.writeFileSync(path.join(fakeHome, '.continue', 'config.yaml'), 'apiBase: http://localhost:8080/v1\n', 'utf8');
-  fs.writeFileSync(path.join(fakeHome, '.vscode', 'extensions', 'neolambo.glyph-compress-1.10.0', 'package.json'), JSON.stringify({
+  fs.writeFileSync(path.join(fakeHome, '.vscode', 'extensions', 'neolambo.glyph-compress-1.11.0', 'package.json'), JSON.stringify({
     name: 'glyph-compress',
     publisher: 'Neolambo',
-    version: '1.10.0',
+    version: '1.11.0',
   }, null, 2), 'utf8');
 
   const codebook = buildWorkspaceCodebook(dir);
@@ -40,7 +40,7 @@ try {
   const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
   const doctor = runDoctor(dir);
 
-  assert(codebook.version === '1.10.0', 'workspace codebook should use v1.10.0 schema');
+  assert(codebook.version === '1.11.0', 'workspace codebook should use v1.11.0 schema');
   assert(fs.existsSync(codebookPath), 'workspace codebook should be written');
   assert(selection.files.some((file) => file.path === 'src/services/auth.ts'), 'workspace selection should rank auth service');
   assert(detectIntent('write unit tests').includes('write_tests'), 'intent detection should include tests');

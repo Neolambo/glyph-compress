@@ -4,28 +4,27 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.10.0`: Release Automation Foundation.
+`v1.11.0`: Doctor and Integration Refresh.
 
-Delivered in `v1.10.0`:
+Delivered in `v1.11.0`:
 
-- Root release helper with version checks, validation, packaging, and exact next-step commands.
-- Marketplace verification through the helper and post-release CI workflow.
-- Structured release-note scaffolding from repository history.
+- `glyph-compress doctor` validates installed extension version, local VS Code settings, Continue proxy configuration, and provider credentials when discoverable.
+- Continue and Cursor proxy setup examples were refreshed for current Gemini-compatible configuration formats.
+- Regression coverage now includes VS Code settings snapshots, README link snapshots, and compressed payload snapshots.
 
-## Verified Through v1.10.0
+## Verified Through v1.11.0
 
-- npm `latest` is `1.10.0`.
-- GitHub release `v1.10.0` exists.
-- GitHub release includes `glyph-compress-1.10.0.vsix`.
-- VS Code Marketplace lists `neolambo.glyph-compress@1.10.0`.
-- Local VS Code metadata verifies as `neolambo.glyph-compress@1.10.0`.
+- npm `latest` is `1.11.0`.
+- GitHub release `v1.11.0` exists.
+- GitHub release includes `glyph-compress-1.11.0.vsix`.
+- VS Code Marketplace lists `neolambo.glyph-compress@1.11.0`.
+- Local VS Code metadata verifies as `neolambo.glyph-compress@1.11.0`.
 - `npm run check` should pass during release validation.
 
 ## Real Remaining Work
 
 - Reduce the remaining manual release steps for commit, tag, publish, and GitHub release publication.
 - Extend diagnostics beyond the current proxy status/error/completion logging into structured log sinks and timestamps.
-- Add stable compressed payload regression fixtures.
 - Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
 - Wire workspace-intelligence file ranking into normal compression calls.
 - Add expression-level AST spans where language-specific parsers are available.
@@ -34,8 +33,6 @@ Delivered in `v1.10.0`:
 
 ## Proposed Future Versions
 
-- `v1.10.0`: release automation foundation.
-- `v1.11.0`: doctor and integration refresh.
 - `v1.12.0`: context router wiring.
 - `v1.13.0`: structured diagnostics and payload snapshots.
 - `v1.14.0`: expression-level source maps.

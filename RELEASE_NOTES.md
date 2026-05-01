@@ -1,21 +1,19 @@
-## v1.10.0
+## v1.11.0
 
-Changes since v1.9.3:
+Changes since v1.10.0:
 
-### Release Automation
-- add `scripts/release-helper.js` and `npm run release:prepare`
-- verify root/extension version alignment before release work starts
-- run repo validation, npm publish dry-run, and VSIX packaging from one helper entrypoint
-- print the exact npm publish, GitHub release, Marketplace verification, and local VSIX install commands for the active version
+### Features
+- expand `glyph-compress doctor` to validate installed extension version, VS Code settings, Continue proxy config, and provider credential presence
 
-### Marketplace Verification
-- add `--verify-marketplace` support to the release helper
-- add `.github/workflows/post-release-verify.yml` so Marketplace verification can run automatically after a published GitHub release or via manual dispatch
+### Docs
+- refresh README, roadmap, release docs, and wiki pages for the `v1.11.0` stable release
 
-### Release Notes Support
-- add `--write-release-notes` to scaffold `RELEASE_NOTES.md` from recent commit subjects
-- keep generated notes editable so the final published release notes can be curated before the GitHub release step
+### Tests
+- add stable compressed payload snapshots alongside the existing VS Code settings and README link regression fixtures
 
-### Metadata and Documentation
-- bump package, extension, source-map, benchmark, and workspace schema metadata to `1.10.0`
-- update release documentation and roadmap status to reflect the implemented release automation foundation
+### Validation
+- `npm test`
+- `npm run benchmark`
+- `npm run check:links`
+- `npm publish --dry-run`
+- `npm run package:vscode`

@@ -6,7 +6,7 @@
     "result": {
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
-        "version": "1.10.0",
+        "version": "1.11.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -81,7 +81,7 @@
     "result": {
       "compressed": "Use API_KEY=⟦SECRET_ASSIGNMENT_2⟧ and contact ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
       "sourceMap": {
-        "version": "1.10.0",
+        "version": "1.11.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -216,7 +216,7 @@
         }
       ],
       "sourceMap": {
-        "version": "1.10.0",
+        "version": "1.11.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
@@ -314,7 +314,7 @@
         }
       ],
       "sourceMap": {
-        "version": "1.10.0",
+        "version": "1.11.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {

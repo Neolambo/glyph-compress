@@ -11,7 +11,7 @@ const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const vscodeSettingsSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'vscode-settings.snapshot.json'), 'utf8'));
 const readmeLinksSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'readme-links.snapshot.json'), 'utf8'));
 
-assert(pkg.version === '1.10.0', 'package should be v1.10.0');
+assert(pkg.version === '1.11.0', 'package should be v1.11.0');
 assert(pkg.scripts['test:unit'], 'unit test script should exist');
 assert(pkg.scripts['test:cli'], 'CLI test script should exist');
 assert(pkg.scripts['test:workspace'], 'workspace test script should exist');

@@ -15,7 +15,7 @@ const sourceMap = execFileSync(process.execPath, [cliPath, 'package.json', '--le
   cwd: root,
   encoding: 'utf8',
 });
-assert(sourceMap.includes('"version": "1.10.0"'), 'CLI should print v1.10.0 source maps');
+assert(sourceMap.includes('"version": "1.11.0"'), 'CLI should print v1.11.0 source maps');
 assert(sourceMap.includes('"symbols"'), 'CLI should print source map symbol spans');
 
 const providerMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--provider', 'anthropic', '--source-map', '--explain'], {

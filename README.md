@@ -57,11 +57,11 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### New in v1.10.0 (Release Automation Foundation)
+### New in v1.11.0 (Doctor and Integration Refresh)
 
-1. **Release Helper**: Added a root `release:prepare` helper that verifies version alignment, runs validation, packages the VSIX, and prints the exact release commands for npm, GitHub, and Marketplace verification.
-2. **Marketplace Verification**: Added helper support and CI wiring for post-release Marketplace version verification.
-3. **Release Notes Scaffolding**: Added structured release-note generation so GitHub releases can start from a reproducible template instead of ad-hoc notes.
+1. **Doctor Expansion**: `glyph-compress doctor` now validates installed extension version, local `glyphCompress.*` settings, Continue proxy config, and provider credential presence when discoverable.
+2. **Usage Refresh**: Continue and Cursor Gemini-compatible proxy examples were updated to match current configuration formats.
+3. **Regression Snapshots**: Added dedicated fixtures for VS Code settings, README links, and compressed payload snapshots so release drift is caught deliberately.
 
 ### v1.9.0 (Proxy and Packaging Hardening)
 
@@ -382,7 +382,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.10.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.11.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
