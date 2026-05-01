@@ -16,11 +16,11 @@ Delivered in `v1.9.0`:
 
 ## Verified Through v1.9.0
 
-- npm latest is `1.9.0` after publish.
-- GitHub release `v1.9.0` exists after publish.
+- npm latest is `1.9.0`.
+- GitHub release `v1.9.0` exists.
 - GitHub release includes `glyph-compress-1.9.0.vsix`.
-- VS Code Marketplace should list `Neolambo.glyph-compress` at `1.9.0` after publish.
-- Local VS Code install should verify as `neolambo.glyph-compress@1.9.0` after install.
+- VS Code Marketplace still lists `Neolambo.glyph-compress` at `1.8.0`; publishing `1.9.0` requires the Neolambo publisher PAT.
+- Local VS Code install verifies as `neolambo.glyph-compress@1.9.0`.
 - `npm run check` should pass during release validation.
 
 ## Real Remaining Work
