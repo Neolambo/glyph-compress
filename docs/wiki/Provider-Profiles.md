@@ -23,9 +23,11 @@ npx glyph-compress src/app.ts --provider local --level standard
 
 Provider profiles can affect:
 
-- Token estimation.
-- Dynamic dictionary thresholds.
-- Dynamic dictionary caps.
+- Token estimation (including 1.5× Unicode glyph penalty since v1.12.0).
+- Dynamic dictionary savings thresholds (`dynamicMinSavedChars` tuned per provider).
+- Dynamic dictionary entry caps (`maxDynamicEntries` tuned per provider).
+- Per-glyph breakeven checks: tech name and dictionary substitutions are individually validated to ensure net-positive token savings.
+- Codebook-skip threshold: the ~400-token protocol header is omitted when text-level savings are below 80 tokens.
 - Source map provider metadata.
 - Future provider-specific routing and trust warnings.
 

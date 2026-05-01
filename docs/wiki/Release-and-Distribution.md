@@ -1,21 +1,13 @@
 # Release and Distribution
 
-Current release: `v1.11.0`.
-Prepared next release: `v1.12.0`.
+Current release: `v1.12.0`.
 
 ## Published Channels
 
-- npm: `glyph-compress@1.11.0`
-- GitHub release: `v1.11.0`
+- npm: `glyph-compress@1.12.0`
+- GitHub release: `v1.12.0`
 - VS Code Marketplace: `Neolambo.glyph-compress`
-- VSIX asset: `glyph-compress-1.11.0.vsix`
-
-## Prepared Release State
-
-- root package manifest: `glyph-compress@1.12.0`
-- VS Code extension manifest: `neolambo.glyph-compress@1.12.0`
-- expected VSIX asset after packaging: `glyph-compress-1.12.0.vsix`
-- publish-time verification still pending for npm, GitHub release, and Marketplace
+- VSIX asset: `glyph-compress-1.12.0.vsix`
 
 ## Verify npm
 
@@ -27,9 +19,9 @@ Expected latest version:
 
 ```json
 {
-  "version": "1.11.0",
+  "version": "1.12.0",
   "dist-tags": {
-    "latest": "1.11.0"
+    "latest": "1.12.0"
   }
 }
 ```
@@ -37,7 +29,7 @@ Expected latest version:
 ## Verify GitHub Release
 
 ```bash
-gh release view v1.11.0 --json tagName,isDraft,isPrerelease,assets,url
+gh release view v1.12.0 --json tagName,isDraft,isPrerelease,assets,url
 ```
 
 ## Verify VS Code Marketplace
@@ -46,18 +38,19 @@ gh release view v1.11.0 --json tagName,isDraft,isPrerelease,assets,url
 npx @vscode/vsce show Neolambo.glyph-compress
 ```
 
-Expected Marketplace version: `1.11.0` after Marketplace publish.
+Expected Marketplace version: `1.12.0` after Marketplace publish.
 
 ## Verify Local VS Code Install
 
 ```powershell
+code.cmd --install-extension vscode-ext\glyph-compress-1.12.0.vsix --force
 code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
 ```
 
 Expected local extension:
 
 ```text
-neolambo.glyph-compress@1.11.0
+neolambo.glyph-compress@1.12.0
 ```
 
 ## Release Checklist Summary

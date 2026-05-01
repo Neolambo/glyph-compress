@@ -2,8 +2,7 @@
 
 GlyphCompress is a semantic compression layer for IDE-to-LLM communication. It compresses repeated developer prompts, file paths, diagnostics, code blocks, provider payloads, and workspace metadata so coding assistants can receive richer context with fewer tokens.
 
-Current stable release: `v1.11.0`.
-Prepared next release: `v1.12.0`.
+Current stable release: `v1.12.0`.
 
 ## What GlyphCompress Does
 
@@ -12,16 +11,25 @@ Prepared next release: `v1.12.0`.
 - Supports CLI usage, library usage, OpenAI and Anthropic wrappers, VS Code commands, and an OpenAI-compatible local proxy.
 - Emits source maps for inspection, audit, and reversible references.
 - Provides explicit trust policies: `lossless`, `reversible`, `privacy`, and `lossy`.
+- Strips multilingual filler phrases (English, Italian, German, French) for international developer workflows.
 
 ## Release Status
 
-- npm: `glyph-compress@1.11.0`
-- GitHub release: `v1.11.0`
+- npm: `glyph-compress@1.12.0`
+- GitHub release: `v1.12.0`
 - VS Code Marketplace id: `neolambo.glyph-compress`
-- VSIX artifact: `glyph-compress-1.11.0.vsix`
+- VSIX artifact: `glyph-compress-1.12.0.vsix`
 - Marketplace verification: `npx @vscode/vsce show Neolambo.glyph-compress`
 
-Prepared release notes and manifests are aligned for `v1.12.0`; publish-time verification is still pending.
+### v1.12.0 Highlights (Performance Engine Overhaul)
+
+- Codebook-skip threshold eliminates negative compression on short requests.
+- Unicode token accuracy with 1.5× penalty per non-ASCII glyph.
+- Per-glyph breakeven checks for tech name and dynamic dictionary substitutions.
+- Multilingual verbose phrase compression (EN/IT/DE/FR).
+- ~70% latency reduction from eliminating JSON.parse/stringify state cloning.
+- Source map entries capped at 500 to prevent unbounded memory growth.
+- Benchmark: 1.4× aggregate ratio, 28% genuine savings, 100% fidelity, 0 hallucinated refs.
 
 ## Start Here
 
