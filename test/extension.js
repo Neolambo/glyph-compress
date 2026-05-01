@@ -1,8 +1,12 @@
 import assert from 'assert';
 import { createRequire } from 'module';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const Module = require('module');
+const root = fileURLToPath(new URL('..', import.meta.url));
 const manifest = require('../vscode-ext/package.json');
 
 const registeredCommands = new Map();
@@ -140,6 +144,11 @@ try {
   assert(outputLines.includes('GlyphCompress activated'), 'extension should log activation');
   assert(outputLines.includes('GlyphCompress ready'), 'extension should reach ready state');
   assert(context.subscriptions.length >= manifestCommands.length, 'commands should be tracked as subscriptions');
+
+  const middlewarePath = path.join(root, 'vscode-ext', 'glyph-middleware.cjs');
+  const middlewareSource = fs.readFileSync(middlewarePath, 'utf8');
+  assert(fs.existsSync(path.join(root, 'vscode-ext', 'token-estimator.cjs')), 'VSIX should include local token estimator dependency');
+  assert(!middlewareSource.includes('../src/token-estimator.cjs'), 'VSIX middleware should not require files outside the extension bundle');
 
   extension.deactivate();
 } finally {

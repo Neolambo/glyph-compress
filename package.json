@@ -26,6 +26,7 @@
     "vscode-ext/extension.js",
     "vscode-ext/glyph-middleware.cjs",
     "vscode-ext/glyph-middleware.d.ts",
+    "vscode-ext/token-estimator.cjs",
     "vscode-ext/proxy.js",
     "vscode-ext/LICENSE",
     "vscode-ext/package.json",

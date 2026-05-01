@@ -27,7 +27,7 @@ __export(glyph_middleware_exports, {
   wrapOpenAI: () => wrapOpenAI
 });
 module.exports = __toCommonJS(glyph_middleware_exports);
-var import_token_estimator = require("../src/token-estimator.cjs");
+var import_token_estimator = require("./token-estimator.cjs");
 var import_node_crypto = require("node:crypto");
 const DOMAIN_GLYPHS = {
   frontend: "\u25C8",
