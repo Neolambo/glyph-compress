@@ -36,6 +36,17 @@ Delivered in `v1.9.3`:
 - Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
 - Refresh Continue/Cursor proxy examples to match current configuration formats.
 
+## Proposed Future Versions
+
+- `v1.10.0`: release automation foundation.
+- `v1.11.0`: doctor and integration refresh.
+- `v1.12.0`: context router wiring.
+- `v1.13.0`: structured diagnostics and payload snapshots.
+- `v1.14.0`: expression-level source maps.
+- `v1.15.0`: provider trust and UX.
+- `v1.16.0`: real task evaluation.
+- `v1.17.0`: adaptive workspace memory.
+
 ## Longer-Term Ideas
 
 - Glyph Negotiation Protocol.

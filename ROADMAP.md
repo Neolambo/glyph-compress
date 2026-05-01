@@ -232,6 +232,74 @@ Status: delivered.
 - [x] Log completed response byte counts for successful proxy responses.
 - [x] Warn when the IDE client closes the response before the upstream stream completes.
 
+### Proposed Future Versions
+
+This sequence turns the current open roadmap items into concrete future milestones. It is ordered by dependency, so later versions assume the earlier ones landed first.
+
+### v1.10.0: Release Automation Foundation
+
+Status: proposed.
+
+- [ ] Add a root release helper that verifies version alignment, runs checks, packages the VSIX, and prints the exact npm, GitHub, and Marketplace verification commands.
+- [ ] Automate Marketplace post-release verification in CI or in the release helper.
+- [ ] Generate release notes from conventional commits or a structured release-note template.
+
+### v1.11.0: Doctor and Integration Refresh
+
+Status: proposed.
+
+- [ ] Expand `glyph-compress doctor` to validate installed extension version, proxy config, provider credential presence, and local VS Code settings.
+- [ ] Refresh Gemini-compatible proxy and VS Code usage examples for current Continue and Cursor configuration formats.
+- [ ] Add regression fixtures for README badges, deleted links, and VS Code settings snapshots.
+
+### v1.12.0: Context Router Wiring
+
+Status: proposed.
+
+- [ ] Wire ranked workspace file selection into normal compression calls behind an explicit option and token budget.
+- [ ] Use active file, diagnostics, git diff, and recent task intent as router inputs.
+- [ ] Keep provider-aware routing behavior auditable through source-map or explanation metadata.
+
+### v1.13.0: Structured Diagnostics and Snapshots
+
+Status: proposed.
+
+- [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
+- [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
+- [ ] Add stable compressed payload snapshots so compression-format drift becomes deliberate.
+
+### v1.14.0: Expression-Level Source Maps
+
+Status: proposed.
+
+- [ ] Add deeper expression-level AST spans for minified code blocks where language-specific parsers are available.
+- [ ] Expand language coverage for structural spans and reversible debug metadata.
+- [ ] Add targeted validation for source-map fidelity at the expression level.
+
+### v1.15.0: Provider Trust and UX
+
+Status: proposed.
+
+- [ ] Extend provider profiles to choose code block and context-router strategies automatically.
+- [ ] Add per-provider trust warnings or risk scoring for risky transformations.
+- [ ] Improve VS Code UX surfacing for provider choice, trust policy, and diagnostic output.
+
+### v1.16.0: Real Task Evaluation
+
+Status: proposed.
+
+- [ ] Add repeatable model-based comprehension tests across multiple providers.
+- [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
+- [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
+
+### v1.17.0: Adaptive Workspace Memory
+
+Status: proposed.
+
+- [ ] Add incremental codebook updates instead of full regenerate-on-inspect behavior.
+- [ ] Add decay or weighting from repeated repository usage.
+- [ ] Prepare the workspace-memory layer for future semantic diff and team codebook features.
+
 ## Repository Improvements
 
 ### Packaging
