@@ -134,6 +134,7 @@ try {
   const manifestCommands = manifest.contributes.commands.map((entry) => entry.command);
   for (const command of manifestCommands) {
     assert(registeredCommands.has(command), `extension should register ${command}`);
+    assert(manifest.activationEvents.includes(`onCommand:${command}`), `extension should activate for ${command}`);
   }
 
   assert(outputLines.includes('GlyphCompress activated'), 'extension should log activation');
