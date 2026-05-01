@@ -9,6 +9,7 @@ const suites = [
   ['extension', 'test/extension.js'],
   ['proxy', 'test/proxy.js'],
   ['metadata', 'test/metadata.js'],
+  ['snapshots', 'test/snapshots.js'],
   ['integration', 'test/integration.js'],
 ];
 

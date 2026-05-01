@@ -30,6 +30,7 @@ for (const file of [
   'scripts/check-links.js',
   'scripts/release-helper.js',
   '.github/workflows/post-release-verify.yml',
+  'test/fixtures/compressed-payloads.snapshot.json',
   'test/fixtures/readme-links.snapshot.json',
   'test/fixtures/vscode-settings.snapshot.json',
 ]) {

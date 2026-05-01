@@ -54,6 +54,7 @@
     "test:extension": "node test/extension.js",
     "test:proxy": "node test/proxy.js",
     "test:metadata": "node test/metadata.js",
+    "test:snapshots": "node test/snapshots.js",
     "test:integration": "node test/integration.js",
     "benchmark": "node test/benchmark.js",
     "demo": "node test/demo.js",

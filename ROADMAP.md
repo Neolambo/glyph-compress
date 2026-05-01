@@ -47,7 +47,7 @@ This section separates what is actually complete from what remains useful future
 - [ ] Source maps do not yet provide full expression-level AST mappings for every minified code block.
 - [ ] Workspace intelligence does not yet feed ranked context automatically into normal compression calls.
 - [ ] Partial: `doctor` now validates repository basics plus installed VS Code extension version, local `glyphCompress.*` settings, Continue proxy config, and provider credential env vars when discoverable, but broader IDE/provider setup validation is still incomplete.
-- [ ] Partial: VS Code settings snapshots and README badge/link regressions now have dedicated coverage, but compressed payload snapshots still need fixtures.
+- [ ] Partial: VS Code settings snapshots, README badge/link regressions, and compressed payload snapshots now have dedicated coverage locally, but they are not yet part of the current stable `v1.10.0` release.
 - [ ] Partial: Proxy diagnostics now log upstream status, redacted error bodies, completed response byte counts, and early client disconnects, but structured log sinks, timestamps, and broader extension-side diagnostics are still missing.
 - [ ] Partial: Release notes can now be scaffolded from conventional commit subjects, but still need human curation before publication.
 
@@ -245,11 +245,11 @@ Status: delivered.
 
 ### v1.11.0: Doctor and Integration Refresh
 
-Status: partially implemented locally.
+Status: implemented locally, pending release.
 
 - [x] Expand `glyph-compress doctor` to validate installed extension version, proxy config, provider credential presence, and local VS Code settings.
 - [x] Refresh Gemini-compatible proxy and VS Code usage examples for current Continue and Cursor configuration formats.
-- [ ] Partial: Add regression fixtures for VS Code settings snapshots and README badge/deleted-link regressions; compressed payload snapshots are still missing.
+- [x] Add regression fixtures for VS Code settings snapshots, README badge/deleted-link regressions, and compressed payload snapshots.
 
 ### v1.12.0: Context Router Wiring
 
@@ -320,7 +320,7 @@ Status: proposed.
 - [x] Add tokenizer-aware tests using provider-specific token estimators where practical.
 - [x] Add proxy and extension activation smoke suites.
 - [x] Add regression fixtures for README badges, deleted links, and VS Code settings.
-- [ ] Add snapshot tests for compressed payloads so format drift is deliberate.
+- [x] Add snapshot tests for compressed payloads so format drift is deliberate.
 
 ### Documentation
 
@@ -369,8 +369,7 @@ Status: proposed.
 
 ## Immediate Next Actions
 
-1. Add stable compressed payload snapshots so compression-format drift becomes deliberate.
-2. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
-3. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
-4. Add expression-level AST spans for code block minification where language-specific parsers are available.
-5. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
+1. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+2. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
+3. Add expression-level AST spans for code block minification where language-specific parsers are available.
+4. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
