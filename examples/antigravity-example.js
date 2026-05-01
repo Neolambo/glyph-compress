@@ -5,7 +5,7 @@
  * to compress context BEFORE sending it to Antigravity CLI or AI Agent.
  */
 
-import { GlyphCompressor } from '../vscode-ext/glyph-middleware.js';
+import { GlyphCompressor } from '../src/glyph-middleware.js';
 import fs from 'fs';
 
 // 1. Initialize standalone compressor for Antigravity with "ultra" level

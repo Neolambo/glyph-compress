@@ -6,7 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { wrapAnthropic } from '../vscode-ext/glyph-middleware.js';
+import { wrapAnthropic } from '../src/glyph-middleware.js';
 
 // 1. Create and wrap the client
 const client = wrapAnthropic(

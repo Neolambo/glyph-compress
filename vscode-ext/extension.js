@@ -64,9 +64,11 @@ function activate(context) {
     vscode.commands.registerCommand('glyphCompress.toggle', () => {
       compressor.enabled = !compressor.enabled;
       const state = compressor.enabled ? 'ON' : 'OFF';
-      statusBarItem.text = compressor.enabled
-        ? '$(zap) GlyphCompress'
-        : '$(circle-slash) GlyphCompress OFF';
+      if (statusBarItem) {
+        statusBarItem.text = compressor.enabled
+          ? '$(zap) GlyphCompress'
+          : '$(circle-slash) GlyphCompress OFF';
+      }
       vscode.window.showInformationMessage(`GlyphCompress: ${state}`);
       outputChannel.appendLine(`Compression toggled: ${state}`);
     })
@@ -181,15 +183,18 @@ function activate(context) {
       }
 
       try {
-        // Use dynamic import because proxy.js is ES module and this is CJS
-        import('./proxy.js').then(({ startProxyServer }) => {
-          const targetUrl = config.get('targetApiUrl', 'https://api.openai.com');
-          proxyServer = startProxyServer(8080, targetUrl, compressor.level, compressor, outputChannel);
-          vscode.window.showInformationMessage(`🚀 GlyphProxy started on http://localhost:8080. Forwarding to ${targetUrl}`);
-          outputChannel.appendLine('GlyphProxy started on port 8080');
-        }).catch(err => {
-          vscode.window.showErrorMessage(`Failed to start proxy module: ${err.message}`);
+        const { startProxyServer } = require('./proxy.js');
+        const proxyConfig = vscode.workspace.getConfiguration('glyphCompress');
+        const targetUrl = proxyConfig.get('targetApiUrl', 'https://api.openai.com');
+        proxyServer = startProxyServer(8080, targetUrl, {
+          level: compressor.level,
+          provider: proxyConfig.get('provider', 'auto'),
+          trustPolicy: proxyConfig.get('trustPolicy', 'auto'),
+          compressor,
+          outputChannel,
         });
+        vscode.window.showInformationMessage(`GlyphProxy started on http://localhost:8080. Forwarding to ${targetUrl}`);
+        outputChannel.appendLine('GlyphProxy started on port 8080');
       } catch (err) {
         vscode.window.showErrorMessage(`Failed to start proxy: ${err.message}`);
       }
@@ -201,7 +206,7 @@ function activate(context) {
       if (proxyServer) {
         proxyServer.close();
         proxyServer = null;
-        vscode.window.showInformationMessage('🛑 GlyphProxy stopped.');
+        vscode.window.showInformationMessage('GlyphProxy stopped.');
         outputChannel.appendLine('GlyphProxy stopped');
       } else {
         vscode.window.showInformationMessage('GlyphProxy is not running.');
@@ -327,7 +332,8 @@ function activate(context) {
   );
 
   // Update status bar periodically
-  setInterval(() => updateStatusBar(), 5000);
+  const statusInterval = setInterval(() => updateStatusBar(), 5000);
+  context.subscriptions.push({ dispose: () => clearInterval(statusInterval) });
 
   outputChannel.appendLine('GlyphCompress ready');
   outputChannel.appendLine(`  Provider: ${config.get('provider', 'auto')}`);

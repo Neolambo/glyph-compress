@@ -23,7 +23,7 @@ const rootDir = path.join(__dirname, '..');
 const testTargets = [
     'src/compressor.js',
     'src/radical-alphabet.js',
-    'vscode-ext/glyph-middleware.js',
+    'src/glyph-middleware.js',
     'vscode-ext/extension.js',
     'test/integration.js',
     'README.md'

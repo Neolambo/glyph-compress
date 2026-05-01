@@ -14,13 +14,13 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.8.0` for safe compression trust policies.
-- [x] Last stable published release is `glyph-compress@1.8.0`.
-- [x] npm `latest` points to `1.8.0`.
-- [x] VS Code Marketplace listing exists as `neolambo.glyph-compress` and reports `1.8.0` via `vsce show`.
-- [x] GitHub release `v1.8.0` exists and includes `glyph-compress-1.8.0.vsix`.
-- [x] Local VS Code installation was verified as `neolambo.glyph-compress@1.8.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.8.0`.
+- [x] Current stable release is `v1.9.0` for proxy and packaging hardening.
+- [x] Last stable release is `glyph-compress@1.9.0`.
+- [x] npm `latest` should point to `1.9.0` after publish.
+- [ ] VS Code Marketplace listing should report `1.9.0` after publish.
+- [ ] GitHub release `v1.9.0` should include `glyph-compress-1.9.0.vsix` after publish.
+- [ ] Local VS Code installation should be verified as `neolambo.glyph-compress@1.9.0` after install.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.9.0`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -28,12 +28,13 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 This section separates what is actually complete from what remains useful future work.
 
-### Verified as Complete Through v1.8.0
+### Verified as Complete Through v1.9.0
 
-- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.8.0`.
-- [x] GitHub tag, GitHub release, npm latest, VS Code Marketplace listing, VSIX artifact, and local VS Code installation are aligned on `1.8.0`.
+- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.9.0`.
+- [ ] GitHub tag, GitHub release, npm latest, VS Code Marketplace listing, VSIX artifact, and local VS Code installation should be verified after publish for `1.9.0`.
 - [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
 - [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
+- [x] CLI and VS Code proxy startup preserve provider, trust policy, privacy, and target API options.
 - [x] VS Code activation and configuration wiring cover enabled state, compression level, provider, and trust policy.
 - [x] Automated validation covers unit, CLI, workspace, extension, proxy, metadata, integration, benchmark, link checking, and npm pack dry-run.
 - [x] Documentation exists for architecture, release process, licensing, security, privacy, enterprise usage, contributing, and roadmap planning.
@@ -211,6 +212,16 @@ Status: delivered.
 - [x] Add CLI `--trust <policy>` / `--policy <policy>` support and explanation output.
 - [x] Add VS Code `glyphCompress.trustPolicy` setting and activation/config-change wiring.
 - [x] Export `TRUST_POLICY_PROFILES` and `TrustPolicyProfile` through ESM, CommonJS, and TypeScript declarations.
+
+### v1.9.0: Proxy and Packaging Hardening
+
+Status: delivered.
+
+- [x] Route package ESM middleware imports through `src/glyph-middleware.js` instead of the VS Code extension package scope.
+- [x] Preserve provider, trust policy, privacy, and target API settings in CLI proxy startup.
+- [x] Preserve provider, trust policy, and target API settings in VS Code proxy startup.
+- [x] Add Gemini-compatible `/v1/*` to `/v1beta/openai/*` proxy route mapping.
+- [x] Narrow npm `files` allowlist to runtime files and essential documentation.
 
 ## Repository Improvements
 

@@ -4,7 +4,8 @@ GlyphCompress is a semantic compression layer for IDE-to-LLM context. It compres
 
 ## Main Components
 
-- `vscode-ext/glyph-middleware.js`: stable middleware API, provider wrappers, source maps, codebook prompt, and compression levels.
+- `src/glyph-middleware.js`: public ESM middleware API, provider wrappers, source maps, codebook prompt, and compression levels.
+- `vscode-ext/glyph-middleware.cjs`: CommonJS middleware artifact used by the VS Code extension host and CommonJS consumers.
 - `src/workspace-intelligence.js`: workspace codebook generation, intent detection, git-aware file ranking, and repository doctor checks.
 - `bin/cli.js`: command-line entry point for file compression, source maps, workspace inspection, doctor checks, benchmark execution, and proxy startup.
 - `test/benchmark.js`: deterministic trust and measurement benchmark across representative payloads.

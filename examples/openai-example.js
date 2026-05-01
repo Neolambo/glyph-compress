@@ -6,7 +6,7 @@
  */
 
 import OpenAI from 'openai';
-import { wrapOpenAI } from '../vscode-ext/glyph-middleware.js';
+import { wrapOpenAI } from '../src/glyph-middleware.js';
 
 // 1. Create and wrap the client
 const client = wrapOpenAI(

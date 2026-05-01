@@ -57,7 +57,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### 🔥 New in v1.8.0 (Safe Compression Trust Policies)
+### New in v1.9.0 (Proxy and Packaging Hardening)
+
+1. **Provider-Aware Proxy**: CLI and VS Code proxy flows now preserve provider, trust policy, privacy mode, and target API settings instead of falling back to a generic `auto` profile.
+2. **Gemini-Compatible Routing**: The proxy maps OpenAI-compatible `/v1/*` requests to Gemini's `/v1beta/openai/*` endpoint when forwarding to `generativelanguage.googleapis.com`.
+3. **Clean ESM Runtime Export**: The package middleware ESM export now resolves through `src/glyph-middleware.js`, avoiding Node package-scope warnings from the VS Code extension folder.
+4. **Focused npm Package**: The npm allowlist now publishes runtime files and essential docs only, excluding outreach drafts, demo scripts, and broad internal documentation folders.
+5. **VS Code Lifecycle Hardening**: Proxy startup uses the CommonJS extension path, status-bar toggling handles hidden status bars, and the status interval is disposed with the extension context.
+
+### v1.8.0 (Safe Compression Trust Policies)
 
 1. **Explicit Trust Policies**: Added `lossless`, `reversible`, `privacy`, and `lossy` trust policies so consumers can choose which transformations are allowed.
 2. **Transformation Gating**: `lossless` preserves user text, `reversible` blocks code minification/summaries, `privacy` enables redaction, and `lossy` permits aggressive/ultra summaries.
@@ -164,7 +172,7 @@ AFTER (137 chars):
 3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
 4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
 
-For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, outreach, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/outreach.md](docs/outreach.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
+For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
 ### 📏 v0.7.0 Benchmark Snapshot
 
@@ -368,7 +376,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-   code.cmd --install-extension .\glyph-compress-1.8.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.9.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
@@ -582,6 +590,13 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.9.0 (Proxy and Packaging Hardening)
+- **Proxy Options Preserved**: CLI and VS Code proxy startup now pass provider, trust policy, privacy, and target API options into the compressor.
+- **Gemini-Compatible Forwarding**: OpenAI-compatible `/v1/*` requests are mapped to Gemini's `/v1beta/openai/*` route when the target is Google Generative Language.
+- **ESM Export Cleanup**: Public ESM middleware import now goes through `src/glyph-middleware.js`, avoiding Node warnings caused by importing ESM from the VS Code package scope.
+- **Focused npm Tarball**: The package allowlist now includes runtime files and essential docs without publishing broad outreach drafts or demo-generation scripts.
+- **VS Code Hardening**: Proxy startup, status-bar toggling, and interval disposal were tightened for a cleaner extension lifecycle.
 
 ### v1.8.0 (Safe Compression Trust Policies)
 - **Explicit Trust Policies**: Added `TRUST_POLICY_PROFILES` for `lossless`, `reversible`, `privacy`, and `lossy` modes.

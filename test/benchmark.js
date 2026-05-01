@@ -5,7 +5,7 @@
  * deterministic proxy metrics for trust and measurement work.
  */
 
-import { GlyphCompressor } from '../vscode-ext/glyph-middleware.js';
+import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { estimateProviderTokens } from '../src/token-estimator.js';
 
 const fixtures = [
@@ -138,7 +138,7 @@ const totals = results.reduce((acc, item) => {
   hallucinatedFileRefs: 0,
 });
 
-console.log('\nGlyphCompress Benchmark v1.8.0');
+console.log('\nGlyphCompress Benchmark v1.9.0');
 console.log('='.repeat(72));
 console.log('Scenario | Provider | Level | Payload | Saved | Fidelity | Edit OK | Bad refs');
 console.log('-'.repeat(72));

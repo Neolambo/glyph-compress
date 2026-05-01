@@ -13,7 +13,7 @@
  * Compress files from the terminal and copy to clipboard.
  */
 
-import { GlyphCompressor } from '../vscode-ext/glyph-middleware.js';
+import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { buildWorkspaceCodebook, saveWorkspaceCodebook, selectRelevantFiles, runDoctor } from '../src/workspace-intelligence.js';
 import fs from 'fs';
 import path from 'path';
@@ -26,12 +26,14 @@ let copyToClipboard = false;
 let fileToCompress = null;
 let startProxy = false;
 let proxyPort = 8080;
+let proxyTarget = 'https://api.openai.com';
 let explain = false;
 let printSourceMap = false;
 let command = null;
 let jsonOutput = false;
 let privacyFirewall = false;
 let provider = 'raw';
+let providerSet = false;
 let trustPolicy = undefined;
 
 // Simple argument parser
@@ -51,8 +53,11 @@ for (let i = 0; i < args.length; i++) {
     privacyFirewall = true;
   } else if (arg === '--provider') {
     provider = args[++i] || provider;
+    providerSet = true;
   } else if (arg === '--trust' || arg === '--policy') {
     trustPolicy = args[++i] || trustPolicy;
+  } else if (arg === '--target' || arg === '--target-api-url') {
+    proxyTarget = args[++i] || proxyTarget;
   } else if (arg === '--json') {
     jsonOutput = true;
   } else if (arg === '--proxy' || arg === '-p') {
@@ -78,6 +83,7 @@ Options:
   --privacy             Redact secrets and sensitive identifiers before compression
   --provider <provider> Provider profile: raw, openai, anthropic, gemini, local (default: raw)
   --trust <policy>      Trust policy: lossless, reversible, privacy, lossy (default: auto)
+  --target <url>        Proxy upstream base URL (default: https://api.openai.com)
   --json                Print command output as JSON
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
@@ -92,7 +98,12 @@ if (command) {
   runCommand(command, args, { jsonOutput });
 } else if (startProxy) {
   import('../src/proxy.js').then(({ startProxyServer }) => {
-    startProxyServer(proxyPort, 'https://api.openai.com', level);
+    startProxyServer(proxyPort, proxyTarget, {
+      level,
+      provider: providerSet ? provider : 'auto',
+      trustPolicy,
+      privacyFirewall,
+    });
   }).catch(err => {
     console.error('Failed to start proxy:', err);
     process.exit(1);

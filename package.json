@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {
@@ -15,8 +15,8 @@
       "require": "./src/index.cjs"
     },
     "./middleware": {
-      "types": "./vscode-ext/glyph-middleware.d.ts",
-      "import": "./vscode-ext/glyph-middleware.js",
+      "types": "./src/index.d.ts",
+      "import": "./src/glyph-middleware.js",
       "require": "./vscode-ext/glyph-middleware.cjs"
     }
   },
@@ -24,7 +24,6 @@
     "bin/",
     "src/",
     "vscode-ext/extension.js",
-    "vscode-ext/glyph-middleware.js",
     "vscode-ext/glyph-middleware.cjs",
     "vscode-ext/glyph-middleware.d.ts",
     "vscode-ext/proxy.js",
@@ -39,8 +38,12 @@
     "PRIVACY.md",
     "ENTERPRISE.md",
     "CONTRIBUTING.md",
-    "docs/",
-    "scripts/"
+    "docs/architecture.md",
+    "docs/licensing.md",
+    "docs/release.md",
+    "docs/wiki/",
+    "scripts/check-links.js",
+    "scripts/publish-wiki.ps1"
   ],
   "scripts": {
     "test": "node test/run-suites.js",

@@ -29,10 +29,15 @@ https.request = (url, options, callback) => {
 let server;
 
 try {
-  const { startProxyServer } = await import('../vscode-ext/proxy.js');
+  const { startProxyServer } = await import('../src/proxy.js');
   const logs = [];
-  server = startProxyServer(0, 'https://api.openai.com', 'standard', null, {
-    appendLine(message) { logs.push(String(message)); },
+  server = startProxyServer(0, 'https://generativelanguage.googleapis.com', {
+    level: 'standard',
+    provider: 'auto',
+    trustPolicy: 'privacy',
+    outputChannel: {
+      appendLine(message) { logs.push(String(message)); },
+    },
   });
 
   await once(server, 'listening');
@@ -42,7 +47,7 @@ try {
 
   assert(response.statusCode === 200, 'proxy should relay upstream status code');
   assert(response.body === '{"ok":true}', 'proxy should relay upstream response body');
-  assert(forwardedUrl === 'https://api.openai.com/v1/chat/completions', 'proxy should preserve OpenAI request path');
+  assert(forwardedUrl === 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'proxy should map OpenAI-compatible Gemini request path');
   assert(forwardedOptions.method === 'POST', 'proxy should forward POST method');
   assert(Number(forwardedOptions.headers['content-length']) === Buffer.byteLength(forwardedBody), 'proxy should update content-length');
 
@@ -50,7 +55,9 @@ try {
   const content = payload.messages.map((message) => String(message.content || '')).join('\n');
   assert(content.includes('[GLYPH PROTOCOL'), 'proxy should inject the glyph protocol');
   assert(content.includes('src/app.tsx') || content.includes('₍'), 'proxy should forward compressed user context');
-  assert(logs.some((line) => line.includes('POST-Compression')), 'proxy should report compression logs');
+  assert(logs.some((line) => line.includes('Provider=gemini')), 'proxy should infer Gemini provider from target when provider is auto');
+  assert(logs.some((line) => line.includes('trust=privacy')), 'proxy should preserve trust policy options');
+  assert(logs.some((line) => line.includes('Compression ratio')), 'proxy should report compression logs');
 } finally {
   https.request = originalRequest;
   if (server) server.close();

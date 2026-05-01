@@ -1,4 +1,4 @@
-import { GlyphCompressor } from './vscode-ext/glyph-middleware.js';
+import { GlyphCompressor } from './src/glyph-middleware.js';
 
 const complexMessage = `I have a TypeScript error in my React component at src/components/Dashboard.tsx line 42. 
 The error says: Property 'analytics' does not exist on type 'DashboardProps'. 

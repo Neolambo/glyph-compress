@@ -4,25 +4,24 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.8.0`: Safe Compression Trust Policies.
+`v1.9.0`: Proxy and Packaging Hardening.
 
-Delivered in `v1.8.0`:
+Delivered in `v1.9.0`:
 
-- `lossless`, `reversible`, `privacy`, and `lossy` trust policies.
-- `sourceMap.trustPolicy` and `sourceMap.trust` metadata.
-- Policy gates for prompt, tech, file, diagnostic, dynamic dictionary, privacy, code minification, code summary, and redundancy stripping transformations.
-- CLI `--trust <policy>` and `--policy <policy>`.
-- VS Code `glyphCompress.trustPolicy` setting.
-- `TRUST_POLICY_PROFILES` and `TrustPolicyProfile` public exports.
+- Provider/trust/privacy-aware CLI proxy startup.
+- Provider/trust-aware VS Code proxy startup.
+- Gemini-compatible `/v1/*` to `/v1beta/openai/*` route mapping.
+- ESM middleware export through `src/glyph-middleware.js`.
+- Focused npm package allowlist for runtime files and essential docs.
 
-## Verified Through v1.8.0
+## Verified Through v1.9.0
 
-- npm latest is `1.8.0`.
-- GitHub release `v1.8.0` exists.
-- GitHub release includes `glyph-compress-1.8.0.vsix`.
-- VS Code Marketplace lists `Neolambo.glyph-compress` at `1.8.0`.
-- Local VS Code install verified as `neolambo.glyph-compress@1.8.0`.
-- `npm run check` passed during release validation.
+- npm latest is `1.9.0` after publish.
+- GitHub release `v1.9.0` exists after publish.
+- GitHub release includes `glyph-compress-1.9.0.vsix`.
+- VS Code Marketplace should list `Neolambo.glyph-compress` at `1.9.0` after publish.
+- Local VS Code install should verify as `neolambo.glyph-compress@1.9.0` after install.
+- `npm run check` should pass during release validation.
 
 ## Real Remaining Work
 
