@@ -67,6 +67,14 @@ function normalizeMessages(value) {
   return [{ role: 'user', content: value }];
 }
 
+function countUnicodeGlyphs(text) {
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) > 127) count++;
+  }
+  return count;
+}
+
 function estimateProviderTokens(value, provider = DEFAULT_PROFILE) {
   const profileName = normalizeProvider(provider);
   const profile = PROVIDER_TOKEN_PROFILES[profileName];
@@ -75,7 +83,9 @@ function estimateProviderTokens(value, provider = DEFAULT_PROFILE) {
 
   for (const message of messages) {
     const content = stringifyContent(message.content);
-    estimated += Math.ceil(content.length / profile.charsPerToken);
+    const baseTokens = Math.ceil(content.length / profile.charsPerToken);
+    const unicodeGlyphs = countUnicodeGlyphs(content);
+    estimated += baseTokens + Math.ceil(unicodeGlyphs * 1.5);
     estimated += profile.messageOverhead;
     if (message.role === 'system') estimated += profile.systemOverhead;
   }

@@ -1,6 +1,7 @@
 # Release and Distribution
 
 Current release: `v1.11.0`.
+Prepared next release: `v1.12.0`.
 
 ## Published Channels
 
@@ -8,6 +9,13 @@ Current release: `v1.11.0`.
 - GitHub release: `v1.11.0`
 - VS Code Marketplace: `Neolambo.glyph-compress`
 - VSIX asset: `glyph-compress-1.11.0.vsix`
+
+## Prepared Release State
+
+- root package manifest: `glyph-compress@1.12.0`
+- VS Code extension manifest: `neolambo.glyph-compress@1.12.0`
+- expected VSIX asset after packaging: `glyph-compress-1.12.0.vsix`
+- publish-time verification still pending for npm, GitHub release, and Marketplace
 
 ## Verify npm
 
@@ -56,7 +64,7 @@ neolambo.glyph-compress@1.11.0
 
 1. Update root npm package version.
 2. Update VS Code extension manifest and lockfile version.
-3. Run validation: tests, benchmark, link checker, npm pack dry-run.
+3. Run validation: tests, benchmark, realistic benchmark, link checker, npm pack dry-run.
 4. Package VSIX.
 5. Commit, tag, and push.
 6. Publish npm.

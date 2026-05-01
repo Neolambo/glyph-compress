@@ -21,6 +21,16 @@ Delivered in `v1.11.0`:
 - Local VS Code metadata verifies as `neolambo.glyph-compress@1.11.0`.
 - `npm run check` should pass during release validation.
 
+## Prepared Next Release
+
+`v1.12.0`: Anthropic Hybrid Payloads and Realistic Benchmarks.
+
+Prepared in `v1.12.0`:
+
+- adaptive chat strategy selection with automatic fallback when a compressed payload is net-negative
+- Anthropic first-turn lightweight system prompts plus structured cacheable blocks only for multi-turn transcripts
+- realistic benchmark coverage for enterprise IDE workloads, throughput, and Anthropic cache-adjusted estimates
+
 ## Real Remaining Work
 
 - Reduce the remaining manual release steps for commit, tag, publish, and GitHub release publication.
@@ -33,11 +43,11 @@ Delivered in `v1.11.0`:
 
 ## Proposed Future Versions
 
-- `v1.12.0`: context router wiring.
-- `v1.13.0`: structured diagnostics and payload snapshots.
-- `v1.14.0`: expression-level source maps.
-- `v1.15.0`: provider trust and UX.
-- `v1.16.0`: real task evaluation.
+- `v1.13.0`: context router wiring.
+- `v1.14.0`: structured diagnostics and payload snapshots.
+- `v1.15.0`: expression-level source maps.
+- `v1.16.0`: provider trust and UX.
+- `v1.17.0`: real task evaluation.
 - `v1.17.0`: adaptive workspace memory.
 
 ## Longer-Term Ideas

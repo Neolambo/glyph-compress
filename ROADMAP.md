@@ -21,8 +21,14 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 - [x] GitHub release `v1.11.0` includes `glyph-compress-1.11.0.vsix`.
 - [x] Local VS Code extension metadata is aligned to `neolambo.glyph-compress@1.11.0`.
 - [x] `npm test` passed the unit, CLI, workspace, extension, proxy, metadata, snapshot, and integration suites during `v1.11.0` release validation.
-- [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
+- [x] `npm run benchmark` reports 1.4x aggregate ratio, 28% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs (post-v1.12.0 performance calibration).
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
+
+## Prepared Next Release
+
+- [x] Prepared next release is `v1.12.0` for adaptive chat fallback, Anthropic hybrid payload shaping, realistic benchmark coverage, and cache-aware enterprise measurement.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.12.0`.
+- [x] Release notes and public docs are updated for `v1.12.0`, but npm/GitHub/Marketplace verification remains pending until publication.
 
 ## Release Reality Check
 
@@ -43,6 +49,7 @@ This section separates what is actually complete from what remains useful future
 
 - [ ] Partial: Release automation now has a root helper for validation, VSIX packaging, release-note scaffolding, and Marketplace verification, but commit, tag, npm publish, GitHub release creation, and VSIX upload are still manual.
 - [ ] Real LLM task-success evaluation is not implemented; current fidelity and edit-success scores are deterministic benchmark proxies.
+- [x] Realistic benchmarking now covers raw corpus compression, first-turn chat overhead, cumulative multi-turn payloads, enterprise nominal IDE usage, and Anthropic cache-adjusted estimates. Codebook-skip logic ensures short chat requests never regress; all providers show net-positive or break-even savings.
 - [ ] Provider-aware behavior does not yet automatically choose code block, context-router, and trust-warning strategies per provider.
 - [ ] Source maps do not yet provide full expression-level AST mappings for every minified code block.
 - [ ] Workspace intelligence does not yet feed ranked context automatically into normal compression calls.
@@ -250,7 +257,29 @@ Status: delivered.
 - [x] Refresh Gemini-compatible proxy and VS Code usage examples for current Continue and Cursor configuration formats.
 - [x] Add regression fixtures for VS Code settings snapshots, README badge/deleted-link regressions, and compressed payload snapshots.
 
-### v1.12.0: Context Router Wiring
+### v1.12.0: Performance Engine Overhaul
+
+Status: prepared for release.
+
+- [x] Add adaptive chat strategy selection with automatic fallback when a compressed payload is net-negative.
+- [x] Redesign Anthropic wrapping so first-turn requests stay lightweight while multi-turn threads switch to structured cacheable blocks.
+- [x] Keep Anthropic stable protocol blocks separate from request-specific dynamic additions and measure cache-adjusted estimates in the realistic benchmark.
+- [x] Add codebook-skip threshold: skip the ~400-token protocol header when text-level savings are below 80 tokens.
+- [x] Correct Unicode token cost estimation with 1.5x penalty per non-ASCII glyph across all token-estimator variants.
+- [x] Add per-glyph breakeven checks for tech name and dynamic dictionary substitutions to prevent negative token trades.
+- [x] Eliminate all `JSON.parse(JSON.stringify())` state-cloning calls, replacing with shallow structured clones (~70% latency reduction).
+- [x] Cap source map `replacements` at 500 entries to prevent unbounded memory growth during long sessions.
+- [x] Cache compiled regexes for tech names, dynamic dictionary words, and file paths.
+- [x] Add whitespace normalization (collapse spaces/tabs, strip trailing, limit blank lines) before verbose phrase processing.
+- [x] Add multilingual verbose phrase compression for English, Italian, German, and French filler/polite patterns.
+- [x] Expand file path regex to support `@scoped/package`, Windows backslashes, and 10+ new file extensions.
+- [x] Lower dynamic dictionary minimum-word-length from 4 to 3 characters and add bigram detection.
+- [x] Tune provider-specific `dynamicMinSavedChars` and `maxDynamicEntries` thresholds for net-positive compression across all providers.
+- [x] Sync all CJS performance optimizations to the ESM middleware (`vscode-ext/glyph-middleware.js`).
+- [x] Remove 31 historical `.vsix` build artifacts from the repository.
+- [x] Shorten codebook instruction text from "Decode using mappings below." to "Decode:" for ~3 token savings per request.
+
+### v1.13.0: Context Router Wiring
 
 Status: proposed.
 
@@ -258,14 +287,14 @@ Status: proposed.
 - [ ] Use active file, diagnostics, git diff, and recent task intent as router inputs.
 - [ ] Keep provider-aware routing behavior auditable through source-map or explanation metadata.
 
-### v1.13.0: Structured Diagnostics and Snapshots
+### v1.14.0: Structured Diagnostics and Snapshots
 
 Status: proposed.
 
 - [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
 - [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
 
-### v1.14.0: Expression-Level Source Maps
+### v1.15.0: Expression-Level Source Maps
 
 Status: proposed.
 
@@ -361,13 +390,15 @@ Status: proposed.
 
 - [ ] Partial: Median token savings target is tracked in benchmark output, but not yet measured across real user repositories.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
+- [x] All providers now show net-positive or break-even savings on standard benchmark fixtures thanks to codebook-skip and per-glyph breakeven logic.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
 - [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.11.0`.
 
 ## Immediate Next Actions
 
-1. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+1. Implement cross-session dictionary caching to persist dynamic dictionaries between compressor instances.
 2. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
-3. Add expression-level AST spans for code block minification where language-specific parsers are available.
-4. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
+3. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+4. Add expression-level AST spans for code block minification where language-specific parsers are available.
+5. Expand multilingual verbose phrase coverage to Spanish, Portuguese, and Japanese.

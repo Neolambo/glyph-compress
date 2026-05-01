@@ -174,3 +174,4 @@ Track every post in a simple table:
 | Date | Channel | URL | Views | Replies | Stars | Notes |
 |---|---|---|---:|---:|---:|---|
 | 2026-04-26 | YouTube | https://www.youtube.com/watch?v=XRwRYEsReJU | | | | Primary video asset |
+| 2026-04-26 | Slack `#tutta-glipho` | slack://channel?team=T0B0BS2CHA5&id=C0AVAT5A05U | | | | Posted via Composio after approval; ts `1777238429.488239` |

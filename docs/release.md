@@ -48,10 +48,13 @@ If you already ran `npm run release:prepare`, the commands below are what the he
 ```bash
 npm test
 npm run benchmark
+npm run benchmark:realistic
 npm pack --dry-run
 npm publish --dry-run
 npm run package:vscode
 ```
+
+Treat `npm run benchmark` as the stable regression gate and `npm run benchmark:realistic` as the release-time sanity check for repository-scale payload behavior. This matters especially for Anthropic changes, where transmitted payload savings and cache-adjusted savings can diverge.
 
 Install the VSIX locally and verify the version:
 

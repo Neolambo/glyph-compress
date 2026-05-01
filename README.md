@@ -57,11 +57,17 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### New in v1.11.0 (Doctor and Integration Refresh)
+### New in v1.12.0 (Performance Engine Overhaul)
 
-1. **Doctor Expansion**: `glyph-compress doctor` now validates installed extension version, local `glyphCompress.*` settings, Continue proxy config, and provider credential presence when discoverable.
-2. **Usage Refresh**: Continue and Cursor Gemini-compatible proxy examples were updated to match current configuration formats.
-3. **Regression Snapshots**: Added dedicated fixtures for VS Code settings, README links, and compressed payload snapshots so release drift is caught deliberately.
+1. **Codebook-Skip Threshold**: Skips the ~400-token protocol header when text-level savings are below 80 tokens, eliminating negative compression on short requests.
+2. **Unicode Token Accuracy**: All token estimators now apply a 1.5× penalty per non-ASCII glyph, preventing inflated savings metrics from cheap-looking Unicode substitutions.
+3. **Per-Glyph Breakeven**: Tech name and dynamic dictionary substitutions are individually checked — if the glyph costs more tokens than the original word, the replacement is skipped.
+4. **Multilingual Verbose Phrase Compression**: Strips filler/polite phrases in **English, Italian, German, and French** (e.g., "per favore", "bitte", "s'il vous plaît") for international developer workflows.
+5. **Latency & Memory Optimization**: Eliminated all `JSON.parse(JSON.stringify())` state cloning (~70% faster), capped source map entries at 500, and cached compiled regexes.
+6. **Adaptive Chat Strategy Selection**: Message compression evaluates multiple provider-aware strategies and falls back automatically when a compressed chat payload is not cheaper.
+7. **Anthropic Hybrid Wrapper**: `wrapAnthropic()` keeps first-turn `system` prompts lightweight and switches to structured cacheable blocks only once assistant history exists.
+8. **Expanded File Path Support**: File path regex now supports `@scoped/packages`, Windows backslashes, and 10+ new extensions (`.toml`, `.sql`, `.graphql`, `.proto`, etc.).
+9. **ESM/CJS Sync**: All performance optimizations are applied to both the ESM and CommonJS middleware paths.
 
 ### v1.9.0 (Proxy and Packaging Hardening)
 
@@ -180,9 +186,32 @@ AFTER (137 chars):
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 v0.7.0 Benchmark Snapshot
+### 📏 Benchmark Snapshot (v1.12.0)
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **2.1x**, **53% token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **1.4x**, **28% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction.
+
+### 🧪 Realistic Benchmark Notes
+
+`npm run benchmark:realistic` measures four behaviors that the fixture benchmark does not capture by itself:
+
+1. **Real repository corpus compression** on files like `README.md`, `ROADMAP.md`, and core runtime sources.
+2. **Chat payload overhead** after the glyph codebook is injected for OpenAI and Anthropic-style requests.
+3. **Multi-turn chat amortization** across cumulative IDE-style conversations.
+4. **Enterprise nominal IDE usage** across professional workflows such as PR review, incident response, test planning, and release readiness.
+5. **Local throughput and latency** under repeated compression load.
+
+The current realistic benchmark shows a more nuanced picture than the synthetic fixture table below:
+
+- Raw repository files usually land around **1.2x-1.4x** compression in `light`, `standard`, and `aggressive` modes.
+- `ultra` can be dramatically better on some prose-heavy documents, but not on every file.
+- The **user message alone** usually compresses well for chat prompts.
+- The **full first-turn chat payload** can still get worse on short requests because the injected codebook outweighs the user-message savings.
+- The **cumulative multi-turn payload** is now measured separately, so you can see whether repeated turns start to amortize the codebook or keep carrying a net overhead.
+- The new **enterprise nominal usage** section reports a weighted professional-IDE summary. In the current benchmark, OpenAI lands around **4% full-payload savings** and **17% isolated user-message savings**.
+- Anthropic now uses a **hybrid wrapper strategy**: first-turn requests keep `system` lightweight, while multi-turn transcripts switch to structured cacheable blocks once assistant history exists.
+- Anthropic-oriented sections include both a transmitted **payloadSaved** metric and a **cache-adjusted estimate**. In the current benchmark, Anthropic remains slightly negative on weighted transmitted payload at about **-5%**, while the cache-adjusted weighted estimate is still positive at about **9%**. This is a benchmark estimate, not a billing guarantee.
+
+Use `npm run benchmark` as the stable regression benchmark and `npm run benchmark:realistic` when you want a more honest estimate of repository-scale and chat-payload behavior.
 
 ### 🔥 v0.6.0 (Project "Rosetta")
 
@@ -358,6 +387,8 @@ const response = await client.messages.create({
 });
 ```
 
+`wrapAnthropic()` now keeps first-turn requests lightweight and only promotes the system prompt into structured cacheable blocks when the transcript already contains assistant history. That reduces avoidable overhead on short requests while preserving cache-oriented behavior for longer IDE conversations.
+
 ### With Antigravity (AI Coding Assistant)
 
 For agentic IDEs like Antigravity, you can compress massive context payloads locally before passing them into the AI's prompt:
@@ -382,7 +413,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.11.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.12.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
@@ -590,6 +621,9 @@ npm run check:links
 # Run trust and measurement benchmark
 npm run benchmark
 
+# Run realistic corpus, payload, and throughput benchmark
+npm run benchmark:realistic
+
 # Run interactive demo
 npm run demo
 ```
@@ -779,7 +813,7 @@ See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md), [docs/licensing.md](docs/lic
 Contributions welcome! Areas of interest:
 
 - **New radicals** for emerging technologies
-- **Language support** for non-English prompts
+- **Language support** for non-English prompts (Italian, German, French are already supported; Spanish, Portuguese, Japanese, and more are welcome)
 - **VS Code Marketplace** metadata, examples, and compatibility reports
 - **Benchmark data** from real-world IDE sessions
 - **LLM comprehension tests** with different models

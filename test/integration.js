@@ -24,6 +24,7 @@ import { GlyphCompressor, wrapOpenAI } from '../src/glyph-middleware.js';
 import { PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES } from '../src/index.js';
 import { buildWorkspaceCodebook, detectIntent, runDoctor, saveWorkspaceCodebook, selectRelevantFiles } from '../src/workspace-intelligence.js';
 const require = createRequire(import.meta.url);
+const currentVersion = require('../package.json').version;
 let passed = 0;
 let failed = 0;
 
@@ -135,39 +136,63 @@ console.log('\n═══ TEST: OpenAI Message Format ═══\n');
 
 const gcOpenAI = new GlyphCompressor({ level: 'standard' });
 
-test('OpenAI: inject codebook into existing system prompt', () => {
+test('OpenAI: fallback preserves existing system prompt when compression is net-negative', () => {
   const messages = [
     { role: 'system', content: 'You are a coding assistant.' },
     { role: 'user', content: 'fix the bug in UserProfile.tsx' },
   ];
-  const { messages: compressed } = gcOpenAI.compressMessages(messages, 'openai');
+  const { messages: compressed, stats } = gcOpenAI.compressMessages(messages, 'openai');
   assert(compressed[0].role === 'system', 'First should be system');
-  assert(compressed[0].content.includes('[GLYPH PROTOCOL'), 'Should inject codebook');
-  assert(compressed[0].content.includes('coding assistant'), 'Should preserve original');
-  assert(compressed[1].content.includes('⺌✗'), 'Should compress user prompt');
+  assert(compressed[0].content === 'You are a coding assistant.', 'Should preserve original system prompt');
+  assert(compressed[1].content === 'fix the bug in UserProfile.tsx', 'Should preserve original user prompt');
+  assert(stats.thisMessage.fallback === true, 'Should record adaptive fallback');
 });
 
-test('OpenAI: add system prompt if missing', () => {
+test('OpenAI: short messages compress without codebook when codebook overhead exceeds text savings', () => {
   const messages = [
     { role: 'user', content: 'explain how react hooks work' },
   ];
-  const { messages: compressed } = gcOpenAI.compressMessages(messages, 'openai');
-  assert(compressed[0].role === 'system', 'Should prepend system message');
-  assert(compressed[0].content.includes('[GLYPH PROTOCOL'), 'Should have codebook');
+  const { messages: compressed, stats } = gcOpenAI.compressMessages(messages, 'openai');
+  assert(compressed.length === 1, 'Should keep original message count');
+  assert(compressed[0].role === 'user', 'Should keep original first message');
+  assert(!compressed[0].content.includes('[GLYPH PROTOCOL'), 'Should skip codebook for short messages');
+  assert(stats.thisMessage.compressedTokens <= stats.thisMessage.originalTokens, 'Should not increase token count');
 });
 
 test('OpenAI: track stats per message', () => {
   const messages = [
-    { role: 'user', content: 'create a dashboard component with react and typescript that shows user analytics' },
+    {
+      role: 'user',
+      content: `create a dashboard component with react and typescript that shows user analytics and explain the architecture decisions for this release:\n\n${'UserAnalyticsDashboard.tsx exports dashboard widgets, chart rendering helpers, analytics queries, caching adapters, user segments, and release notes. '.repeat(24)}`,
+    },
   ];
   const { messages: compressed, stats } = gcOpenAI.compressMessages(messages, 'openai');
   // The user message should be shorter after compression
   const userMsg = compressed.find(m => m.role === 'user');
   assert(userMsg.content.length < messages[0].content.length,
     'User message should be compressed');
+  assert(stats.thisMessage.fallback === false, 'Should keep compressed payload when net-positive');
   assert(stats.thisMessage.ratio.includes('x'), 'Should have ratio');
   assert(stats.thisMessage.provider === 'openai', 'Should record provider-aware stats');
   assert(stats.thisMessage.profile === 'chat-compact', 'Should use OpenAI provider profile');
+});
+
+test('OpenAI: may compress assistant history when it reduces transcript cost', () => {
+  const assistantHistory = `${
+    'Review summary: src/workspace-intelligence.js keeps ranking heuristics, doctor metadata, and repository summaries tightly coupled. ' +
+    'Suggested actions: isolate scoring, add regression coverage for release-readiness flows, and verify provider-aware output stability. '
+  }`.repeat(12);
+  const messages = [
+    { role: 'system', content: 'You are a staff engineer reviewing a production repository.' },
+    { role: 'user', content: `Review this implementation before merge:\n\n${'src/workspace-intelligence.js exports ranking helpers, doctor summaries, provider diagnostics, and release notes. '.repeat(18)}` },
+    { role: 'assistant', content: assistantHistory },
+    { role: 'user', content: 'Draft the final merge summary with risks and mitigation.' },
+  ];
+  const { messages: compressed, stats } = gcOpenAI.compressMessages(messages, 'openai');
+  const assistantMessage = compressed.find((message) => message.role === 'assistant');
+  assert(assistantMessage, 'Should keep assistant history in transcript');
+  assert(assistantMessage.content.length < assistantHistory.length, 'Should compress assistant history when beneficial');
+  assert(stats.thisMessage.fallback === false, 'Should keep compressed payload when assistant history compression is net-positive');
 });
 
 test('Provider profiles: tune dynamic dictionary thresholds by provider', () => {
@@ -175,7 +200,7 @@ test('Provider profiles: tune dynamic dictionary thresholds by provider', () => 
   const raw = new GlyphCompressor({ level: 'standard', provider: 'raw' }).compressText(text);
   const anthropic = new GlyphCompressor({ level: 'standard', provider: 'anthropic' }).compressText(text, 'anthropic');
   const local = new GlyphCompressor({ level: 'standard', provider: 'local' }).compressText(text, 'local');
-  assert(raw.sourceMap.version === '1.11.0', 'Should include v1.11.0 source map version');
+  assert(raw.sourceMap.version === currentVersion, 'Should include the current source map version');
   assert(anthropic.sourceMap.provider === 'anthropic', 'Should store normalized provider in source map');
   assert(anthropic.sourceMap.profile.strategy === 'cache-stable', 'Should store provider profile metadata');
   assert(local.sourceMap.profile.strategy === 'aggressive-local', 'Should support local profile metadata');
@@ -194,24 +219,27 @@ console.log('\n═══ TEST: Claude/Anthropic Message Format ═══\n');
 
 const gcClaude = new GlyphCompressor({ level: 'standard' });
 
-test('Claude: handle separate system field', () => {
+test('Claude: short Anthropic messages compress without codebook overhead', () => {
   const messages = [
     { role: 'system', content: 'You are an expert developer.' },
     { role: 'user', content: 'debug the python pipeline' },
   ];
-  const { messages: compressed } = gcClaude.compressMessages(messages, 'anthropic');
+  const { messages: compressed, stats } = gcClaude.compressMessages(messages, 'anthropic');
   const sysMsg = compressed.find(m => m.role === 'system');
   assert(sysMsg, 'Should have system message');
-  assert(sysMsg.content.includes('[GLYPH PROTOCOL'), 'Should inject codebook');
+  assert(sysMsg.content === 'You are an expert developer.', 'Should preserve original system prompt');
+  assert(!compressed.some(m => m.content.includes('[GLYPH PROTOCOL')), 'Should skip codebook for short Anthropic messages');
+  assert(stats.thisMessage.compressedTokens <= stats.thisMessage.originalTokens, 'Should not increase token count');
 });
 
-test('Claude: compress user messages', () => {
+test('Claude: preserve user messages when compression is net-negative', () => {
   const messages = [
     { role: 'user', content: 'review the security of the authentication module in auth.service.ts' },
   ];
-  const { messages: compressed } = gcClaude.compressMessages(messages, 'anthropic');
+  const { messages: compressed, stats } = gcClaude.compressMessages(messages, 'anthropic');
   const userMsg = compressed.find(m => m.role === 'user');
-  assert(userMsg.content.length < messages[0].content.length, 'Should be shorter');
+  assert(userMsg.content === messages[0].content, 'Should preserve original user prompt');
+  assert(stats.thisMessage.fallback === true, 'Should record fallback when Anthropic payload is net-negative');
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -252,9 +280,45 @@ test('Anthropic wrap adds cache_control to system', async () => {
     messages: [{ role: 'user', content: 'test' }]
   });
   
-  assert(Array.isArray(capturedParams.system), 'System should be converted to array');
-  assert(capturedParams.system[0].cache_control, 'Should have cache_control');
-  assert(capturedParams.system[0].cache_control.type === 'ephemeral', 'Should be ephemeral');
+  assert(typeof capturedParams.system === 'string', 'First-turn Anthropic system should stay a string');
+  assert(capturedParams.system === 'Hello', 'Should preserve original system text when no structured cache blocks are needed');
+});
+
+test('Anthropic wrap keeps stable protocol block separate from dynamic additions', async () => {
+  let capturedParams = null;
+  const mockClient = {
+    messages: {
+      create: async (params) => { capturedParams = params; return { id: 'msg_2' }; }
+    }
+  };
+
+  const { wrapAnthropic } = await import('../src/glyph-middleware.js');
+  const wrapped = wrapAnthropic(mockClient);
+  await wrapped.messages.create({
+    model: 'claude',
+    system: 'You are a release reviewer.',
+    messages: [
+      {
+        role: 'user',
+        content: `${'GlyphCompress release review benchmark benchmark provider provider middleware middleware extension extension diagnostics diagnostics '.repeat(10)}`,
+      },
+      {
+        role: 'assistant',
+        content: 'Previous review summary: benchmark and provider stability need a final pass before release.',
+      },
+      {
+        role: 'user',
+        content: 'Continue the review and produce the final release recommendation.',
+      },
+    ],
+  });
+
+  assert(Array.isArray(capturedParams.system), 'Structured Anthropic system should be an array');
+  assert(capturedParams.system[0].text.includes('[GLYPH PROTOCOL'), 'First system block should contain the stable protocol');
+  assert(!capturedParams.system[0].text.includes('DYN:'), 'Stable protocol block should not include request-specific dynamic entries');
+  assert(capturedParams.system[0].cache_control?.type === 'ephemeral', 'Stable protocol block should be cacheable');
+  assert(capturedParams.system.some((block) => block.text === 'You are a release reviewer.'), 'Original system prompt should remain separate');
+  assert(capturedParams.messages.some((message) => Array.isArray(message.content)), 'Largest user message should be converted to Anthropic text blocks');
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -384,7 +448,7 @@ console.log('\n═══ TEST: CLI Trust Features ═══\n');
 test('Source maps: expose reversible dictionaries', () => {
   const gc = new GlyphCompressor({ level: 'ultra' });
   const r = gc.compressText("Fix src/components/App.tsx. Property 'name' does not exist on type 'User'.\n```ts\nimport React from 'react';\nfunction App() { return null; }\n```");
-  assert(r.sourceMap.version === '1.11.0', 'Should include source map version');
+  assert(r.sourceMap.version === currentVersion, 'Should include source map version');
   assert(r.sourceMap.files.some(file => file.path === 'src/components/App.tsx'), 'Should map file refs to paths');
   assert(r.sourceMap.diagnostics.some(diag => diag.original.includes("Property 'name'")), 'Should map diagnostics');
   assert(r.sourceMap.codeBlocks.some(block => block.mode === 'summary'), 'Should map summarized code blocks');
@@ -427,7 +491,7 @@ test('Source maps: CommonJS root export matches ESM behavior', () => {
   const cjs = require('..');
   const gc = new cjs.GlyphCompressor({ level: 'standard' });
   const r = gc.compressText('Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
-  assert(r.sourceMap.version === '1.11.0', 'Should expose source maps through require()');
+  assert(r.sourceMap.version === currentVersion, 'Should expose source maps through require()');
   assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
   assert(typeof cjs.buildWorkspaceCodebook === 'function', 'Should expose workspace intelligence through require()');
 });
@@ -450,7 +514,7 @@ test('CLI: source-map flag prints source map JSON', () => {
     encoding: 'utf8',
   });
   assert(output.includes('Source map'), 'Should print source map heading');
-  assert(output.includes('"version": "1.11.0"'), 'Should print source map version');
+  assert(output.includes(`"version": "${currentVersion}"`), 'Should print source map version');
   assert(output.includes('"files"'), 'Should include file dictionary');
 });
 
@@ -476,7 +540,7 @@ test('Workspace intelligence: builds persistent codebook and ranks relevant file
   const codebook = buildWorkspaceCodebook(dir);
   const codebookPath = saveWorkspaceCodebook(dir, codebook);
   const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
-  assert(codebook.version === '1.11.0', 'Should use v1.11.0 codebook schema');
+  assert(codebook.version === currentVersion, 'Should use the current codebook schema version');
   assert(fs.existsSync(codebookPath), 'Should persist workspace codebook');
   assert(codebook.symbols.some(symbol => symbol.name === 'AuthenticationManager'), 'Should index symbols');
   assert(selection.intents.includes('fix_error'), 'Should detect fix intent');
@@ -496,7 +560,7 @@ test('Workspace intelligence: CLI inspect prints JSON summary', () => withTempWo
     encoding: 'utf8',
   });
   const result = JSON.parse(output);
-  assert(result.version === '1.11.0', 'Should print v1.11.0 inspect output');
+  assert(result.version === currentVersion, 'Should print the current inspect output version');
   assert(result.intents.includes('fix_error'), 'Should include detected intent');
   assert(result.relevantFiles.some(file => file.path === 'src/services/auth.ts'), 'Should include relevant file');
 }));
@@ -512,7 +576,7 @@ console.log('\n═══ TEST: Stable Platform Metadata ═══\n');
 test('Stable platform: package exposes TypeScript declarations', () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const pkg = require('..' + '/package.json');
-  assert(pkg.version === '1.11.0', 'Package should be v1.11.0');
+  assert(pkg.version === currentVersion, 'Package should expose the current release version');
   assert(pkg.types === 'src/index.d.ts', 'Package should expose root types');
   assert(pkg.exports['.'].types === './src/index.d.ts', 'Root export should expose types');
   assert(pkg.exports['./middleware'].types === './src/index.d.ts', 'Middleware export should expose complete package types');

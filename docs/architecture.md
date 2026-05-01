@@ -29,3 +29,9 @@ GlyphCompress is a semantic compression layer for IDE-to-LLM context. It compres
 ## Provider Behavior
 
 OpenAI and Anthropic wrappers are stable public APIs. Gemini-compatible usage is supported through the proxy pathway and benchmark fixtures. Provider-specific tokenizer profiles are still planned work; current token estimates remain deterministic approximations for regression and release validation.
+
+Anthropic now uses a hybrid wrapper strategy in the middleware layer:
+
+1. First-turn requests keep the `system` prompt lightweight to avoid paying structured-block overhead when there is no transcript history to amortize.
+2. Multi-turn requests switch to structured cacheable `system` blocks once assistant history exists, keeping the stable protocol separate from request-specific dynamic additions.
+3. The realistic benchmark must be read with two Anthropic signals in mind: transmitted `payloadSaved` and cache-adjusted billing estimates are different objectives and can move in different directions.

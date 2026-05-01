@@ -26,7 +26,7 @@ npx @vscode/vsce show Neolambo.glyph-compress
 ## Install a Specific VSIX
 
 ```powershell
-code.cmd --install-extension vscode-ext\glyph-compress-1.11.0.vsix --force
+code.cmd --install-extension vscode-ext\glyph-compress-1.12.0.vsix --force
 ```
 
 ## Commands

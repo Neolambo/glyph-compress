@@ -2,7 +2,11 @@ import assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createRequire } from 'module';
 import { buildWorkspaceCodebook, detectIntent, runDoctor, saveWorkspaceCodebook, selectRelevantFiles } from '../src/index.js';
+
+const require = createRequire(import.meta.url);
+const currentVersion = require('../package.json').version;
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-workspace-suite-'));
 
@@ -27,12 +31,12 @@ try {
   process.env.GLYPHCOMPRESS_DOCTOR_HOME = fakeHome;
   process.env.OPENAI_API_KEY = 'test-key';
   fs.mkdirSync(path.join(fakeHome, '.continue'), { recursive: true });
-  fs.mkdirSync(path.join(fakeHome, '.vscode', 'extensions', 'neolambo.glyph-compress-1.11.0'), { recursive: true });
+  fs.mkdirSync(path.join(fakeHome, '.vscode', 'extensions', `neolambo.glyph-compress-${currentVersion}`), { recursive: true });
   fs.writeFileSync(path.join(fakeHome, '.continue', 'config.yaml'), 'apiBase: http://localhost:8080/v1\n', 'utf8');
-  fs.writeFileSync(path.join(fakeHome, '.vscode', 'extensions', 'neolambo.glyph-compress-1.11.0', 'package.json'), JSON.stringify({
+  fs.writeFileSync(path.join(fakeHome, '.vscode', 'extensions', `neolambo.glyph-compress-${currentVersion}`, 'package.json'), JSON.stringify({
     name: 'glyph-compress',
     publisher: 'Neolambo',
-    version: '1.11.0',
+    version: currentVersion,
   }, null, 2), 'utf8');
 
   const codebook = buildWorkspaceCodebook(dir);
@@ -40,7 +44,7 @@ try {
   const selection = selectRelevantFiles(dir, 'fix AuthenticationManager error', { codebook });
   const doctor = runDoctor(dir);
 
-  assert(codebook.version === '1.11.0', 'workspace codebook should use v1.11.0 schema');
+  assert(codebook.version === currentVersion, 'workspace codebook should use the current schema version');
   assert(fs.existsSync(codebookPath), 'workspace codebook should be written');
   assert(selection.files.some((file) => file.path === 'src/services/auth.ts'), 'workspace selection should rank auth service');
   assert(detectIntent('write unit tests').includes('write_tests'), 'intent detection should include tests');

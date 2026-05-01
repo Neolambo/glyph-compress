@@ -15,10 +15,12 @@ The repository does not grant a commercial license automatically. Commercial rig
 ## Deployment Checklist
 
 - Pin npm and VS Code extension versions to the same release tag.
-- Run `npm test`, `npm run benchmark`, and `glyph-compress doctor` in internal validation.
+- Run `npm test`, `npm run benchmark`, `npm run benchmark:realistic`, and `glyph-compress doctor` in internal validation.
 - Validate proxy routing in a non-production workspace before rollout.
 - Document which repositories, file classes, and LLM endpoints are approved.
 - Train users to exclude secrets, credentials, private keys, tokens, and regulated data from prompts.
+
+For Anthropic deployments, treat transmitted payload savings and cache-adjusted savings as separate operating signals. The current middleware favors a hybrid strategy: lightweight first-turn requests and cache-oriented structured blocks only after assistant history exists.
 
 ## Support Boundaries
 

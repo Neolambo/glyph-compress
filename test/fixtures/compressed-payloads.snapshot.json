@@ -6,7 +6,7 @@
     "result": {
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
-        "version": "1.11.0",
+        "version": "1.12.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -81,7 +81,7 @@
     "result": {
       "compressed": "Use API_KEY=⟦SECRET_ASSIGNMENT_2⟧ and contact ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
       "sourceMap": {
-        "version": "1.11.0",
+        "version": "1.12.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -100,23 +100,23 @@
         "privacy": [
           {
             "kind": "openai_key",
-            "placeholder": "⟦OPENAI_KEY_1⟧",
-            "label": "OpenAI API key"
+            "label": "OpenAI API key",
+            "placeholder": "⟦OPENAI_KEY_1⟧"
           },
           {
             "kind": "secret_assignment",
-            "placeholder": "⟦SECRET_ASSIGNMENT_2⟧",
-            "label": "secret assignment"
+            "label": "secret assignment",
+            "placeholder": "⟦SECRET_ASSIGNMENT_2⟧"
           },
           {
             "kind": "email",
-            "placeholder": "⟦EMAIL_3⟧",
-            "label": "email address"
+            "label": "email address",
+            "placeholder": "⟦EMAIL_3⟧"
           },
           {
             "kind": "ipv4",
-            "placeholder": "⟦IPV4_4⟧",
-            "label": "IPv4 address"
+            "label": "IPv4 address",
+            "placeholder": "⟦IPV4_4⟧"
           }
         ],
         "symbols": [
@@ -208,15 +208,15 @@
       "messages": [
         {
           "role": "system",
-          "content": "[GLYPH PROTOCOL v0.5]\nContext uses compressed glyphs. Decode:\nDOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net\nTECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent\nSYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc\nMOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.\nFILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks\nRespond normally. Context below uses these glyphs for brevity.\nDYN: α=UserProfile\nPROFILE: openai/chat-compact\n[/GLYPH]\n\nYou are a coding assistant."
+          "content": "You are a coding assistant."
         },
         {
           "role": "user",
-          "content": "⺌✗ ◈₍1₎"
+          "content": "fix the bug in UserProfile.tsx"
         }
       ],
       "sourceMap": {
-        "version": "1.11.0",
+        "version": "1.12.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
@@ -227,64 +227,29 @@
           "codebookHint": "OpenAI chat profile favors compact repeated identifiers and low message overhead."
         },
         "trustPolicy": "reversible",
-        "files": [
-          {
-            "ref": "◈₍1₎",
-            "path": "UserProfile.tsx",
-            "domain": "frontend"
-          }
-        ],
-        "dynamic": [
-          {
-            "glyph": "α",
-            "original": "UserProfile",
-            "frequency": 1,
-            "estimatedSavedChars": 10,
-            "provider": "openai",
-            "profile": "chat-compact"
-          }
-        ],
+        "files": [],
+        "dynamic": [],
         "diagnostics": [],
         "codeBlocks": [],
         "ast": [],
         "privacy": [],
-        "symbols": [
-          {
-            "glyph": "⺌✗",
-            "original": "fix the bug in UserProfile.tsx",
-            "kind": "prompt"
-          },
-          {
-            "glyph": "◈₍1₎",
-            "original": "UserProfile.tsx",
-            "kind": "file"
-          }
-        ],
-        "replacements": [
-          {
-            "kind": "prompt",
-            "original": "fix the bug in UserProfile.tsx",
-            "compressed": "⺌✗ UserProfile.tsx"
-          },
-          {
-            "kind": "file",
-            "original": "UserProfile.tsx",
-            "compressed": "◈₍1₎"
-          }
-        ]
+        "symbols": [],
+        "replacements": []
       },
       "stats": {
         "totalOriginalTokens": 26,
-        "totalCompressedTokens": 229,
+        "totalCompressedTokens": 26,
         "thisMessage": {
           "provider": "openai",
           "profile": "chat-compact",
           "trustPolicy": "reversible",
           "originalTokens": 26,
-          "compressedTokens": 229,
-          "saved": -203,
-          "ratio": "0.1x",
-          "savedPct": "-781%"
+          "compressedTokens": 26,
+          "saved": 0,
+          "ratio": "1.0x",
+          "savedPct": "0%",
+          "fallback": true,
+          "selectedLevel": "standard"
         }
       }
     }
@@ -306,15 +271,15 @@
       "messages": [
         {
           "role": "system",
-          "content": "[GLYPH PROTOCOL v0.5]\nContext uses compressed glyphs. Decode:\nDOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net\nTECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent\nSYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc\nMOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.\nFILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks\nRespond normally. Context below uses these glyphs for brevity.\nPROFILE: anthropic/cache-stable\n[/GLYPH]\n\nYou are an expert code reviewer."
+          "content": "You are an expert code reviewer."
         },
         {
           "role": "user",
-          "content": "⺎ the ᵖ data pipeline in ◇₍1₎ works"
+          "content": "explain how the python data pipeline in examples/test-pipeline.py works"
         }
       ],
       "sourceMap": {
-        "version": "1.11.0",
+        "version": "1.12.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {
@@ -325,67 +290,29 @@
           "codebookHint": "Anthropic profile keeps the codebook stable for cache-friendly system prompts."
         },
         "trustPolicy": "reversible",
-        "files": [
-          {
-            "ref": "◇₍1₎",
-            "path": "examples/test-pipeline.py",
-            "domain": "language"
-          }
-        ],
+        "files": [],
         "dynamic": [],
         "diagnostics": [],
         "codeBlocks": [],
         "ast": [],
         "privacy": [],
-        "symbols": [
-          {
-            "glyph": "⺎",
-            "original": "explain how the python data pipeline in examples/test-pipeline.py works",
-            "kind": "prompt"
-          },
-          {
-            "glyph": "ᵖ",
-            "original": "python",
-            "kind": "tech",
-            "canonical": "python"
-          },
-          {
-            "glyph": "◇₍1₎",
-            "original": "examples/test-pipeline.py",
-            "kind": "file"
-          }
-        ],
-        "replacements": [
-          {
-            "kind": "prompt",
-            "original": "explain how the python data pipeline in examples/test-pipeline.py works",
-            "compressed": "⺎ the python data pipeline in examples/test-pipeline.py works"
-          },
-          {
-            "kind": "tech",
-            "original": "python",
-            "compressed": "ᵖ",
-            "canonical": "python"
-          },
-          {
-            "kind": "file",
-            "original": "examples/test-pipeline.py",
-            "compressed": "◇₍1₎"
-          }
-        ]
+        "symbols": [],
+        "replacements": []
       },
       "stats": {
         "totalOriginalTokens": 40,
-        "totalCompressedTokens": 246,
+        "totalCompressedTokens": 40,
         "thisMessage": {
           "provider": "anthropic",
           "profile": "cache-stable",
           "trustPolicy": "reversible",
           "originalTokens": 40,
-          "compressedTokens": 246,
-          "saved": -206,
-          "ratio": "0.2x",
-          "savedPct": "-515%"
+          "compressedTokens": 40,
+          "saved": 0,
+          "ratio": "1.0x",
+          "savedPct": "0%",
+          "fallback": true,
+          "selectedLevel": "standard"
         }
       }
     }

@@ -124,36 +124,36 @@ const PROVIDER_COMPRESSION_PROFILES = {
   raw: {
     provider: "raw",
     strategy: "balanced",
-    dynamicMinSavedChars: 10,
-    maxDynamicEntries: 60,
+    dynamicMinSavedChars: 4,
+    maxDynamicEntries: 80,
     codebookHint: "Generic text profile with balanced dynamic dictionary compression."
   },
   openai: {
     provider: "openai",
     strategy: "chat-compact",
-    dynamicMinSavedChars: 8,
-    maxDynamicEntries: 72,
+    dynamicMinSavedChars: 4,
+    maxDynamicEntries: 80,
     codebookHint: "OpenAI chat profile favors compact repeated identifiers and low message overhead."
   },
   anthropic: {
     provider: "anthropic",
     strategy: "cache-stable",
-    dynamicMinSavedChars: 14,
-    maxDynamicEntries: 48,
+    dynamicMinSavedChars: 6,
+    maxDynamicEntries: 64,
     codebookHint: "Anthropic profile keeps the codebook stable for cache-friendly system prompts."
   },
   gemini: {
     provider: "gemini",
     strategy: "structure-preserving",
-    dynamicMinSavedChars: 12,
-    maxDynamicEntries: 56,
+    dynamicMinSavedChars: 4,
+    maxDynamicEntries: 72,
     codebookHint: "Gemini-compatible profile favors structural clarity with moderate dictionary growth."
   },
   local: {
     provider: "local",
     strategy: "aggressive-local",
-    dynamicMinSavedChars: 6,
-    maxDynamicEntries: 80,
+    dynamicMinSavedChars: 3,
+    maxDynamicEntries: 96,
     codebookHint: "Local-model profile uses more dynamic entries where tokenizer overhead is lower."
   }
 };
@@ -240,6 +240,36 @@ MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
+const COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
+TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
+SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
+MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
+FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
+Decode using mappings below.
+[/GLYPH]`;
+const COMPACT_CODEBOOK_DOM_ENTRIES = [
+  ["\u25C8", "frontend"], ["\u25C9", "ai_ml"], ["\u25CA", "devops"], ["\u25C6", "database"],
+  ["\u25C7", "lang"], ["\u2295", "auto"], ["\u2297", "arch"], ["\u2299", "mobile"],
+  ["\u2298", "cloud"], ["\u229A", "data"], ["\u229B", "test"], ["\u229C", "backend"],
+  ["\u229D", "security"], ["\u229E", "docs"], ["\u229F", "perf"], ["\u22A0", "net"],
+];
+const COMPACT_CODEBOOK_TECH_ENTRIES = [
+  ["\u1D57", "TS"], ["\u02B2\u02E2", "JS"], ["\u1D56", "Py"], ["\u02B3", "Rust"], ["\u1D4D", "Go"],
+  ["\u211C", "React"], ["\u2115", "Next"], ["\u{1D54D}", "Vue"], ["\u{1D49F}", "Docker"], ["\u{1D4A6}", "K8s"],
+  ["\u{1D4AF}", "Terraform"], ["\u2119", "PG"], ["\u1D63", "Redis"], ["\u2112", "LLM"], ["\u03B1", "Agent"],
+];
+const COMPACT_CODEBOOK_SYM_ENTRIES = [
+  ["\u2717", "err"], ["\u26A0", "warn"], ["\u2209", "type_err"], ["\u2205", "missing"], ["\u2192", "return/yield"],
+  ["\u0192", "function/def/fn"], ["\u{1D49E}", "class/struct"], ["\u25C7t", "type/int/void"], ["\u27FF", "effect"],
+  ["\u2E8C", "fix"], ["\u2E8B", "perf"], ["\u2E8E", "review"], ["\u2E83", "debug"], ["\u2E8F", "deploy"],
+  ["\u25B2", "create"], ["\u25CF", "refactor"], ["\u25BA", "test"], ["\u25A0", "doc"], ["\u25C7", "var/const/let"],
+];
+const COMPACT_CODEBOOK_MOD_ENTRIES = [
+  ["+=", "pub/public"], ["-=", "private"], ["#", "protected"], ["m", "mut"],
+  ["I", "impl"], ["?", "match"], ["pkg", "package"], ["s.", "self."],
+];
+const COMPACT_CODEBOOK_FILE_LINE = "\u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks";
 class GlyphCompressor {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
@@ -276,42 +306,27 @@ class GlyphCompressor {
   compressMessages(messages, provider = this.provider) {
     if (!this.enabled) return { messages, stats: this.stats };
     this._setProvider(provider);
-    this.resetSourceMap();
-    const allUserText = messages.filter((m) => m.role === "user").map((m) => this._normalizeMessageContent(m.content)).join("\n");
-    const safeUserText = this._applyPrivacyFirewall(allUserText, false);
-    this._buildDynamicDictionary(safeUserText);
-    const compressed = [];
-    let codebookInjected = false;
-    for (const msg of messages) {
-      if (msg.role === "system") {
-        compressed.push({
-          role: "system",
-          content: this._injectCodebook(msg.content, provider)
-        });
-        codebookInjected = true;
-      } else if (msg.role === "user") {
-        compressed.push({
-          role: "user",
-          content: this._compressUserMessage(msg.content, safeUserText)
-        });
-      } else {
-        compressed.push(msg);
+    const origTokens = this._estimateTokens(messages, provider);
+    const baseState = this._captureCompressionState();
+    const candidates = this._candidateMessageStrategies(messages);
+    let bestResult = null;
+    for (const candidate of candidates) {
+      const trialState = this._captureCompressionState();
+      this.level = candidate.level;
+      const result = this._compressMessagesForStrategy(messages, provider, origTokens, baseState, candidate);
+      this._restoreCompressionState(trialState);
+      if (!bestResult || result.compressedTokens < bestResult.compressedTokens) {
+        bestResult = result;
       }
     }
-    if (!codebookInjected) {
-      compressed.unshift({
-        role: "system",
-        content: this._injectCodebook("", provider).trim()
-      });
-    }
-    const origTokens = this._estimateTokens(messages, provider);
-    const compTokens = this._estimateTokens(compressed, provider);
+    this.level = bestResult.level;
+    this._restoreCompressionState(bestResult.state);
     this.stats.totalOriginalTokens += origTokens;
-    this.stats.totalCompressedTokens += compTokens;
+    this.stats.totalCompressedTokens += bestResult.compressedTokens;
     this.stats.messagesProcessed++;
     return {
-      messages: compressed,
-      sourceMap: this.getSourceMap(),
+      messages: bestResult.messages,
+      sourceMap: bestResult.sourceMap,
       stats: {
         ...this.stats,
         thisMessage: {
@@ -319,12 +334,108 @@ class GlyphCompressor {
           profile: this.providerProfile.strategy,
           trustPolicy: this.trustPolicy,
           originalTokens: origTokens,
-          compressedTokens: compTokens,
-          saved: origTokens - compTokens,
-          ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + "x",
-          savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
+          compressedTokens: bestResult.compressedTokens,
+          saved: origTokens - bestResult.compressedTokens,
+          ratio: (origTokens / Math.max(1, bestResult.compressedTokens)).toFixed(1) + "x",
+          savedPct: ((1 - bestResult.compressedTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%",
+          fallback: bestResult.fallback,
+          selectedLevel: bestResult.level
         }
       }
+    };
+  }
+  _compressMessagesForStrategy(messages, provider, origTokens, baseState, candidate) {
+    this.resetSourceMap();
+    const rolesToCompress = new Set(candidate.roles || ["user"]);
+    const allCompressibleText = messages.filter((m) => rolesToCompress.has(m.role)).map((m) => this._normalizeMessageContent(m.content)).join("\n");
+    const safeText = this._applyPrivacyFirewall(allCompressibleText, false);
+    this._buildDynamicDictionary(safeText);
+    const compressed = messages.map((msg) => {
+      if (!rolesToCompress.has(msg.role)) return msg;
+      return {
+        ...msg,
+        content: this._compressUserMessage(msg.content, safeText)
+      };
+    });
+    const compressedWithoutCodebook = this._estimateTokens(compressed, provider);
+    const textSavings = origTokens - compressedWithoutCodebook;
+    const codebookCostEstimate = this.provider === "raw" ? 0 : 80;
+    const skipCodebook = this.provider !== "raw" && textSavings < codebookCostEstimate;
+    if (!skipCodebook) {
+      const firstSystemIndex = compressed.findIndex((msg) => msg.role === "system");
+      if (firstSystemIndex >= 0) {
+        compressed[firstSystemIndex] = {
+          ...compressed[firstSystemIndex],
+          content: this._injectCodebook(compressed[firstSystemIndex].content, provider, compressed)
+        };
+      } else {
+        compressed.unshift({
+          role: "system",
+          content: this._injectCodebook("", provider, compressed).trim()
+        });
+      }
+    }
+    const compTokens = this._estimateTokens(compressed, provider);
+    const fallback = this.provider !== "raw" && compTokens >= origTokens;
+    return {
+      level: candidate.level,
+      messages: fallback ? messages.map((msg) => ({ ...msg })) : compressed,
+      compressedTokens: fallback ? origTokens : compTokens,
+      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
+      fallback,
+      state: fallback ? baseState : this._captureCompressionState()
+    };
+  }
+  _candidateMessageStrategies(messages = []) {
+    const levels = this.provider === "raw" || this.level === "light" ? [this.level] : [this.level, "light"];
+    const strategies = levels.map((level) => ({ level, roles: ["user"] }));
+    if (this.provider !== "raw" && messages.some((message) => message.role === "assistant")) {
+      for (const level of levels) {
+        strategies.push({ level, roles: ["user", "assistant"] });
+      }
+    }
+    return strategies;
+  }
+  _captureCompressionState() {
+    return {
+      level: this.level,
+      fileIndex: new Map(this.fileIndex),
+      fileCounter: this.fileCounter,
+      dynamicDict: new Map(this.dynamicDict),
+      dynamicCounter: this.dynamicCounter,
+      privacyTokens: new Map(this.privacyTokens),
+      privacyCounter: this.privacyCounter,
+      sourceMap: {
+        ...this.sourceMap,
+        files: [...this.sourceMap.files],
+        dynamic: [...this.sourceMap.dynamic],
+        diagnostics: [...this.sourceMap.diagnostics],
+        codeBlocks: [...this.sourceMap.codeBlocks],
+        ast: [...this.sourceMap.ast],
+        privacy: [...this.sourceMap.privacy],
+        symbols: [...this.sourceMap.symbols],
+        replacements: [...this.sourceMap.replacements]
+      }
+    };
+  }
+  _restoreCompressionState(state) {
+    this.level = state.level;
+    this.fileIndex = new Map(state.fileIndex);
+    this.fileCounter = state.fileCounter;
+    this.dynamicDict = new Map(state.dynamicDict);
+    this.dynamicCounter = state.dynamicCounter;
+    this.privacyTokens = new Map(state.privacyTokens);
+    this.privacyCounter = state.privacyCounter;
+    this.sourceMap = {
+      ...state.sourceMap,
+      files: [...state.sourceMap.files],
+      dynamic: [...state.sourceMap.dynamic],
+      diagnostics: [...state.sourceMap.diagnostics],
+      codeBlocks: [...state.sourceMap.codeBlocks],
+      ast: [...state.sourceMap.ast],
+      privacy: [...state.sourceMap.privacy],
+      symbols: [...state.sourceMap.symbols],
+      replacements: [...state.sourceMap.replacements]
     };
   }
   /**
@@ -362,14 +473,134 @@ class GlyphCompressor {
   /**
    * Get the codebook system prompt to inject.
    */
-  getCodebookPrompt() {
-    let prompt = CODEBOOK_PROMPT;
+  getCodebookPrompt(messages = []) {
+    let prompt = this._codebookPromptForProvider(messages);
     if (this.fileIndex.size > 0) {
       const files = [...this.fileIndex].map(([path, ref]) => `${ref}=${path}`).join(" | ");
       prompt = prompt.replace("[/GLYPH]", `FILES: ${files}
 [/GLYPH]`);
     }
     return prompt;
+  }
+  _prepareAnthropicPayload(systemInput, messages = []) {
+    const allMessages = [];
+    const originalSystemText = this._anthropicSystemText(systemInput);
+    if (originalSystemText) {
+      allMessages.push({ role: "system", content: originalSystemText });
+    }
+    allMessages.push(...messages);
+    const { messages: compressed } = this.compressMessages(allMessages, "anthropic");
+    const systemMsg = compressed.find((message) => message.role === "system");
+    const otherMsgs = compressed.filter((message) => message.role !== "system").map((message) => ({ ...message }));
+    const useStructuredSystem = messages.some((message) => message.role === "assistant");
+    let systemParam = systemInput;
+    if (systemMsg) {
+      systemParam = useStructuredSystem ? this._buildAnthropicSystemParam(systemMsg.content, originalSystemText) : systemMsg.content;
+    }
+    this._markLargestAnthropicUserBlock(otherMsgs);
+    return {
+      system: systemParam,
+      messages: otherMsgs
+    };
+  }
+  _anthropicSystemText(systemInput) {
+    if (typeof systemInput === "string") {
+      return systemInput;
+    }
+    if (Array.isArray(systemInput)) {
+      return systemInput.map((entry) => entry && typeof entry === "object" && "text" in entry ? entry.text : "").filter(Boolean).join("\n");
+    }
+    return "";
+  }
+  _buildAnthropicSystemParam(systemContent, originalSystemText = "") {
+    const parsed = this._parseInjectedCodebook(systemContent);
+    const systemBlocks = [];
+    if (parsed.hasProtocol) {
+      systemBlocks.push({
+        type: "text",
+        text: this._anthropicStableProtocolBlock(),
+        cache_control: { type: "ephemeral" }
+      });
+    }
+    const resolvedSystemText = parsed.originalSystemText || originalSystemText;
+    if (resolvedSystemText) {
+      systemBlocks.push({
+        type: "text",
+        text: resolvedSystemText,
+        cache_control: { type: "ephemeral" }
+      });
+    }
+    if (parsed.dynamicLine) {
+      systemBlocks.push({
+        type: "text",
+        text: `[GLYPH DYNAMIC]\n${parsed.dynamicLine}`
+      });
+    }
+    if (systemBlocks.length === 0 && systemContent) {
+      systemBlocks.push({
+        type: "text",
+        text: systemContent,
+        cache_control: { type: "ephemeral" }
+      });
+    }
+    return systemBlocks;
+  }
+  _parseInjectedCodebook(systemContent = "") {
+    if (typeof systemContent !== "string" || !systemContent.startsWith("[GLYPH PROTOCOL")) {
+      return {
+        hasProtocol: false,
+        originalSystemText: systemContent || "",
+        dynamicLine: ""
+      };
+    }
+    const closingMarker = "[/GLYPH]";
+    const closingIndex = systemContent.indexOf(closingMarker);
+    if (closingIndex === -1) {
+      return {
+        hasProtocol: false,
+        originalSystemText: systemContent,
+        dynamicLine: ""
+      };
+    }
+    const codebookText = systemContent.slice(0, closingIndex + closingMarker.length);
+    const originalSystemText = systemContent.slice(closingIndex + closingMarker.length).replace(/^\s+/, "");
+    const dynamicLine = codebookText.split("\n").find((line) => line.startsWith("DYN: ")) || "";
+    return {
+      hasProtocol: true,
+      originalSystemText,
+      dynamicLine
+    };
+  }
+  _anthropicStableProtocolBlock() {
+    return COMPACT_CODEBOOK_PROMPT.replace("[/GLYPH]", `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}\n[/GLYPH]`);
+  }
+  _markLargestAnthropicUserBlock(messages = []) {
+    let largestMsgIdx = -1;
+    let maxLen = 0;
+    for (let i = 0; i < messages.length; i += 1) {
+      if (messages[i].role !== "user") continue;
+      const len = typeof messages[i].content === "string" ? messages[i].content.length : JSON.stringify(messages[i].content).length;
+      if (len > maxLen) {
+        maxLen = len;
+        largestMsgIdx = i;
+      }
+    }
+    if (largestMsgIdx === -1) return;
+    const msg = messages[largestMsgIdx];
+    if (typeof msg.content === "string") {
+      msg.content = [{
+        type: "text",
+        text: msg.content,
+        cache_control: { type: "ephemeral" }
+      }];
+      return;
+    }
+    if (Array.isArray(msg.content) && msg.content.length > 0) {
+      const textBlocks = msg.content.filter((block) => block.type === "text");
+      if (textBlocks.length > 0) {
+        textBlocks[textBlocks.length - 1].cache_control = { type: "ephemeral" };
+      }
+    }
   }
   /**
    * Get session statistics.
@@ -397,7 +628,17 @@ class GlyphCompressor {
     this.fileCounter = 0;
   }
   getSourceMap() {
-    const sourceMap = JSON.parse(JSON.stringify(this.sourceMap));
+    const sourceMap = {
+      ...this.sourceMap,
+      files: [...this.sourceMap.files],
+      dynamic: [...this.sourceMap.dynamic],
+      diagnostics: [...this.sourceMap.diagnostics],
+      codeBlocks: [...this.sourceMap.codeBlocks],
+      ast: [...this.sourceMap.ast],
+      privacy: [...this.sourceMap.privacy],
+      symbols: [...this.sourceMap.symbols],
+      replacements: [...this.sourceMap.replacements]
+    };
     const knownFileRefs = new Set(sourceMap.files.map((file) => file.ref));
     for (const [path, ref] of this.fileIndex) {
       if (!knownFileRefs.has(ref)) {
@@ -430,7 +671,7 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.11.0",
+      version: "1.12.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -466,6 +707,7 @@ class GlyphCompressor {
   }
   _recordReplacement(kind, original, compressed, extra = {}) {
     if (!original || original === compressed) return;
+    if (this.sourceMap.replacements.length >= 500) return;
     this.sourceMap.replacements.push({ kind, original, compressed, ...extra });
   }
   _lineColumnAt(text, offset) {
@@ -542,12 +784,14 @@ class GlyphCompressor {
     }
     return result;
   }
-  _injectCodebook(systemPrompt, provider) {
+  _injectCodebook(systemPrompt, provider, messages = []) {
     if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
     this._setProvider(provider);
-    let modifiedCodebook = CODEBOOK_PROMPT;
-    if (this.dynamicDict.size > 0) {
-      const dyn = [...this.dynamicDict].map(([w, g]) => `${g}=${w}`).join(" | ");
+    let modifiedCodebook = this._codebookPromptForProvider(messages);
+    const payloadText = this._payloadTextForCodebook(messages);
+    const usedDynamicEntries = [...this.dynamicDict].filter(([, glyph]) => payloadText.includes(glyph)).map(([word, glyph]) => `${glyph}=${word}`);
+    if (usedDynamicEntries.length > 0) {
+      const dyn = usedDynamicEntries.join(" | ");
       modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `DYN: ${dyn}
 [/GLYPH]`);
     }
@@ -557,9 +801,48 @@ class GlyphCompressor {
     }
     return modifiedCodebook + "\n\n" + systemPrompt;
   }
+  _codebookPromptForProvider(messages = []) {
+    return this.provider === "raw" ? CODEBOOK_PROMPT : this._buildMinimalCompactCodebookPrompt(messages);
+  }
+  _buildMinimalCompactCodebookPrompt(messages = []) {
+    if (!messages.length) {
+      return COMPACT_CODEBOOK_PROMPT;
+    }
+    const payloadText = this._payloadTextForCodebook(messages);
+    const usedDynamicGlyphs = /* @__PURE__ */ new Set([...this.dynamicDict].filter(([, glyph]) => payloadText.includes(glyph)).map(([, glyph]) => glyph));
+    const lines = ["[GLYPH PROTOCOL v0.5]"];
+    const domLine = this._codebookLineFromEntries("DOM", COMPACT_CODEBOOK_DOM_ENTRIES, payloadText);
+    const techLine = this._codebookLineFromEntries("TECH", COMPACT_CODEBOOK_TECH_ENTRIES, payloadText, usedDynamicGlyphs);
+    const symLine = this._codebookLineFromEntries("SYM", COMPACT_CODEBOOK_SYM_ENTRIES, payloadText);
+    const modLine = this._codebookLineFromEntries("MOD", COMPACT_CODEBOOK_MOD_ENTRIES, payloadText);
+    const needsFileLine = this._payloadNeedsFileCodebook(payloadText);
+    if (domLine) lines.push(domLine);
+    if (techLine) lines.push(techLine);
+    if (symLine) lines.push(symLine);
+    if (modLine) lines.push(modLine);
+    if (needsFileLine) lines.push(`FILE: ${COMPACT_CODEBOOK_FILE_LINE}`);
+    lines.push("Decode:");
+    lines.push("[/GLYPH]");
+    return lines.join("\n");
+  }
+  _codebookLineFromEntries(section, entries, payloadText, excludedGlyphs = /* @__PURE__ */ new Set()) {
+    const usedEntries = entries.filter(([glyph]) => !excludedGlyphs.has(glyph) && payloadText.includes(glyph));
+    if (usedEntries.length === 0) return "";
+    return `${section}: ${usedEntries.map(([glyph, label]) => `${glyph}=${label}`).join(" ")}`;
+  }
+  _payloadNeedsFileCodebook(payloadText) {
+    return /\u208D\d+\u208E/.test(payloadText) || payloadText.includes(":L") || payloadText.includes("[NL]") || payloadText.includes("imp") || payloadText.includes("exp") || payloadText.includes("\u27F3");
+  }
+  _payloadTextForCodebook(messages = []) {
+    return messages.filter((message) => message.role !== "system").map((message) => this._normalizeMessageContent(message.content)).join("\n");
+  }
   _compressUserMessage(content, allUserText) {
     if (!content) return content;
     let c = this._applyPrivacyFirewall(this._normalizeMessageContent(content));
+    c = c.replace(/[ \t]+/g, " ");
+    c = c.replace(/\n{3,}/g, "\n\n");
+    c = c.replace(/[ \t]+$/gm, "");
+    c = this._compressVerbosePhrases(c);
     if (this.level === "ultra" && this._allows("redundancyStrip")) {
       c = this._stripRedundancy(c);
     }
@@ -568,10 +851,10 @@ class GlyphCompressor {
     }
     if (this._allows("prompt")) c = this._compressPrompt(c);
     if (this._allows("tech")) c = this._compressTechNames(c);
+    if (this._allows("files")) c = this._compressFilePaths(c);
     if (this.level === "light") {
       return this._allows("dynamic") ? this._applyDynamicDictionary(c) : c;
     }
-    if (this._allows("files")) c = this._compressFilePaths(c);
     if (this._allows("diagnostics")) {
       c = this._compressErrors(c);
       c = this._compressDiagnostics(c);
@@ -579,18 +862,69 @@ class GlyphCompressor {
     if (this._allows("dynamic")) c = this._applyDynamicDictionary(c);
     return c;
   }
+  _compressVerbosePhrases(text) {
+    return text
+      // English
+      .replace(/\bI need you to\b/gi, "")
+      .replace(/\bcan you (please )?/gi, "")
+      .replace(/\bplease\b/gi, "")
+      .replace(/\bthe following\b/gi, "this")
+      .replace(/\bin order to\b/gi, "to")
+      .replace(/\bas well as\b/gi, "&")
+      .replace(/\bmake sure (that )?/gi, "ensure ")
+      .replace(/\btake a look at\b/gi, "check")
+      .replace(/\bcould you\b/gi, "")
+      .replace(/\bI would like you to\b/gi, "")
+      .replace(/\bI want you to\b/gi, "")
+      // Italian
+      .replace(/\bho bisogno che (tu )?/gi, "")
+      .replace(/\bpuoi (per favore )?/gi, "")
+      .replace(/\bper favore\b/gi, "")
+      .replace(/\bper cortesia\b/gi, "")
+      .replace(/\bvorrei che (tu )?/gi, "")
+      .replace(/\bpotresti\b/gi, "")
+      .replace(/\bdai un'?occhiata a\b/gi, "check")
+      .replace(/\bin modo da\b/gi, "per")
+      .replace(/\bmi serve che\b/gi, "")
+      .replace(/\bspiegami come\b/gi, "spiega")
+      // German
+      .replace(/\bich m[öo]chte,? dass (du )?/gi, "")
+      .replace(/\bk[öo]nntest du (bitte )?/gi, "")
+      .replace(/\bbitte\b/gi, "")
+      .replace(/\bschau dir mal\b/gi, "check")
+      .replace(/\bich brauche,? dass\b/gi, "")
+      .replace(/\bum zu\b/gi, "zu")
+      // French
+      .replace(/\bj'ai besoin que (tu )?/gi, "")
+      .replace(/\bpeux-tu (s'il te pla[iî]t )?/gi, "")
+      .replace(/\bs'il (te|vous) pla[iî]t\b/gi, "")
+      .replace(/\bje voudrais que (tu )?/gi, "")
+      .replace(/\bpourrais-tu\b/gi, "")
+      .replace(/\bjette un [œo]il [àa]\b/gi, "check")
+      .replace(/\bafin de\b/gi, "pour")
+      .replace(/[ \t]+/g, " ")
+      .trim();
+  }
   _stripRedundancy(text) {
     return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
   }
   _buildDynamicDictionary(text) {
     if (!this._allows("dynamic")) return;
     if (!text || this.dynamicDict.size >= this.providerProfile.maxDynamicEntries) return;
-    const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{3,}\b/g) || [];
+    const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{2,}\b/g) || [];
     const counts = /* @__PURE__ */ new Map();
+    const stopWords = new Set(["the", "and", "for", "with", "this", "that", "from", "true", "false", "null", "not", "are", "was", "has", "have", "been", "will", "can"]);
     for (const w of words) {
-      if (["this", "that", "from", "with", "true", "false", "null"].includes(w)) continue;
+      if (stopWords.has(w.toLowerCase())) continue;
       if (/^(?:OPENAI_KEY|GITHUB_TOKEN|AWS_ACCESS_KEY|JWT|BEARER_TOKEN|SECRET_ASSIGNMENT|EMAIL|IPV4)_\d+$/.test(w)) continue;
       counts.set(w, (counts.get(w) || 0) + 1);
+    }
+    const bigramPattern = /\b([A-Za-z_][A-Za-z0-9_]{2,})\s+([A-Za-z_][A-Za-z0-9_]{2,})\b/g;
+    for (const match of text.matchAll(bigramPattern)) {
+      const bigram = match[1] + " " + match[2];
+      if (bigram.length >= 6 && !stopWords.has(match[1].toLowerCase()) && !stopWords.has(match[2].toLowerCase())) {
+        counts.set(bigram, (counts.get(bigram) || 0) + 1);
+      }
     }
     const DYN_SYMBOLS = "\u03B1\u03B2\u03B3\u03B4\u03B5\u03B6\u03B7\u03B8\u03B9\u03BA\u03BB\u03BC\u03BD\u03BE\u03BF\u03C0\u03C1\u03C3\u03C4\u03C5\u03C6\u03C7\u03C8\u03C9\u0393\u0394\u0398\u039B\u039E\u03A0\u03A3\u03A6\u03A8\u03A9\u0411\u0412\u0413\u0414\u0416\u0417\u0418\u041A\u041B\u041F\u0424\u0426\u0427\u0428\u0429\u042E\u042F".split("");
     const savings = [...counts.entries()].map(([word, freq]) => {
@@ -613,8 +947,18 @@ class GlyphCompressor {
   }
   _applyDynamicDictionary(text) {
     let result = text;
+    const charsPerToken = (import_token_estimator.PROVIDER_TOKEN_PROFILES[this.provider] || import_token_estimator.PROVIDER_TOKEN_PROFILES.raw).charsPerToken;
     for (const [word, glyph] of this.dynamicDict) {
-      const regex = new RegExp(`\\b${word}\\b`, "g");
+      const origTokenCost = word.length / charsPerToken;
+      const glyphTokenCost = glyph.length / charsPerToken + 1.5 * glyph.length;
+      if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
+      if (!this._dynRegexCache) this._dynRegexCache = new Map();
+      let regex = this._dynRegexCache.get(word);
+      if (!regex) {
+        regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
+        this._dynRegexCache.set(word, regex);
+      }
+      regex.lastIndex = 0;
       result = result.replace(regex, (match, offset, input) => {
         const span = this._spanForRange(input, offset, offset + match.length);
         this._recordReplacement("dynamic", match, glyph, { span });
@@ -647,8 +991,19 @@ class GlyphCompressor {
   _compressTechNames(text) {
     let result = text;
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
+    const charsPerToken = this.providerProfile ? (import_token_estimator.PROVIDER_TOKEN_PROFILES[this.provider] || import_token_estimator.PROVIDER_TOKEN_PROFILES.raw).charsPerToken : 4;
     for (const [name, glyph] of entries) {
-      const regex = new RegExp(`\\b${name}\\b`, "gi");
+      const glyphUnicodeCost = 1.5;
+      const origTokenCost = name.length / charsPerToken;
+      const glyphTokenCost = glyph.length / charsPerToken + glyphUnicodeCost * glyph.length;
+      if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
+      if (!this._techRegexCache) this._techRegexCache = new Map();
+      let regex = this._techRegexCache.get(name);
+      if (!regex) {
+        regex = new RegExp(`\\b${name}\\b`, "gi");
+        this._techRegexCache.set(name, regex);
+      }
+      regex.lastIndex = 0;
       result = result.replace(regex, (match, offset, input) => {
         const span = this._spanForRange(input, offset, offset + match.length);
         this._recordReplacement("tech", match, glyph, { span, canonical: name });
@@ -660,7 +1015,7 @@ class GlyphCompressor {
   }
   _compressFilePaths(text) {
     return text.replace(
-      /(?:[\w\-./\\]+\/)?[\w\-]+\.(tsx?|jsx?|py|rs|go|rb|java|cs|vue|svelte|css|scss|ya?ml|json|md)/gi,
+      /(?:@[\w-]+\/)?(?:[\w\-./\\]+[\/\\])?[\w\-]+\.(tsx?|jsx?|py|rs|go|rb|java|cs|vue|svelte|css|scss|less|ya?ml|json|toml|md|sql|sh|bash|dockerfile|proto|graphql)/gi,
       (match, _extension, offset, input) => {
         const span = this._spanForRange(input, offset, offset + match.length);
         if (!this.fileIndex.has(match)) {
@@ -950,62 +1305,11 @@ function wrapAnthropic(client, options = {}) {
   const compressor = new GlyphCompressor(options);
   const originalCreate = client.messages.create.bind(client.messages);
   client.messages.create = async function(params) {
-    const allMessages = [];
-    let origSystemStr = "";
-    if (typeof params.system === "string") {
-      origSystemStr = params.system;
-    } else if (Array.isArray(params.system)) {
-      origSystemStr = params.system.map((s) => s.text).join("\n");
-    }
-    if (origSystemStr) {
-      allMessages.push({ role: "system", content: origSystemStr });
-    }
-    allMessages.push(...params.messages);
-    const { messages: compressed } = compressor.compressMessages(allMessages, "anthropic");
-    const systemMsg = compressed.find((m) => m.role === "system");
-    const otherMsgs = compressed.filter((m) => m.role !== "system");
-    let systemParam = params.system;
-    if (systemMsg) {
-      systemParam = [
-        {
-          type: "text",
-          text: systemMsg.content,
-          cache_control: { type: "ephemeral" }
-        }
-      ];
-    }
-    let largestMsgIdx = -1;
-    let maxLen = 0;
-    for (let i = 0; i < otherMsgs.length; i++) {
-      if (otherMsgs[i].role === "user") {
-        const len = typeof otherMsgs[i].content === "string" ? otherMsgs[i].content.length : JSON.stringify(otherMsgs[i].content).length;
-        if (len > maxLen) {
-          maxLen = len;
-          largestMsgIdx = i;
-        }
-      }
-    }
-    if (largestMsgIdx !== -1) {
-      const msg = otherMsgs[largestMsgIdx];
-      if (typeof msg.content === "string") {
-        msg.content = [
-          {
-            type: "text",
-            text: msg.content,
-            cache_control: { type: "ephemeral" }
-          }
-        ];
-      } else if (Array.isArray(msg.content) && msg.content.length > 0) {
-        const textBlocks = msg.content.filter((b) => b.type === "text");
-        if (textBlocks.length > 0) {
-          textBlocks[textBlocks.length - 1].cache_control = { type: "ephemeral" };
-        }
-      }
-    }
+    const anthropicPayload = compressor._prepareAnthropicPayload(params.system, params.messages);
     const result = await originalCreate({
       ...params,
-      system: systemParam,
-      messages: otherMsgs
+      system: anthropicPayload.system,
+      messages: anthropicPayload.messages
     });
     return result;
   };

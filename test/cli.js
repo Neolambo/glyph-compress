@@ -1,7 +1,10 @@
 import assert from 'assert';
 import { execFileSync } from 'child_process';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
+const require = createRequire(import.meta.url);
+const currentVersion = require('../package.json').version;
 const root = fileURLToPath(new URL('..', import.meta.url));
 const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 
@@ -15,7 +18,7 @@ const sourceMap = execFileSync(process.execPath, [cliPath, 'package.json', '--le
   cwd: root,
   encoding: 'utf8',
 });
-assert(sourceMap.includes('"version": "1.11.0"'), 'CLI should print v1.11.0 source maps');
+assert(sourceMap.includes(`"version": "${currentVersion}"`), 'CLI should print source maps for the current release version');
 assert(sourceMap.includes('"symbols"'), 'CLI should print source map symbol spans');
 
 const providerMap = execFileSync(process.execPath, [cliPath, 'package.json', '--level', 'standard', '--provider', 'anthropic', '--source-map', '--explain'], {
