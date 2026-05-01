@@ -17,7 +17,7 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 - [x] Current stable release is `v1.9.0` for proxy and packaging hardening.
 - [x] Last stable release is `glyph-compress@1.9.0`.
 - [x] npm `latest` points to `1.9.0`.
-- [ ] VS Code Marketplace listing still reports `1.8.0`; publishing `1.9.0` requires the Neolambo publisher PAT.
+- [x] VS Code Marketplace listing reports `1.9.0`.
 - [x] GitHub release `v1.9.0` includes `glyph-compress-1.9.0.vsix`.
 - [x] Local VS Code installation was verified as `neolambo.glyph-compress@1.9.0`.
 - [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.9.0`.
@@ -31,7 +31,7 @@ This section separates what is actually complete from what remains useful future
 ### Verified as Complete Through v1.9.0
 
 - [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.9.0`.
-- [ ] GitHub tag, GitHub release, npm latest, VSIX artifact, and local VS Code installation are verified for `1.9.0`; VS Code Marketplace publishing is still pending publisher PAT.
+- [x] GitHub tag, GitHub release, npm latest, VS Code Marketplace listing, VSIX artifact, and local VS Code installation are verified for `1.9.0`.
 - [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
 - [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
 - [x] CLI and VS Code proxy startup preserve provider, trust policy, privacy, and target API options.
