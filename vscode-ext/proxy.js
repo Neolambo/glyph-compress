@@ -81,6 +81,13 @@ function createLogger(outputChannel) {
   };
 }
 
+function redactForLog(value = '') {
+  return String(value)
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [REDACTED]')
+    .replace(/"api[_-]?key"\s*:\s*"[^"]+"/gi, '"apiKey":"[REDACTED]"')
+    .slice(0, 1200);
+}
+
 function forwardRequest(clientReq, clientRes, targetApiUrl, body) {
   try {
     let requestPath = clientReq.url;
@@ -100,7 +107,31 @@ function forwardRequest(clientReq, clientRes, targetApiUrl, body) {
 
     const requestClient = url.protocol === 'http:' ? http : https;
     const proxyReq = requestClient.request(url, options, (proxyRes) => {
+      console.log(`[Proxy] Upstream ${proxyRes.statusCode} ${proxyRes.statusMessage || ''}`.trim());
+
+      if (proxyRes.statusCode >= 400) {
+        const chunks = [];
+        proxyRes.on('data', chunk => chunks.push(chunk));
+        proxyRes.on('end', () => {
+          const responseBody = Buffer.concat(chunks);
+          console.error('[Proxy] Upstream error body:', redactForLog(responseBody.toString('utf8')));
+          clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
+          clientRes.end(responseBody);
+        });
+        return;
+      }
+
       clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
+      let responseBytes = 0;
+      proxyRes.on('data', chunk => { responseBytes += chunk.length; });
+      proxyRes.on('end', () => {
+        console.log(`[Proxy] Upstream response completed (${responseBytes} bytes)`);
+      });
+      clientRes.on('close', () => {
+        if (!clientRes.writableEnded) {
+          console.warn('[Proxy] Client closed response before stream completed');
+        }
+      });
       proxyRes.pipe(clientRes, { end: true });
     });
 

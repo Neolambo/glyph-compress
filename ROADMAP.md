@@ -14,13 +14,13 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.9.0` for proxy and packaging hardening.
-- [x] Last stable release is `glyph-compress@1.9.0`.
-- [x] npm `latest` points to `1.9.0`.
-- [ ] VS Code Marketplace listing still reports `1.8.0`; publishing `1.9.0` requires completing `vsce publish` with the Neolambo publisher PAT.
-- [x] GitHub release `v1.9.0` includes `glyph-compress-1.9.0.vsix`.
-- [x] Local VS Code installation was verified as `neolambo.glyph-compress@1.9.0`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.9.0`.
+- [x] Current stable release is `v1.9.3` for proxy diagnostics and Continue/Gemini debugging.
+- [x] Last stable release is `glyph-compress@1.9.3`.
+- [x] npm package metadata is aligned to `1.9.3`; npm publish verification is part of the release checklist.
+- [ ] VS Code Marketplace publishing still requires completing `vsce publish` with the Neolambo publisher PAT.
+- [x] GitHub release target is `v1.9.3` with `glyph-compress-1.9.3.vsix`.
+- [x] Local VS Code extension metadata is aligned to `neolambo.glyph-compress@1.9.3`.
+- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.9.3`.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -28,10 +28,10 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 This section separates what is actually complete from what remains useful future work.
 
-### Verified as Complete Through v1.9.0
+### Verified as Complete Through v1.9.3
 
-- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.9.0`.
-- [ ] GitHub tag, GitHub release, npm latest, VSIX artifact, and local VS Code installation are verified for `1.9.0`; VS Code Marketplace publishing is still pending publisher PAT.
+- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.9.3`.
+- [ ] GitHub tag, GitHub release, npm latest, VSIX artifact, and local VS Code installation are verified for `1.9.3`; VS Code Marketplace publishing is still pending publisher PAT.
 - [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
 - [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
 - [x] CLI and VS Code proxy startup preserve provider, trust policy, privacy, and target API options.
@@ -223,6 +223,15 @@ Status: delivered.
 - [x] Add Gemini-compatible `/v1/*` to `/v1beta/openai/*` proxy route mapping.
 - [x] Narrow npm `files` allowlist to runtime files and essential documentation.
 
+### v1.9.3: Proxy Diagnostics Hotfix
+
+Status: delivered.
+
+- [x] Log upstream provider HTTP status codes for proxy requests.
+- [x] Log upstream error response bodies with bearer tokens and API key fields redacted.
+- [x] Log completed response byte counts for successful proxy responses.
+- [x] Warn when the IDE client closes the response before the upstream stream completes.
+
 ## Repository Improvements
 
 ### Packaging
@@ -290,7 +299,7 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.8.0`.
+- [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.9.3` where publishing credentials are available.
 
 ## Immediate Next Actions
 

@@ -57,7 +57,13 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### New in v1.9.0 (Proxy and Packaging Hardening)
+### New in v1.9.3 (Proxy Diagnostics Hotfix)
+
+1. **Upstream Status Logging**: The local proxy now logs upstream HTTP status codes so Continue/Gemini failures show `200`, `400`, `404`, or provider-specific errors immediately.
+2. **Redacted Error Bodies**: Failed upstream responses are logged with API keys and bearer tokens redacted, making proxy debugging safer.
+3. **Response Completion Tracking**: Successful proxy responses now log completed byte counts and warn if the client closes the stream early.
+
+### v1.9.0 (Proxy and Packaging Hardening)
 
 1. **Provider-Aware Proxy**: CLI and VS Code proxy flows now preserve provider, trust policy, privacy mode, and target API settings instead of falling back to a generic `auto` profile.
 2. **Gemini-Compatible Routing**: The proxy maps OpenAI-compatible `/v1/*` requests to Gemini's `/v1beta/openai/*` endpoint when forwarding to `generativelanguage.googleapis.com`.
@@ -376,7 +382,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.9.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.9.3.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
@@ -590,6 +596,11 @@ The key insight: development communication is **highly structured** — the same
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
 
 ## 📜 Version History (Changelog)
+
+### v1.9.3 (Proxy Diagnostics Hotfix)
+- **Upstream Status Visibility**: Proxy forwarding now logs upstream HTTP status codes for successful and failed provider responses.
+- **Safe Error Diagnostics**: Upstream error bodies are logged with bearer tokens and API key fields redacted.
+- **Stream Completion Logs**: Successful responses log completed byte counts, and early client disconnects are flagged for Continue/Cursor-style debugging.
 
 ### v1.9.0 (Proxy and Packaging Hardening)
 - **Proxy Options Preserved**: CLI and VS Code proxy startup now pass provider, trust policy, privacy, and target API options into the compressor.

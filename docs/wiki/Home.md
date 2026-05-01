@@ -2,7 +2,7 @@
 
 GlyphCompress is a semantic compression layer for IDE-to-LLM communication. It compresses repeated developer prompts, file paths, diagnostics, code blocks, provider payloads, and workspace metadata so coding assistants can receive richer context with fewer tokens.
 
-Current stable release: `v1.9.0`.
+Current stable release: `v1.9.3`.
 
 ## What GlyphCompress Does
 
@@ -14,10 +14,10 @@ Current stable release: `v1.9.0`.
 
 ## Release Status
 
-- npm: `glyph-compress@1.9.0`
-- GitHub release: `v1.9.0`
+- npm: `glyph-compress@1.9.3`
+- GitHub release: `v1.9.3`
 - VS Code Marketplace id: `neolambo.glyph-compress`
-- VSIX artifact: `glyph-compress-1.9.0.vsix`
+- VSIX artifact: `glyph-compress-1.9.3.vsix`
 - Marketplace verification: `npx @vscode/vsce show Neolambo.glyph-compress`
 
 ## Start Here
