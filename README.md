@@ -250,7 +250,7 @@ npx glyph-compress [file|command] [options]
 |---|---|---|
 | `[file]` | Compress a single file and print the compressed payload plus the shared codebook. | `npx glyph-compress src/app.ts` |
 | `inspect [query]` | Build `.glyphcompress/codebook.json`, detect intent, and rank relevant workspace files. | `npx glyph-compress inspect "fix auth error"` |
-| `doctor` | Check repository readiness for GlyphCompress workflows. | `npx glyph-compress doctor` |
+| `doctor` | Check repository readiness plus optional local checks for installed extension version, Glyph settings, proxy config, and provider credentials. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
 
 ### Command Line (CLI): Options
@@ -412,14 +412,21 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
 ```json
 {
   "glyphCompress.enabled": true,
-  "glyphCompress.provider": "auto",        // "auto" | "raw" | "openai" | "anthropic" | "antigravity" | "gemini" | "local"
+  "glyphCompress.provider": "gemini",        // "auto" | "raw" | "openai" | "anthropic" | "antigravity" | "gemini" | "local"
   "glyphCompress.compressionLevel": "standard", // "light" | "standard" | "aggressive" | "ultra"
-  "glyphCompress.trustPolicy": "auto",     // "auto" | "lossless" | "reversible" | "privacy" | "lossy"
+  "glyphCompress.trustPolicy": "privacy",     // "auto" | "lossless" | "reversible" | "privacy" | "lossy"
   "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
-  "glyphCompress.targetApiUrl": "https://api.openai.com"
+  "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com"
 }
 ```
+
+`glyph-compress doctor` now reports repository basics first, then adds optional local environment checks for:
+
+- installed `neolambo.glyph-compress` extension version
+- detected `glyphCompress.*` VS Code settings
+- proxy config in local Continue config files
+- provider credential env vars such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`
 
 ## 👻 The Ultimate Magic: Zero-Command Transparent Proxy (v0.5.0+)
 
@@ -440,10 +447,13 @@ If you want **100% automatic, invisible** compression without pressing *any* sho
 
 **Cursor IDE**
 1. Open Cursor Settings (`Ctrl+Shift+J` or `Cmd+Shift+J`).
-2. Go to **Models**.
-3. Under **OpenAI API Key**, enter your real API key.
-4. Toggle **Override OpenAI Base URL** and set it to: `http://localhost:8080/v1`
-5. *Magic!* All Chat and Cmd+K requests will now be silently compressed.
+2. Go to **Models** and choose an **OpenAI-compatible** entry.
+3. Under the provider settings, enter your real upstream API key.
+4. Set the **Base URL / Override OpenAI Base URL** to: `http://localhost:8080/v1`
+5. If you are proxying Gemini-compatible traffic, keep GlyphCompress VS Code settings aligned with:
+  - `glyphCompress.provider = gemini`
+  - `glyphCompress.targetApiUrl = https://generativelanguage.googleapis.com`
+6. All Chat and Cmd+K requests will now flow through the local proxy.
 
 **Cline / RooCode (VS Code Extensions)**
 1. Open the Cline/RooCode settings panel.
@@ -453,17 +463,18 @@ If you want **100% automatic, invisible** compression without pressing *any* sho
 5. **Model ID**: `gpt-4o` (or whichever you prefer).
 
 **Continue.dev**
-1. Open `~/.continue/config.json`.
+1. Open `~/.continue/config.yaml`.
 2. Add or edit your model configuration:
-```json
-{
-  "title": "GPT-4o (Glyph Proxy)",
-  "provider": "openai",
-  "model": "gpt-4o",
-  "apiKey": "YOUR_REAL_API_KEY",
-  "apiBase": "http://localhost:8080/v1"
-}
+```yaml
+models:
+  - title: Gemini 2.5 Flash (Glyph Proxy)
+    provider: openai
+    model: gemini-2.5-flash
+    apiKey: YOUR_REAL_API_KEY
+    apiBase: http://localhost:8080/v1
 ```
+
+If you prefer OpenAI or Anthropic upstreams, keep the same `apiBase` and swap only the upstream API key, model id, and GlyphCompress provider/target settings.
 
 **GitHub Copilot Chat**
 *Note: Microsoft locks the API URL for the official Copilot extension for security reasons. To use GlyphCompress with the official Copilot, please use the `Ctrl+Alt+G` (One-Click Ask) shortcut provided by the GlyphCompress VS Code Extension.*

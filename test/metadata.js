@@ -7,6 +7,9 @@ import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('..', import.meta.url));
 const pkg = require('../package.json');
+const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+const vscodeSettingsSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'vscode-settings.snapshot.json'), 'utf8'));
+const readmeLinksSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'readme-links.snapshot.json'), 'utf8'));
 
 assert(pkg.version === '1.10.0', 'package should be v1.10.0');
 assert(pkg.scripts['test:unit'], 'unit test script should exist');
@@ -27,8 +30,25 @@ for (const file of [
   'scripts/check-links.js',
   'scripts/release-helper.js',
   '.github/workflows/post-release-verify.yml',
+  'test/fixtures/readme-links.snapshot.json',
+  'test/fixtures/vscode-settings.snapshot.json',
 ]) {
   assert(fs.existsSync(path.join(root, file)), `${file} should exist`);
 }
+
+for (const key of Object.keys(vscodeSettingsSnapshot)) {
+  assert(readme.includes(`"${key}"`), `README should document ${key}`);
+}
+
+for (const link of readmeLinksSnapshot.mustInclude) {
+  assert(readme.includes(link), `README should include ${link}`);
+}
+
+for (const link of readmeLinksSnapshot.mustExclude) {
+  assert(!readme.includes(link), `README should not include stale entry ${link}`);
+}
+
+assert(readme.includes('~/.continue/config.yaml'), 'README should document Continue config.yaml');
+assert(!readme.includes('~/.continue/config.json'), 'README should not point to stale Continue config.json');
 
 console.log('metadata suite ok');

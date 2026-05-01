@@ -213,4 +213,4 @@ export function buildWorkspaceCodebook(rootDir?: string, options?: WorkspaceInte
 export function saveWorkspaceCodebook(rootDir: string, codebook: WorkspaceCodebook): string;
 export function loadWorkspaceCodebook(rootDir?: string): WorkspaceCodebook | null;
 export function selectRelevantFiles(rootDir?: string, query?: string, options?: WorkspaceIntelligenceOptions): { intents: WorkspaceIntent[]; files: Array<WorkspaceCodebookFile & { score: number }>; codebook: WorkspaceCodebook };
-export function runDoctor(rootDir?: string): { version: string; root: string; checks: Array<{ name: string; ok: boolean; detail: string }>; ok: boolean };
+export function runDoctor(rootDir?: string): { version: string; root: string; checks: Array<{ name: string; ok: boolean; detail: string; optional?: boolean }>; ok: boolean };

@@ -1,0 +1,9 @@
+{
+  "glyphCompress.enabled": true,
+  "glyphCompress.provider": "gemini",
+  "glyphCompress.compressionLevel": "standard",
+  "glyphCompress.trustPolicy": "privacy",
+  "glyphCompress.showStatusBar": true,
+  "glyphCompress.autoUpdateWorkspaceRules": false,
+  "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com"
+}

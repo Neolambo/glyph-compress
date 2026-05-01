@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { execFileSync } from 'child_process';
 
 const VERSION = '1.10.0';
@@ -127,11 +128,52 @@ export function runDoctor(rootDir = process.cwd()) {
   checks.push({ name: 'test script', ok: Boolean(pkg?.scripts?.test), detail: pkg?.scripts?.test || 'missing' });
   checks.push({ name: 'benchmark script', ok: Boolean(pkg?.scripts?.benchmark), detail: pkg?.scripts?.benchmark || 'missing' });
   checks.push({ name: 'git repository', ok: fs.existsSync(path.join(root, '.git')), detail: fs.existsSync(path.join(root, '.git')) ? 'present' : 'missing' });
+  const homeDir = getDoctorHomeDir();
+  const extPkg = readJson(path.join(root, 'vscode-ext', 'package.json'));
+  const desiredVersion = extPkg?.version || pkg?.version || VERSION;
+  const installedVersion = findInstalledExtensionVersion(homeDir);
+  checks.push({
+    name: 'installed VS Code extension version',
+    ok: Boolean(installedVersion && installedVersion === desiredVersion),
+    detail: installedVersion ? `${installedVersion} (expected ${desiredVersion})` : 'not found',
+    optional: true,
+  });
+
+  const settingsInfo = findVsCodeSettings(root, homeDir);
+  const glyphSettings = Object.keys(settingsInfo?.settings || {}).filter((key) => key.startsWith('glyphCompress.'));
+  checks.push({
+    name: 'VS Code settings',
+    ok: glyphSettings.length > 0,
+    detail: settingsInfo ? `${normalizePath(path.relative(root, settingsInfo.source)) || normalizePath(settingsInfo.source)}: ${glyphSettings.join(', ') || 'no glyphCompress.* keys'}` : 'not found',
+    optional: true,
+  });
+  checks.push({
+    name: 'proxy target setting',
+    ok: Boolean(settingsInfo?.settings?.['glyphCompress.targetApiUrl']),
+    detail: settingsInfo?.settings?.['glyphCompress.targetApiUrl'] || 'missing glyphCompress.targetApiUrl',
+    optional: true,
+  });
+
+  const proxyConfig = findProxyConfig(root, homeDir);
+  checks.push({
+    name: 'proxy config',
+    ok: Boolean(proxyConfig?.ok),
+    detail: proxyConfig ? `${normalizePath(path.relative(root, proxyConfig.path)) || normalizePath(proxyConfig.path)}: ${proxyConfig.detail}` : 'not found',
+    optional: true,
+  });
+
+  const credentials = detectProviderCredentials();
+  checks.push({
+    name: 'provider credentials',
+    ok: credentials.length > 0,
+    detail: credentials.length ? credentials.join(', ') : 'missing supported provider env vars',
+    optional: true,
+  });
   return {
     version: VERSION,
     root,
     checks,
-    ok: checks.filter((check) => check.name !== 'git repository').every((check) => check.ok),
+    ok: checks.filter((check) => check.name !== 'git repository' && !check.optional).every((check) => check.ok),
   };
 }
 
@@ -254,4 +296,86 @@ function readJson(filePath) {
 
 function normalizePath(value) {
   return value.replace(/\\/g, '/');
+}
+
+function getDoctorHomeDir() {
+  return process.env.GLYPHCOMPRESS_DOCTOR_HOME || os.homedir();
+}
+
+function compareVersions(left, right) {
+  const leftParts = String(left).split('.').map((part) => parseInt(part, 10) || 0);
+  const rightParts = String(right).split('.').map((part) => parseInt(part, 10) || 0);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const delta = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+function findInstalledExtensionVersion(homeDir) {
+  const candidates = [
+    path.join(homeDir, '.vscode', 'extensions'),
+    path.join(homeDir, '.vscode-insiders', 'extensions'),
+    path.join(homeDir, '.cursor', 'extensions'),
+  ];
+  const versions = [];
+  for (const dir of candidates) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^neolambo\.glyph-compress-/i.test(entry.name)) continue;
+      const pkg = readJson(path.join(dir, entry.name, 'package.json'));
+      const version = pkg?.version || entry.name.replace(/^neolambo\.glyph-compress-/i, '');
+      if (version) versions.push(version);
+    }
+  }
+  return versions.sort((a, b) => compareVersions(b, a))[0] || '';
+}
+
+function findVsCodeSettings(root, homeDir) {
+  const candidates = [
+    path.join(root, '.vscode', 'settings.json'),
+    path.join(homeDir, 'AppData', 'Roaming', 'Code', 'User', 'settings.json'),
+    path.join(homeDir, 'Library', 'Application Support', 'Code', 'User', 'settings.json'),
+    path.join(homeDir, '.config', 'Code', 'User', 'settings.json'),
+  ];
+  for (const candidate of candidates) {
+    const settings = readJson(candidate);
+    if (settings && typeof settings === 'object') return { source: candidate, settings };
+  }
+  return null;
+}
+
+function findProxyConfig(root, homeDir) {
+  const candidates = [
+    path.join(root, '.continue', 'config.yaml'),
+    path.join(root, '.continue', 'config.json'),
+    path.join(homeDir, '.continue', 'config.yaml'),
+    path.join(homeDir, '.continue', 'config.json'),
+  ];
+  for (const candidate of candidates) {
+    const text = readTextFile(candidate, 256 * 1024);
+    if (!text) continue;
+    if (/localhost:8080|127\.0\.0\.1:8080|localhost:\$\{?PORT\}?/i.test(text)) {
+      return { path: candidate, ok: true, detail: 'references local proxy' };
+    }
+    return { path: candidate, ok: false, detail: 'present but missing local proxy reference' };
+  }
+  return null;
+}
+
+function detectProviderCredentials() {
+  const supported = [
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'GEMINI_API_KEY',
+    'GOOGLE_API_KEY',
+    'ANTIGRAVITY_API_KEY',
+  ];
+  return supported.filter((name) => Boolean(process.env[name]));
 }

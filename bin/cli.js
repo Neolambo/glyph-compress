@@ -225,7 +225,8 @@ function runCommand(command, args, { jsonOutput }) {
       console.log('\nGlyphCompress doctor');
       console.log('----------------------------------------------------');
       for (const check of report.checks) {
-        console.log(`${check.ok ? 'OK ' : 'ERR'} ${check.name}: ${check.detail}`);
+        const status = check.ok ? 'OK ' : check.optional ? 'WARN' : 'ERR';
+        console.log(`${status} ${check.name}: ${check.detail}`);
       }
       console.log('----------------------------------------------------');
       console.log(report.ok ? 'Repository looks ready.' : 'Repository needs attention.');
