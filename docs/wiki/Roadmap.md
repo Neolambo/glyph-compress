@@ -17,10 +17,10 @@ Delivered in `v1.9.3`:
 
 ## Verified Through v1.9.3
 
-- npm package metadata is aligned to `1.9.3`.
-- GitHub release target is `v1.9.3`.
-- GitHub release target includes `glyph-compress-1.9.3.vsix`.
-- VS Code Marketplace publishing requires completing `vsce publish` with the Neolambo publisher PAT.
+- npm `latest` is `1.9.3`.
+- GitHub release `v1.9.3` exists.
+- GitHub release includes `glyph-compress-1.9.3.vsix`.
+- VS Code Marketplace lists `neolambo.glyph-compress@1.9.3`.
 - Local VS Code metadata verifies as `neolambo.glyph-compress@1.9.3`.
 - `npm run check` should pass during release validation.
 
@@ -28,11 +28,13 @@ Delivered in `v1.9.3`:
 
 - Automate release consistency checks.
 - Automate Marketplace post-release verification.
+- Extend diagnostics beyond the current proxy status/error/completion logging into structured log sinks and timestamps.
 - Add README badge, deleted-link, VS Code settings, and compressed payload regression fixtures.
 - Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
 - Wire workspace-intelligence file ranking into normal compression calls.
 - Add expression-level AST spans where language-specific parsers are available.
 - Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
+- Refresh Continue/Cursor proxy examples to match current configuration formats.
 
 ## Longer-Term Ideas
 

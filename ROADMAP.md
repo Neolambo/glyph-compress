@@ -16,11 +16,11 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 - [x] Current stable release is `v1.9.3` for proxy diagnostics and Continue/Gemini debugging.
 - [x] Last stable release is `glyph-compress@1.9.3`.
-- [x] npm package metadata is aligned to `1.9.3`; npm publish verification is part of the release checklist.
-- [ ] VS Code Marketplace publishing still requires completing `vsce publish` with the Neolambo publisher PAT.
-- [x] GitHub release target is `v1.9.3` with `glyph-compress-1.9.3.vsix`.
+- [x] npm `latest` points to `1.9.3`.
+- [x] VS Code Marketplace listing is publicly available at `neolambo.glyph-compress@1.9.3`.
+- [x] GitHub release `v1.9.3` includes `glyph-compress-1.9.3.vsix`.
 - [x] Local VS Code extension metadata is aligned to `neolambo.glyph-compress@1.9.3`.
-- [x] `npm test` is expected to pass the unit, CLI, workspace, extension, proxy, metadata, and integration suites after `v1.9.3`.
+- [x] `npm test` passed the unit, CLI, workspace, extension, proxy, metadata, and integration suites during `v1.9.3` release validation.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -31,7 +31,7 @@ This section separates what is actually complete from what remains useful future
 ### Verified as Complete Through v1.9.3
 
 - [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.9.3`.
-- [ ] GitHub tag, GitHub release, npm latest, VSIX artifact, and local VS Code installation are verified for `1.9.3`; VS Code Marketplace publishing is still pending publisher PAT.
+- [x] GitHub tag, GitHub release, npm latest, VSIX artifact, VS Code Marketplace listing, and local VS Code installation are verified for `1.9.3`.
 - [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
 - [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
 - [x] CLI and VS Code proxy startup preserve provider, trust policy, privacy, and target API options.
@@ -49,7 +49,7 @@ This section separates what is actually complete from what remains useful future
 - [ ] Workspace intelligence does not yet feed ranked context automatically into normal compression calls.
 - [ ] `doctor` does not yet validate installed VS Code extension version, proxy config, provider credentials, or local VS Code settings.
 - [ ] README badge/link deletion regressions, VS Code setting snapshots, and compressed payload snapshots still need dedicated fixtures.
-- [ ] Structured redaction-aware debug logging for proxy and extension diagnostics is still missing.
+- [ ] Partial: Proxy diagnostics now log upstream status, redacted error bodies, completed response byte counts, and early client disconnects, but structured log sinks, timestamps, and broader extension-side diagnostics are still missing.
 - [ ] Release notes are not generated from conventional commits.
 
 ## Product Bets
@@ -270,10 +270,10 @@ Status: delivered.
 - [x] Add examples for OpenAI, Anthropic, CLI, and workspace intelligence through README/CLI usage.
 - [x] Add `glyph-compress doctor` to validate repository readiness.
 - [ ] Partial: `doctor` does not yet validate proxy config, VS Code settings, installed extension version, or provider credentials.
-- [ ] Partial: CommonJS, ESM, and workspace intelligence examples exist through docs/tests, but Gemini-compatible proxy and VS Code walkthroughs need expansion.
-- [ ] Add explicit Gemini-compatible proxy and VS Code usage examples.
+- [ ] Partial: CommonJS, ESM, workspace intelligence, Gemini-compatible proxy, and VS Code walkthroughs exist through docs/tests, but Continue/Cursor-specific examples and current config formats still need refresh.
+- [ ] Add refreshed Gemini-compatible proxy and VS Code usage examples for current Continue/Cursor configuration flows.
 - [x] Add privacy firewall redaction for API keys and sensitive request text before compression.
-- [ ] Add structured debug logging with redaction-aware log sinks for proxy and extension diagnostics.
+- [ ] Add structured debug logging with timestamps and redaction-aware log sinks for proxy and extension diagnostics.
 
 ### Governance and Quality
 
@@ -299,7 +299,7 @@ Status: delivered.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.9.3` where publishing credentials are available.
+- [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.9.3`.
 
 ## Immediate Next Actions
 
