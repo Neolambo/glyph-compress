@@ -430,7 +430,7 @@ class GlyphCompressor {
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.9.3",
+      version: "1.10.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

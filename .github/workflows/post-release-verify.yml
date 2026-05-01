@@ -1,0 +1,19 @@
+name: Post Release Verify
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  marketplace:
+    name: Verify Marketplace Listing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: node scripts/release-helper.js --skip-check --skip-package --skip-publish-dry-run --verify-marketplace

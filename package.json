@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.9.3",
+  "version": "1.10.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {
@@ -59,7 +59,8 @@
     "demo": "node test/demo.js",
     "check": "npm test && npm run benchmark && npm run check:links && npm pack --dry-run",
     "package:vscode": "cd vscode-ext && npx @vscode/vsce package --allow-missing-repository",
-    "check:links": "node scripts/check-links.js"
+    "check:links": "node scripts/check-links.js",
+    "release:prepare": "node scripts/release-helper.js"
   },
   "keywords": [
     "compression",

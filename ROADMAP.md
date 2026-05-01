@@ -41,8 +41,7 @@ This section separates what is actually complete from what remains useful future
 
 ### Still Missing in Practice
 
-- [ ] Release automation is still manual for commit, tag, npm publish, GitHub release creation, VSIX upload, and post-release verification.
-- [ ] Marketplace post-release verification is documented, but not yet automated in a release helper or CI job.
+- [ ] Partial: Release automation now has a root helper for validation, VSIX packaging, release-note scaffolding, and Marketplace verification, but commit, tag, npm publish, GitHub release creation, and VSIX upload are still manual.
 - [ ] Real LLM task-success evaluation is not implemented; current fidelity and edit-success scores are deterministic benchmark proxies.
 - [ ] Provider-aware behavior does not yet automatically choose code block, context-router, and trust-warning strategies per provider.
 - [ ] Source maps do not yet provide full expression-level AST mappings for every minified code block.
@@ -50,7 +49,7 @@ This section separates what is actually complete from what remains useful future
 - [ ] `doctor` does not yet validate installed VS Code extension version, proxy config, provider credentials, or local VS Code settings.
 - [ ] README badge/link deletion regressions, VS Code setting snapshots, and compressed payload snapshots still need dedicated fixtures.
 - [ ] Partial: Proxy diagnostics now log upstream status, redacted error bodies, completed response byte counts, and early client disconnects, but structured log sinks, timestamps, and broader extension-side diagnostics are still missing.
-- [ ] Release notes are not generated from conventional commits.
+- [ ] Partial: Release notes can now be scaffolded from conventional commit subjects, but still need human curation before publication.
 
 ## Product Bets
 
@@ -238,11 +237,11 @@ This sequence turns the current open roadmap items into concrete future mileston
 
 ### v1.10.0: Release Automation Foundation
 
-Status: proposed.
+Status: implemented locally, pending release.
 
-- [ ] Add a root release helper that verifies version alignment, runs checks, packages the VSIX, and prints the exact npm, GitHub, and Marketplace verification commands.
-- [ ] Automate Marketplace post-release verification in CI or in the release helper.
-- [ ] Generate release notes from conventional commits or a structured release-note template.
+- [x] Add a root release helper that verifies version alignment, runs checks, packages the VSIX, and prints the exact npm, GitHub, and Marketplace verification commands.
+- [x] Automate Marketplace post-release verification in CI or in the release helper.
+- [x] Generate release notes from conventional commits or a structured release-note template.
 
 ### v1.11.0: Doctor and Integration Refresh
 
@@ -310,7 +309,7 @@ Status: proposed.
 - [x] Add `npm run package:vscode` for VSIX packaging.
 - [x] Add `docs/release.md` with the exact release sequence and post-release verification steps.
 - [ ] Partial: Release process still requires manual commit, tag, GitHub release, npm publish, and VSIX upload steps.
-- [ ] Add a root release script that automates version consistency checks and prints the exact release sequence.
+- [x] Add a root release script that automates version consistency checks and prints the exact release sequence.
 
 ### Testing
 
@@ -350,7 +349,7 @@ Status: proposed.
 - [x] Add issue templates for bug reports, feature requests, provider compatibility, and benchmark submissions.
 - [x] Add pull request template with tests, docs, compression impact, and privacy checklist.
 - [x] Add link checking to GitHub Actions.
-- [ ] Add release notes automation from conventional commits.
+- [x] Add release notes automation from conventional commits.
 
 ## Experimental Ideas
 
@@ -371,10 +370,9 @@ Status: proposed.
 
 ## Immediate Next Actions
 
-1. Add a release helper script that verifies version alignment, runs checks, packages the VSIX, and prints/prefills npm, GitHub release, and Marketplace verification commands.
-2. Automate Marketplace post-release verification in CI or a dedicated release script.
-3. Add regression fixtures for README badges, deleted links, VS Code settings, and stable compressed payload snapshots.
-4. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
-5. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
-6. Add expression-level AST spans for code block minification where language-specific parsers are available.
-7. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
+1. Publish `v1.10.0` so the implemented release automation foundation becomes the new stable release.
+2. Add regression fixtures for README badges, deleted links, VS Code settings, and stable compressed payload snapshots.
+3. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+4. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
+5. Add expression-level AST spans for code block minification where language-specific parsers are available.
+6. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.

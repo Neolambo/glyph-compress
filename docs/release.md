@@ -2,6 +2,33 @@
 
 Use this checklist for every npm, GitHub, and VS Code extension release.
 
+## 0. Release Helper
+
+Run the release helper from the repository root to automate version consistency checks, validation, VSIX packaging, and the exact follow-up commands:
+
+```bash
+npm run release:prepare
+```
+
+Useful flags:
+
+```bash
+node scripts/release-helper.js --allow-dirty
+node scripts/release-helper.js --skip-check --skip-package --skip-publish-dry-run
+node scripts/release-helper.js --allow-dirty --write-release-notes
+node scripts/release-helper.js --verify-marketplace --skip-check --skip-package --skip-publish-dry-run
+```
+
+The helper does not publish anything by itself. It validates the repository state, optionally runs the expensive checks, packages the VSIX, can write a `RELEASE_NOTES.md` scaffold from conventional commit subjects, can verify the currently published Marketplace version on demand, and then prints the exact npm, GitHub release, and Marketplace verification commands for the current version.
+
+## 0.1 Post-release Marketplace CI
+
+The repository now includes `.github/workflows/post-release-verify.yml`.
+
+- It runs automatically when a GitHub release is published.
+- It can also be triggered manually with GitHub Actions `workflow_dispatch`.
+- The job reuses `scripts/release-helper.js --verify-marketplace` so the release helper and CI share the same Marketplace verification logic.
+
 ## 1. Version Consistency
 
 - Update `package.json`.
@@ -15,6 +42,8 @@ node -e "const root=require('./package.json'); const ext=require('./vscode-ext/p
 ```
 
 ## 2. Validation
+
+If you already ran `npm run release:prepare`, the commands below are what the helper executed by default.
 
 ```bash
 npm test
