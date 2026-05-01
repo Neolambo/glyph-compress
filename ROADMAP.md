@@ -14,13 +14,13 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.9.3` for proxy diagnostics and Continue/Gemini debugging.
-- [x] Last stable release is `glyph-compress@1.9.3`.
-- [x] npm `latest` points to `1.9.3`.
-- [x] VS Code Marketplace listing is publicly available at `neolambo.glyph-compress@1.9.3`.
-- [x] GitHub release `v1.9.3` includes `glyph-compress-1.9.3.vsix`.
-- [x] Local VS Code extension metadata is aligned to `neolambo.glyph-compress@1.9.3`.
-- [x] `npm test` passed the unit, CLI, workspace, extension, proxy, metadata, and integration suites during `v1.9.3` release validation.
+- [x] Current stable release is `v1.10.0` for release automation foundation and Marketplace verification.
+- [x] Last stable release is `glyph-compress@1.10.0`.
+- [x] npm `latest` points to `1.10.0`.
+- [x] VS Code Marketplace listing is publicly available at `neolambo.glyph-compress@1.10.0`.
+- [x] GitHub release `v1.10.0` includes `glyph-compress-1.10.0.vsix`.
+- [x] Local VS Code extension metadata is aligned to `neolambo.glyph-compress@1.10.0`.
+- [x] `npm test` passed the unit, CLI, workspace, extension, proxy, metadata, and integration suites during `v1.10.0` release validation.
 - [x] `npm run benchmark` reports 2.1x aggregate ratio, 53% savings, 100% fidelity proxy, and 0 hallucinated refs.
 - [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
 
@@ -28,10 +28,10 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 This section separates what is actually complete from what remains useful future work.
 
-### Verified as Complete Through v1.9.3
+### Verified as Complete Through v1.10.0
 
-- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.9.3`.
-- [x] GitHub tag, GitHub release, npm latest, VSIX artifact, VS Code Marketplace listing, and local VS Code installation are verified for `1.9.3`.
+- [x] npm package, package metadata, TypeScript declarations, ESM export, and CommonJS export are aligned on `1.10.0`.
+- [x] GitHub tag, GitHub release, npm latest, VSIX artifact, VS Code Marketplace listing, and local VS Code installation are verified for `1.10.0`.
 - [x] Safe compression trust policies are implemented in both ESM and CommonJS middleware paths.
 - [x] CLI support exists for provider selection, trust policy selection, explanations, source maps, privacy mode, workspace inspection, benchmark, and doctor workflows.
 - [x] CLI and VS Code proxy startup preserve provider, trust policy, privacy, and target API options.
@@ -237,7 +237,7 @@ This sequence turns the current open roadmap items into concrete future mileston
 
 ### v1.10.0: Release Automation Foundation
 
-Status: implemented locally, pending release.
+Status: delivered.
 
 - [x] Add a root release helper that verifies version alignment, runs checks, packages the VSIX, and prints the exact npm, GitHub, and Marketplace verification commands.
 - [x] Automate Marketplace post-release verification in CI or in the release helper.
@@ -308,7 +308,7 @@ Status: proposed.
 - [x] Add `npm run check` for tests, benchmark, and npm pack dry-run.
 - [x] Add `npm run package:vscode` for VSIX packaging.
 - [x] Add `docs/release.md` with the exact release sequence and post-release verification steps.
-- [ ] Partial: Release process still requires manual commit, tag, GitHub release, npm publish, and VSIX upload steps.
+- [ ] Partial: Release process still requires manual commit, tag, GitHub release publication, npm publish, and VSIX upload steps.
 - [x] Add a root release script that automates version consistency checks and prints the exact release sequence.
 
 ### Testing
@@ -365,13 +365,12 @@ Status: proposed.
 - [ ] Partial: Standard-mode task success is approximated by a benchmark proxy, but not yet measured with real LLM task outcomes.
 - [x] Public API import tests pass for ESM and CommonJS on release.
 - [x] VS Code extension activation and command smoke tests are automated in the local test suite.
-- [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.9.3`.
+- [x] README, npm version, GitHub tag, Marketplace listing, VSIX version, and GitHub release version stayed aligned through `v1.10.0`.
 
 ## Immediate Next Actions
 
-1. Publish `v1.10.0` so the implemented release automation foundation becomes the new stable release.
-2. Add stable compressed payload snapshots so compression-format drift becomes deliberate.
-3. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
-4. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
-5. Add expression-level AST spans for code block minification where language-specific parsers are available.
-6. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
+1. Add stable compressed payload snapshots so compression-format drift becomes deliberate.
+2. Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
+3. Wire workspace-intelligence file ranking into normal compression calls behind an explicit option and token budget.
+4. Add expression-level AST spans for code block minification where language-specific parsers are available.
+5. Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.

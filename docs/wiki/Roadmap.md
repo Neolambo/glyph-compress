@@ -4,37 +4,33 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.9.3`: Proxy Diagnostics Hotfix.
+`v1.10.0`: Release Automation Foundation.
 
-Delivered in `v1.9.3`:
+Delivered in `v1.10.0`:
 
-- Provider/trust/privacy-aware CLI proxy startup.
-- Provider/trust-aware VS Code proxy startup.
-- Gemini-compatible `/v1/*` to `/v1beta/openai/*` route mapping.
-- ESM middleware export through `src/glyph-middleware.js`.
-- Focused npm package allowlist for runtime files and essential docs.
-- Upstream status, redacted error-body, response-completion, and early client-close proxy diagnostics.
+- Root release helper with version checks, validation, packaging, and exact next-step commands.
+- Marketplace verification through the helper and post-release CI workflow.
+- Structured release-note scaffolding from repository history.
 
-## Verified Through v1.9.3
+## Verified Through v1.10.0
 
-- npm `latest` is `1.9.3`.
-- GitHub release `v1.9.3` exists.
-- GitHub release includes `glyph-compress-1.9.3.vsix`.
-- VS Code Marketplace lists `neolambo.glyph-compress@1.9.3`.
-- Local VS Code metadata verifies as `neolambo.glyph-compress@1.9.3`.
+- npm `latest` is `1.10.0`.
+- GitHub release `v1.10.0` exists.
+- GitHub release includes `glyph-compress-1.10.0.vsix`.
+- VS Code Marketplace lists `neolambo.glyph-compress@1.10.0`.
+- Local VS Code metadata verifies as `neolambo.glyph-compress@1.10.0`.
 - `npm run check` should pass during release validation.
 
 ## Real Remaining Work
 
-- Automate release consistency checks.
-- Automate Marketplace post-release verification.
+- Reduce the remaining manual release steps for commit, tag, publish, and GitHub release publication.
 - Extend diagnostics beyond the current proxy status/error/completion logging into structured log sinks and timestamps.
-- Add README badge, deleted-link, VS Code settings, and compressed payload regression fixtures.
+- Add stable compressed payload regression fixtures.
 - Extend provider profiles to tune code block minification, context-router behavior, and provider-specific trust warnings.
 - Wire workspace-intelligence file ranking into normal compression calls.
 - Add expression-level AST spans where language-specific parsers are available.
-- Expand `doctor` to validate installed extension version, proxy config, provider credentials, local VS Code settings, and Marketplace-visible extension id/version.
-- Refresh Continue/Cursor proxy examples to match current configuration formats.
+- Expand `doctor` beyond the current installed-extension, settings, Continue proxy, and credential checks.
+- Polish broader IDE-specific walkthrough coverage beyond the current Continue/Cursor refresh.
 
 ## Proposed Future Versions
 

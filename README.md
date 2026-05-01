@@ -57,11 +57,11 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### New in v1.9.3 (Proxy Diagnostics Hotfix)
+### New in v1.10.0 (Release Automation Foundation)
 
-1. **Upstream Status Logging**: The local proxy now logs upstream HTTP status codes so Continue/Gemini failures show `200`, `400`, `404`, or provider-specific errors immediately.
-2. **Redacted Error Bodies**: Failed upstream responses are logged with API keys and bearer tokens redacted, making proxy debugging safer.
-3. **Response Completion Tracking**: Successful proxy responses now log completed byte counts and warn if the client closes the stream early.
+1. **Release Helper**: Added a root `release:prepare` helper that verifies version alignment, runs validation, packages the VSIX, and prints the exact release commands for npm, GitHub, and Marketplace verification.
+2. **Marketplace Verification**: Added helper support and CI wiring for post-release Marketplace version verification.
+3. **Release Notes Scaffolding**: Added structured release-note generation so GitHub releases can start from a reproducible template instead of ad-hoc notes.
 
 ### v1.9.0 (Proxy and Packaging Hardening)
 
@@ -382,7 +382,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.9.3.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.10.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`

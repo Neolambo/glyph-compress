@@ -1,13 +1,13 @@
 # Release and Distribution
 
-Current release: `v1.9.3`.
+Current release: `v1.10.0`.
 
 ## Published Channels
 
-- npm: `glyph-compress@1.9.3`
-- GitHub release: `v1.9.3`
+- npm: `glyph-compress@1.10.0`
+- GitHub release: `v1.10.0`
 - VS Code Marketplace: `Neolambo.glyph-compress`
-- VSIX asset: `glyph-compress-1.9.3.vsix`
+- VSIX asset: `glyph-compress-1.10.0.vsix`
 
 ## Verify npm
 
@@ -19,9 +19,9 @@ Expected latest version:
 
 ```json
 {
-  "version": "1.9.3",
+  "version": "1.10.0",
   "dist-tags": {
-    "latest": "1.9.3"
+    "latest": "1.10.0"
   }
 }
 ```
@@ -29,7 +29,7 @@ Expected latest version:
 ## Verify GitHub Release
 
 ```bash
-gh release view v1.9.3 --json tagName,isDraft,isPrerelease,assets,url
+gh release view v1.10.0 --json tagName,isDraft,isPrerelease,assets,url
 ```
 
 ## Verify VS Code Marketplace
@@ -38,7 +38,7 @@ gh release view v1.9.3 --json tagName,isDraft,isPrerelease,assets,url
 npx @vscode/vsce show Neolambo.glyph-compress
 ```
 
-Expected Marketplace version: `1.9.3` after Marketplace publish.
+Expected Marketplace version: `1.10.0` after Marketplace publish.
 
 ## Verify Local VS Code Install
 
@@ -49,7 +49,7 @@ code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.gl
 Expected local extension:
 
 ```text
-neolambo.glyph-compress@1.9.3
+neolambo.glyph-compress@1.10.0
 ```
 
 ## Release Checklist Summary
