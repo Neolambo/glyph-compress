@@ -20,6 +20,9 @@
  */
 
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { estimateProviderTokens, normalizeProvider } from '../src/token-estimator.js';
 
 // ═══════════════════════════════════════════════════════════
@@ -273,6 +276,9 @@ class GlyphCompressor {
       messagesProcessed: 0,
       sessionStarted: Date.now(),
     };
+    this.workspacePath = options.workspacePath || options.cacheKey || null;
+    this.cacheFile = null;
+    this._initCache();
   }
 
   // ─── MAIN API ─────────────────────────────────────────────
@@ -309,6 +315,10 @@ class GlyphCompressor {
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += bestResult.compressedTokens;
     this.stats.messagesProcessed++;
+
+    if (!bestResult.fallback) {
+      this._saveCache();
+    }
 
     return {
       messages: bestResult.messages,
@@ -456,6 +466,8 @@ class GlyphCompressor {
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
+
+    this._saveCache();
 
     return {
       compressed,
@@ -719,11 +731,64 @@ class GlyphCompressor {
     this.sourceMap = this._createSourceMap();
   }
 
+  _initCache() {
+    try {
+      if (this.workspacePath) {
+        const homedir = os.homedir();
+        const cacheDir = path.join(homedir, '.glyphcompress', 'cache');
+        const hash = createHash('sha256').update(this.workspacePath).digest('hex').slice(0, 16);
+        this.cacheFile = path.join(cacheDir, `${hash}.json`);
+        this._loadCache();
+      }
+    } catch (e) {
+      // Fail silently
+    }
+  }
+
+  _loadCache() {
+    if (!this.cacheFile) return;
+    try {
+      if (fs.existsSync(this.cacheFile)) {
+        const raw = fs.readFileSync(this.cacheFile, 'utf8');
+        const data = JSON.parse(raw);
+        if (data.fileIndex && Array.isArray(data.fileIndex)) {
+          this.fileIndex = new Map(data.fileIndex);
+          this.fileCounter = typeof data.fileCounter === 'number' ? data.fileCounter : this.fileIndex.size;
+        }
+        if (data.dynamicDict && Array.isArray(data.dynamicDict)) {
+          this.dynamicDict = new Map(data.dynamicDict);
+          this.dynamicCounter = typeof data.dynamicCounter === 'number' ? data.dynamicCounter : this.dynamicDict.size;
+        }
+      }
+    } catch (e) {
+      // Fail silently
+    }
+  }
+
+  _saveCache() {
+    if (!this.cacheFile) return;
+    try {
+      const cacheDir = path.dirname(this.cacheFile);
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+      const data = {
+        fileIndex: [...this.fileIndex.entries()],
+        dynamicDict: [...this.dynamicDict.entries()],
+        fileCounter: this.fileCounter,
+        dynamicCounter: this.dynamicCounter
+      };
+      fs.writeFileSync(this.cacheFile, JSON.stringify(data, null, 2), 'utf8');
+    } catch (e) {
+      // Fail silently
+    }
+  }
+
   // ─── INTERNAL METHODS ──────────────────────────────────────
 
   _createSourceMap() {
     return {
-      version: '1.12.0',
+      version: '1.13.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1546,6 +1611,8 @@ if (typeof module !== 'undefined' && module.exports) {
     CODEBOOK_PROMPT,
     DOMAIN_GLYPHS,
     TECH_GLYPHS,
+    PROVIDER_COMPRESSION_PROFILES,
+    TRUST_POLICY_PROFILES,
   };
 }
 

@@ -121,6 +121,7 @@ function compareTokenEstimates(original, compressed, provider = DEFAULT_PROFILE)
     savedPct: `${((1 - compressedTokens / Math.max(1, originalTokens)) * 100).toFixed(0)}%`
   };
 }
+// Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   PROVIDER_TOKEN_PROFILES,
   compareTokenEstimates,

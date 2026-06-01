@@ -57,7 +57,15 @@ AFTER (137 chars):
 → 12.7x compression, 92% saved
 ```
 
-### New in v1.12.0 (Performance Engine Overhaul)
+### New in v1.13.0 (Cross-Session Dictionary Caching)
+
+1. **Cross-Session Dictionary Caching**: Persists `dynamicDict` and `fileIndex` on disk under `~/.glyphcompress/cache/<sha256>.json` to enable instant warm-starts.
+2. **Consistent Workspace Keying**: Computes SHA-256 hashes of workspace paths (for the VS Code extension) and working directories (for CLI/proxy) to ensure isolated, project-specific caches.
+3. **Improved Anthropic Prompt Caching**: Prompts remain consistent across separate developer sessions, avoiding unnecessary cache invalidation and reducing input token costs.
+4. **Dynamic Restorations**: Restores dynamic dictionary mappings and bigram counts seamlessly on startup, ensuring compression consistency across multiple command-line invocations and extension reloads.
+5. **ESM & CJS Exporter Synchronization**: Exposes `PROVIDER_COMPRESSION_PROFILES` and `TRUST_POLICY_PROFILES` consistently in both ES Modules and CommonJS runtimes, preventing runtime undefined errors in downstream imports.
+
+### v1.12.0 (Performance Engine Overhaul)
 
 1. **Codebook-Skip Threshold**: Skips the ~400-token protocol header when text-level savings are below 80 tokens, eliminating negative compression on short requests.
 2. **Unicode Token Accuracy**: All token estimators now apply a 1.5× penalty per non-ASCII glyph, preventing inflated savings metrics from cheap-looking Unicode substitutions.
@@ -186,7 +194,7 @@ AFTER (137 chars):
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.12.0)
+### 📏 Benchmark Snapshot (v1.13.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.4x**, **28% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction.
 
@@ -413,7 +421,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.12.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.13.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`

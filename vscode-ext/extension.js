@@ -34,11 +34,14 @@ function activate(context) {
 
   // Initialize compressor with user settings
   const config = vscode.workspace.getConfiguration('glyphCompress');
+  const folders = vscode.workspace.workspaceFolders;
+  const workspacePath = folders && folders.length > 0 ? folders[0].uri.fsPath : null;
   compressor = new GlyphCompressor({
     enabled: config.get('enabled', true),
     level: config.get('compressionLevel', 'standard'),
     provider: config.get('provider', 'auto'),
     trustPolicy: config.get('trustPolicy', 'auto'),
+    workspacePath,
   });
 
   if (config.get('autoUpdateWorkspaceRules', false)) {
@@ -318,11 +321,14 @@ function activate(context) {
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('glyphCompress')) {
         const newConfig = vscode.workspace.getConfiguration('glyphCompress');
+        const folders = vscode.workspace.workspaceFolders;
+        const workspacePath = folders && folders.length > 0 ? folders[0].uri.fsPath : null;
         compressor = new GlyphCompressor({
           enabled: newConfig.get('enabled', true),
           level: newConfig.get('compressionLevel', 'standard'),
           provider: newConfig.get('provider', 'auto'),
           trustPolicy: newConfig.get('trustPolicy', 'auto'),
+          workspacePath,
         });
         outputChannel.appendLine(
           `Config updated: enabled=${compressor.enabled}, level=${compressor.level}, trust=${compressor.trustPolicy}`

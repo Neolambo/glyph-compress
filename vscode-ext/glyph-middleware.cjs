@@ -1,6 +1,8 @@
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -14,7 +16,17 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// vscode-ext/glyph-middleware.js
 var glyph_middleware_exports = {};
 __export(glyph_middleware_exports, {
   CODEBOOK_PROMPT: () => CODEBOOK_PROMPT,
@@ -27,9 +39,12 @@ __export(glyph_middleware_exports, {
   wrapOpenAI: () => wrapOpenAI
 });
 module.exports = __toCommonJS(glyph_middleware_exports);
-var import_token_estimator = require("./token-estimator.cjs");
 var import_node_crypto = require("node:crypto");
-const DOMAIN_GLYPHS = {
+var import_node_fs = __toESM(require("node:fs"));
+var import_node_path = __toESM(require("node:path"));
+var import_node_os = __toESM(require("node:os"));
+var import_token_estimator = require("./token-estimator.cjs");
+var DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
   devops: "\u25CA",
@@ -47,7 +62,7 @@ const DOMAIN_GLYPHS = {
   optimization: "\u229F",
   networking: "\u22A0"
 };
-const TECH_GLYPHS = {
+var TECH_GLYPHS = {
   typescript: "\u1D57",
   javascript: "\u02B2\u02E2",
   python: "\u1D56",
@@ -77,7 +92,7 @@ const TECH_GLYPHS = {
   agent: "\u03B1",
   prompt: "\u03C0"
 };
-const ERROR_PATTERNS = [
+var ERROR_PATTERNS = [
   [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'\u2209$2"],
   [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1\u2209\u2192$2"],
   [/Cannot find (?:name|module) '([^']+)'/g, "\u2205'$1'"],
@@ -92,7 +107,7 @@ const ERROR_PATTERNS = [
   [/is declared but its value is never read/g, "\u26A0unused"],
   [/is defined but never used/g, "\u26A0unused"]
 ];
-const PROMPT_PATTERNS = [
+var PROMPT_PATTERNS = [
   [/fix (?:the |this )?(?:error|bug|issue) in (.+)/i, "\u2E8C\u2717 $1"],
   [/create (?:a |an )?(.+) component/i, "\u25B2\u229E $1"],
   [/add (.+) to (.+)/i, "\u25B2 $1 \u2192 $2"],
@@ -109,7 +124,7 @@ const PROMPT_PATTERNS = [
   [/test (.+)/i, "\u25BA $1"],
   [/document (.+)/i, "\u25A0 $1"]
 ];
-const PRIVACY_REDACTION_PATTERNS = [
+var PRIVACY_REDACTION_PATTERNS = [
   { kind: "openai_key", label: "OpenAI API key", pattern: /\bsk-[A-Za-z0-9_-]{20,}\b/g },
   { kind: "github_token", label: "GitHub token", pattern: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b/g },
   { kind: "github_token", label: "GitHub fine-grained token", pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g },
@@ -120,7 +135,7 @@ const PRIVACY_REDACTION_PATTERNS = [
   { kind: "email", label: "email address", pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi },
   { kind: "ipv4", label: "IPv4 address", pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g }
 ];
-const PROVIDER_COMPRESSION_PROFILES = {
+var PROVIDER_COMPRESSION_PROFILES = {
   raw: {
     provider: "raw",
     strategy: "balanced",
@@ -157,7 +172,7 @@ const PROVIDER_COMPRESSION_PROFILES = {
     codebookHint: "Local-model profile uses more dynamic entries where tokenizer overhead is lower."
   }
 };
-const TRUST_POLICY_PROFILES = {
+var TRUST_POLICY_PROFILES = {
   lossless: {
     policy: "lossless",
     label: "Lossless",
@@ -231,7 +246,7 @@ const TRUST_POLICY_PROFILES = {
     }
   }
 };
-const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+var CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 Context uses compressed glyphs. Decode:
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
 TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
@@ -240,37 +255,82 @@ MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
-const COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+var COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
 DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
 TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
 SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
 MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
-Decode using mappings below.
+Decode:
 [/GLYPH]`;
-const COMPACT_CODEBOOK_DOM_ENTRIES = [
-  ["\u25C8", "frontend"], ["\u25C9", "ai_ml"], ["\u25CA", "devops"], ["\u25C6", "database"],
-  ["\u25C7", "lang"], ["\u2295", "auto"], ["\u2297", "arch"], ["\u2299", "mobile"],
-  ["\u2298", "cloud"], ["\u229A", "data"], ["\u229B", "test"], ["\u229C", "backend"],
-  ["\u229D", "security"], ["\u229E", "docs"], ["\u229F", "perf"], ["\u22A0", "net"],
+var COMPACT_CODEBOOK_DOM_ENTRIES = [
+  ["\u25C8", "frontend"],
+  ["\u25C9", "ai_ml"],
+  ["\u25CA", "devops"],
+  ["\u25C6", "database"],
+  ["\u25C7", "lang"],
+  ["\u2295", "auto"],
+  ["\u2297", "arch"],
+  ["\u2299", "mobile"],
+  ["\u2298", "cloud"],
+  ["\u229A", "data"],
+  ["\u229B", "test"],
+  ["\u229C", "backend"],
+  ["\u229D", "security"],
+  ["\u229E", "docs"],
+  ["\u229F", "perf"],
+  ["\u22A0", "net"]
 ];
-const COMPACT_CODEBOOK_TECH_ENTRIES = [
-  ["\u1D57", "TS"], ["\u02B2\u02E2", "JS"], ["\u1D56", "Py"], ["\u02B3", "Rust"], ["\u1D4D", "Go"],
-  ["\u211C", "React"], ["\u2115", "Next"], ["\u{1D54D}", "Vue"], ["\u{1D49F}", "Docker"], ["\u{1D4A6}", "K8s"],
-  ["\u{1D4AF}", "Terraform"], ["\u2119", "PG"], ["\u1D63", "Redis"], ["\u2112", "LLM"], ["\u03B1", "Agent"],
+var COMPACT_CODEBOOK_TECH_ENTRIES = [
+  ["\u1D57", "TS"],
+  ["\u02B2\u02E2", "JS"],
+  ["\u1D56", "Py"],
+  ["\u02B3", "Rust"],
+  ["\u1D4D", "Go"],
+  ["\u211C", "React"],
+  ["\u2115", "Next"],
+  ["\u{1D54D}", "Vue"],
+  ["\u{1D49F}", "Docker"],
+  ["\u{1D4A6}", "K8s"],
+  ["\u{1D4AF}", "Terraform"],
+  ["\u2119", "PG"],
+  ["\u1D63", "Redis"],
+  ["\u2112", "LLM"],
+  ["\u03B1", "Agent"]
 ];
-const COMPACT_CODEBOOK_SYM_ENTRIES = [
-  ["\u2717", "err"], ["\u26A0", "warn"], ["\u2209", "type_err"], ["\u2205", "missing"], ["\u2192", "return/yield"],
-  ["\u0192", "function/def/fn"], ["\u{1D49E}", "class/struct"], ["\u25C7t", "type/int/void"], ["\u27FF", "effect"],
-  ["\u2E8C", "fix"], ["\u2E8B", "perf"], ["\u2E8E", "review"], ["\u2E83", "debug"], ["\u2E8F", "deploy"],
-  ["\u25B2", "create"], ["\u25CF", "refactor"], ["\u25BA", "test"], ["\u25A0", "doc"], ["\u25C7", "var/const/let"],
+var COMPACT_CODEBOOK_SYM_ENTRIES = [
+  ["\u2717", "err"],
+  ["\u26A0", "warn"],
+  ["\u2209", "type_err"],
+  ["\u2205", "missing"],
+  ["\u2192", "return/yield"],
+  ["\u0192", "function/def/fn"],
+  ["\u{1D49E}", "class/struct"],
+  ["\u25C7t", "type/int/void"],
+  ["\u27FF", "effect"],
+  ["\u2E8C", "fix"],
+  ["\u2E8B", "perf"],
+  ["\u2E8E", "review"],
+  ["\u2E83", "debug"],
+  ["\u2E8F", "deploy"],
+  ["\u25B2", "create"],
+  ["\u25CF", "refactor"],
+  ["\u25BA", "test"],
+  ["\u25A0", "doc"],
+  ["\u25C7", "var/const/let"]
 ];
-const COMPACT_CODEBOOK_MOD_ENTRIES = [
-  ["+=", "pub/public"], ["-=", "private"], ["#", "protected"], ["m", "mut"],
-  ["I", "impl"], ["?", "match"], ["pkg", "package"], ["s.", "self."],
+var COMPACT_CODEBOOK_MOD_ENTRIES = [
+  ["+=", "pub/public"],
+  ["-=", "private"],
+  ["#", "protected"],
+  ["m", "mut"],
+  ["I", "impl"],
+  ["?", "match"],
+  ["pkg", "package"],
+  ["s.", "self."]
 ];
-const COMPACT_CODEBOOK_FILE_LINE = "\u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks";
-class GlyphCompressor {
+var COMPACT_CODEBOOK_FILE_LINE = "\u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks";
+var GlyphCompressor = class {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
     this.level = options.level || "standard";
@@ -293,6 +353,9 @@ class GlyphCompressor {
       messagesProcessed: 0,
       sessionStarted: Date.now()
     };
+    this.workspacePath = options.workspacePath || options.cacheKey || null;
+    this.cacheFile = null;
+    this._initCache();
   }
   // ─── MAIN API ─────────────────────────────────────────────
   /**
@@ -324,6 +387,9 @@ class GlyphCompressor {
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += bestResult.compressedTokens;
     this.stats.messagesProcessed++;
+    if (!bestResult.fallback) {
+      this._saveCache();
+    }
     return {
       messages: bestResult.messages,
       sourceMap: bestResult.sourceMap,
@@ -357,23 +423,17 @@ class GlyphCompressor {
         content: this._compressUserMessage(msg.content, safeText)
       };
     });
-    const compressedWithoutCodebook = this._estimateTokens(compressed, provider);
-    const textSavings = origTokens - compressedWithoutCodebook;
-    const codebookCostEstimate = this.provider === "raw" ? 0 : 80;
-    const skipCodebook = this.provider !== "raw" && textSavings < codebookCostEstimate;
-    if (!skipCodebook) {
-      const firstSystemIndex = compressed.findIndex((msg) => msg.role === "system");
-      if (firstSystemIndex >= 0) {
-        compressed[firstSystemIndex] = {
-          ...compressed[firstSystemIndex],
-          content: this._injectCodebook(compressed[firstSystemIndex].content, provider, compressed)
-        };
-      } else {
-        compressed.unshift({
-          role: "system",
-          content: this._injectCodebook("", provider, compressed).trim()
-        });
-      }
+    const firstSystemIndex = compressed.findIndex((msg) => msg.role === "system");
+    if (firstSystemIndex >= 0) {
+      compressed[firstSystemIndex] = {
+        ...compressed[firstSystemIndex],
+        content: this._injectCodebook(compressed[firstSystemIndex].content, provider, compressed)
+      };
+    } else {
+      compressed.unshift({
+        role: "system",
+        content: this._injectCodebook("", provider, compressed).trim()
+      });
     }
     const compTokens = this._estimateTokens(compressed, provider);
     const fallback = this.provider !== "raw" && compTokens >= origTokens;
@@ -455,6 +515,7 @@ class GlyphCompressor {
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += compTokens;
     this.stats.messagesProcessed++;
+    this._saveCache();
     return {
       compressed,
       original: text,
@@ -476,7 +537,7 @@ class GlyphCompressor {
   getCodebookPrompt(messages = []) {
     let prompt = this._codebookPromptForProvider(messages);
     if (this.fileIndex.size > 0) {
-      const files = [...this.fileIndex].map(([path, ref]) => `${ref}=${path}`).join(" | ");
+      const files = [...this.fileIndex].map(([path2, ref]) => `${ref}=${path2}`).join(" | ");
       prompt = prompt.replace("[/GLYPH]", `FILES: ${files}
 [/GLYPH]`);
     }
@@ -533,7 +594,8 @@ class GlyphCompressor {
     if (parsed.dynamicLine) {
       systemBlocks.push({
         type: "text",
-        text: `[GLYPH DYNAMIC]\n${parsed.dynamicLine}`
+        text: `[GLYPH DYNAMIC]
+${parsed.dynamicLine}`
       });
     }
     if (systemBlocks.length === 0 && systemContent) {
@@ -572,7 +634,11 @@ class GlyphCompressor {
     };
   }
   _anthropicStableProtocolBlock() {
-    return COMPACT_CODEBOOK_PROMPT.replace("[/GLYPH]", `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}\n[/GLYPH]`);
+    return COMPACT_CODEBOOK_PROMPT.replace(
+      "[/GLYPH]",
+      `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}
+[/GLYPH]`
+    );
   }
   _markLargestAnthropicUserBlock(messages = []) {
     let largestMsgIdx = -1;
@@ -588,11 +654,13 @@ class GlyphCompressor {
     if (largestMsgIdx === -1) return;
     const msg = messages[largestMsgIdx];
     if (typeof msg.content === "string") {
-      msg.content = [{
-        type: "text",
-        text: msg.content,
-        cache_control: { type: "ephemeral" }
-      }];
+      msg.content = [
+        {
+          type: "text",
+          text: msg.content,
+          cache_control: { type: "ephemeral" }
+        }
+      ];
       return;
     }
     if (Array.isArray(msg.content) && msg.content.length > 0) {
@@ -640,9 +708,9 @@ class GlyphCompressor {
       replacements: [...this.sourceMap.replacements]
     };
     const knownFileRefs = new Set(sourceMap.files.map((file) => file.ref));
-    for (const [path, ref] of this.fileIndex) {
+    for (const [path2, ref] of this.fileIndex) {
       if (!knownFileRefs.has(ref)) {
-        sourceMap.files.push({ ref, path, domain: this._detectDomain(path) });
+        sourceMap.files.push({ ref, path: path2, domain: this._detectDomain(path2) });
       }
     }
     const knownDynamicGlyphs = new Set(sourceMap.dynamic.map((entry) => entry.glyph));
@@ -662,16 +730,63 @@ class GlyphCompressor {
       codeBlocks: sourceMap.codeBlocks,
       ast: sourceMap.ast,
       privacy: sourceMap.privacy,
-      symbols: sourceMap.symbols,
+      symbols: sourceMap.symbols
     };
   }
   resetSourceMap() {
     this.sourceMap = this._createSourceMap();
   }
+  _initCache() {
+    try {
+      if (this.workspacePath) {
+        const homedir = import_node_os.default.homedir();
+        const cacheDir = import_node_path.default.join(homedir, ".glyphcompress", "cache");
+        const hash = (0, import_node_crypto.createHash)("sha256").update(this.workspacePath).digest("hex").slice(0, 16);
+        this.cacheFile = import_node_path.default.join(cacheDir, `${hash}.json`);
+        this._loadCache();
+      }
+    } catch (e) {
+    }
+  }
+  _loadCache() {
+    if (!this.cacheFile) return;
+    try {
+      if (import_node_fs.default.existsSync(this.cacheFile)) {
+        const raw = import_node_fs.default.readFileSync(this.cacheFile, "utf8");
+        const data = JSON.parse(raw);
+        if (data.fileIndex && Array.isArray(data.fileIndex)) {
+          this.fileIndex = new Map(data.fileIndex);
+          this.fileCounter = typeof data.fileCounter === "number" ? data.fileCounter : this.fileIndex.size;
+        }
+        if (data.dynamicDict && Array.isArray(data.dynamicDict)) {
+          this.dynamicDict = new Map(data.dynamicDict);
+          this.dynamicCounter = typeof data.dynamicCounter === "number" ? data.dynamicCounter : this.dynamicDict.size;
+        }
+      }
+    } catch (e) {
+    }
+  }
+  _saveCache() {
+    if (!this.cacheFile) return;
+    try {
+      const cacheDir = import_node_path.default.dirname(this.cacheFile);
+      if (!import_node_fs.default.existsSync(cacheDir)) {
+        import_node_fs.default.mkdirSync(cacheDir, { recursive: true });
+      }
+      const data = {
+        fileIndex: [...this.fileIndex.entries()],
+        dynamicDict: [...this.dynamicDict.entries()],
+        fileCounter: this.fileCounter,
+        dynamicCounter: this.dynamicCounter
+      };
+      import_node_fs.default.writeFileSync(this.cacheFile, JSON.stringify(data, null, 2), "utf8");
+    } catch (e) {
+    }
+  }
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.12.0",
+      version: "1.13.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -801,15 +916,17 @@ class GlyphCompressor {
     }
     return modifiedCodebook + "\n\n" + systemPrompt;
   }
-  _codebookPromptForProvider(messages = []) {
-    return this.provider === "raw" ? CODEBOOK_PROMPT : this._buildMinimalCompactCodebookPrompt(messages);
+  _codebookPromptForProvider() {
+    return this.provider === "raw" ? CODEBOOK_PROMPT : this._buildMinimalCompactCodebookPrompt(...arguments);
   }
   _buildMinimalCompactCodebookPrompt(messages = []) {
     if (!messages.length) {
       return COMPACT_CODEBOOK_PROMPT;
     }
     const payloadText = this._payloadTextForCodebook(messages);
-    const usedDynamicGlyphs = /* @__PURE__ */ new Set([...this.dynamicDict].filter(([, glyph]) => payloadText.includes(glyph)).map(([, glyph]) => glyph));
+    const usedDynamicGlyphs = new Set(
+      [...this.dynamicDict].filter(([, glyph]) => payloadText.includes(glyph)).map(([, glyph]) => glyph)
+    );
     const lines = ["[GLYPH PROTOCOL v0.5]"];
     const domLine = this._codebookLineFromEntries("DOM", COMPACT_CODEBOOK_DOM_ENTRIES, payloadText);
     const techLine = this._codebookLineFromEntries("TECH", COMPACT_CODEBOOK_TECH_ENTRIES, payloadText, usedDynamicGlyphs);
@@ -831,7 +948,7 @@ class GlyphCompressor {
     return `${section}: ${usedEntries.map(([glyph, label]) => `${glyph}=${label}`).join(" ")}`;
   }
   _payloadNeedsFileCodebook(payloadText) {
-    return /\u208D\d+\u208E/.test(payloadText) || payloadText.includes(":L") || payloadText.includes("[NL]") || payloadText.includes("imp") || payloadText.includes("exp") || payloadText.includes("\u27F3");
+    return /₍\d+₎/.test(payloadText) || payloadText.includes(":L") || payloadText.includes("[NL]") || payloadText.includes("imp") || payloadText.includes("exp") || payloadText.includes("\u27F3");
   }
   _payloadTextForCodebook(messages = []) {
     return messages.filter((message) => message.role !== "system").map((message) => this._normalizeMessageContent(message.content)).join("\n");
@@ -863,47 +980,7 @@ class GlyphCompressor {
     return c;
   }
   _compressVerbosePhrases(text) {
-    return text
-      // English
-      .replace(/\bI need you to\b/gi, "")
-      .replace(/\bcan you (please )?/gi, "")
-      .replace(/\bplease\b/gi, "")
-      .replace(/\bthe following\b/gi, "this")
-      .replace(/\bin order to\b/gi, "to")
-      .replace(/\bas well as\b/gi, "&")
-      .replace(/\bmake sure (that )?/gi, "ensure ")
-      .replace(/\btake a look at\b/gi, "check")
-      .replace(/\bcould you\b/gi, "")
-      .replace(/\bI would like you to\b/gi, "")
-      .replace(/\bI want you to\b/gi, "")
-      // Italian
-      .replace(/\bho bisogno che (tu )?/gi, "")
-      .replace(/\bpuoi (per favore )?/gi, "")
-      .replace(/\bper favore\b/gi, "")
-      .replace(/\bper cortesia\b/gi, "")
-      .replace(/\bvorrei che (tu )?/gi, "")
-      .replace(/\bpotresti\b/gi, "")
-      .replace(/\bdai un'?occhiata a\b/gi, "check")
-      .replace(/\bin modo da\b/gi, "per")
-      .replace(/\bmi serve che\b/gi, "")
-      .replace(/\bspiegami come\b/gi, "spiega")
-      // German
-      .replace(/\bich m[öo]chte,? dass (du )?/gi, "")
-      .replace(/\bk[öo]nntest du (bitte )?/gi, "")
-      .replace(/\bbitte\b/gi, "")
-      .replace(/\bschau dir mal\b/gi, "check")
-      .replace(/\bich brauche,? dass\b/gi, "")
-      .replace(/\bum zu\b/gi, "zu")
-      // French
-      .replace(/\bj'ai besoin que (tu )?/gi, "")
-      .replace(/\bpeux-tu (s'il te pla[iî]t )?/gi, "")
-      .replace(/\bs'il (te|vous) pla[iî]t\b/gi, "")
-      .replace(/\bje voudrais que (tu )?/gi, "")
-      .replace(/\bpourrais-tu\b/gi, "")
-      .replace(/\bjette un [œo]il [àa]\b/gi, "check")
-      .replace(/\bafin de\b/gi, "pour")
-      .replace(/[ \t]+/g, " ")
-      .trim();
+    return text.replace(/\bI need you to\b/gi, "").replace(/\bcan you (please )?/gi, "").replace(/\bplease\b/gi, "").replace(/\bthe following\b/gi, "this").replace(/\bin order to\b/gi, "to").replace(/\bas well as\b/gi, "&").replace(/\bmake sure (that )?/gi, "ensure ").replace(/\btake a look at\b/gi, "check").replace(/\bcould you\b/gi, "").replace(/\bI would like you to\b/gi, "").replace(/\bI want you to\b/gi, "").replace(/\bho bisogno che (tu )?/gi, "").replace(/\bpuoi (per favore )?/gi, "").replace(/\bper favore\b/gi, "").replace(/\bper cortesia\b/gi, "").replace(/\bvorrei che (tu )?/gi, "").replace(/\bpotresti\b/gi, "").replace(/\bdai un'?occhiata a\b/gi, "check").replace(/\bin modo da\b/gi, "per").replace(/\bmi serve che\b/gi, "").replace(/\bspiegami come\b/gi, "spiega").replace(/\bich m[öo]chte,? dass (du )?/gi, "").replace(/\bk[öo]nntest du (bitte )?/gi, "").replace(/\bbitte\b/gi, "").replace(/\bschau dir mal\b/gi, "check").replace(/\bich brauche,? dass\b/gi, "").replace(/\bum zu\b/gi, "zu").replace(/\bj'ai besoin que (tu )?/gi, "").replace(/\bpeux-tu (s'il te pla[iî]t )?/gi, "").replace(/\bs'il (te|vous) pla[iî]t\b/gi, "").replace(/\bje voudrais que (tu )?/gi, "").replace(/\bpourrais-tu\b/gi, "").replace(/\bjette un [œo]il [àa]\b/gi, "check").replace(/\bafin de\b/gi, "pour").replace(/[ \t]+/g, " ").trim();
   }
   _stripRedundancy(text) {
     return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
@@ -913,7 +990,7 @@ class GlyphCompressor {
     if (!text || this.dynamicDict.size >= this.providerProfile.maxDynamicEntries) return;
     const words = text.match(/\b[A-Za-z_][A-Za-z0-9_]{2,}\b/g) || [];
     const counts = /* @__PURE__ */ new Map();
-    const stopWords = new Set(["the", "and", "for", "with", "this", "that", "from", "true", "false", "null", "not", "are", "was", "has", "have", "been", "will", "can"]);
+    const stopWords = /* @__PURE__ */ new Set(["the", "and", "for", "with", "this", "that", "from", "true", "false", "null", "not", "are", "was", "has", "have", "been", "will", "can"]);
     for (const w of words) {
       if (stopWords.has(w.toLowerCase())) continue;
       if (/^(?:OPENAI_KEY|GITHUB_TOKEN|AWS_ACCESS_KEY|JWT|BEARER_TOKEN|SECRET_ASSIGNMENT|EMAIL|IPV4)_\d+$/.test(w)) continue;
@@ -947,12 +1024,12 @@ class GlyphCompressor {
   }
   _applyDynamicDictionary(text) {
     let result = text;
-    const charsPerToken = (import_token_estimator.PROVIDER_TOKEN_PROFILES[this.provider] || import_token_estimator.PROVIDER_TOKEN_PROFILES.raw).charsPerToken;
+    const charsPerToken = { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4;
     for (const [word, glyph] of this.dynamicDict) {
       const origTokenCost = word.length / charsPerToken;
       const glyphTokenCost = glyph.length / charsPerToken + 1.5 * glyph.length;
       if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
-      if (!this._dynRegexCache) this._dynRegexCache = new Map();
+      if (!this._dynRegexCache) this._dynRegexCache = /* @__PURE__ */ new Map();
       let regex = this._dynRegexCache.get(word);
       if (!regex) {
         regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
@@ -991,13 +1068,13 @@ class GlyphCompressor {
   _compressTechNames(text) {
     let result = text;
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
-    const charsPerToken = this.providerProfile ? (import_token_estimator.PROVIDER_TOKEN_PROFILES[this.provider] || import_token_estimator.PROVIDER_TOKEN_PROFILES.raw).charsPerToken : 4;
+    const charsPerToken = this.providerProfile ? { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4 : 4;
     for (const [name, glyph] of entries) {
       const glyphUnicodeCost = 1.5;
       const origTokenCost = name.length / charsPerToken;
       const glyphTokenCost = glyph.length / charsPerToken + glyphUnicodeCost * glyph.length;
       if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
-      if (!this._techRegexCache) this._techRegexCache = new Map();
+      if (!this._techRegexCache) this._techRegexCache = /* @__PURE__ */ new Map();
       let regex = this._techRegexCache.get(name);
       if (!regex) {
         regex = new RegExp(`\\b${name}\\b`, "gi");
@@ -1286,7 +1363,7 @@ class GlyphCompressor {
   _estimateTokens(messages, provider = "raw") {
     return (0, import_token_estimator.estimateProviderTokens)(messages, provider);
   }
-}
+};
 function wrapOpenAI(client, options = {}) {
   const compressor = new GlyphCompressor(options);
   const originalCreate = client.chat.completions.create.bind(client.chat.completions);

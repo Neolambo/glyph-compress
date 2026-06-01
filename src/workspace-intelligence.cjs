@@ -39,7 +39,7 @@ var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
-const VERSION = "1.12.0";
+const VERSION = "1.13.0";
 const CODEBOOK_DIR = ".glyphcompress";
 const CODEBOOK_FILE = "codebook.json";
 const SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
@@ -375,8 +375,7 @@ function findProxyConfig(root, homeDir) {
   ];
   for (const candidate of candidates) {
     const text = readTextFile(candidate, 256 * 1024);
-    if (!text)
-      continue;
+    if (!text) continue;
     if (/localhost:8080|127\.0\.0\.1:8080|localhost:\$\{?PORT\}?/i.test(text)) {
       return { path: candidate, ok: true, detail: "references local proxy" };
     }

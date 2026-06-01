@@ -2,7 +2,7 @@
 
 GlyphCompress is a semantic compression layer for IDE-to-LLM communication. It compresses repeated developer prompts, file paths, diagnostics, code blocks, provider payloads, and workspace metadata so coding assistants can receive richer context with fewer tokens.
 
-Current stable release: `v1.12.0`.
+Current stable release: `v1.13.0`.
 
 ## What GlyphCompress Does
 
@@ -15,11 +15,19 @@ Current stable release: `v1.12.0`.
 
 ## Release Status
 
-- npm: `glyph-compress@1.12.0`
-- GitHub release: `v1.12.0`
+- npm: `glyph-compress@1.13.0`
+- GitHub release: `v1.13.0`
 - VS Code Marketplace id: `neolambo.glyph-compress`
-- VSIX artifact: `glyph-compress-1.12.0.vsix`
+- VSIX artifact: `glyph-compress-1.13.0.vsix`
 - Marketplace verification: `npx @vscode/vsce show Neolambo.glyph-compress`
+
+### v1.13.0 Highlights (Cross-Session Dictionary Caching)
+
+- Cross-session dictionary caching persists dynamicDict and fileIndex on disk under `~/.glyphcompress/cache/<sha256>.json` to enable instant warm-starts.
+- Isolated caching keying computes SHA-256 hashes of workspace paths and working directories.
+- Auto-save cache triggers inside successful `compressText` and `compressMessages` executions.
+- ESM and CommonJS middleware compilation synchronization with full public profile and trust policy exports.
+- Passing 51/51 automated integration and snapshot tests.
 
 ### v1.12.0 Highlights (Performance Engine Overhaul)
 

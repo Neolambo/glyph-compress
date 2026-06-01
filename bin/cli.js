@@ -123,7 +123,7 @@ if (!fs.existsSync(targetPath)) {
 const content = fs.readFileSync(targetPath, 'utf8');
 const ext = path.extname(targetPath).substring(1);
 
-const gc = new GlyphCompressor({ level, privacyFirewall, provider, trustPolicy });
+const gc = new GlyphCompressor({ level, privacyFirewall, provider, trustPolicy, workspacePath: process.cwd() });
 // Wrap in backticks to trigger full semantic code block compression if in aggressive/ultra mode
 const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``, provider);
 

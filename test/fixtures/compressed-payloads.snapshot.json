@@ -6,14 +6,14 @@
     "result": {
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
-        "version": "1.12.0",
+        "version": "1.13.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
           "provider": "raw",
           "strategy": "balanced",
-          "dynamicMinSavedChars": 10,
-          "maxDynamicEntries": 60,
+          "dynamicMinSavedChars": 4,
+          "maxDynamicEntries": 80,
           "codebookHint": "Generic text profile with balanced dynamic dictionary compression."
         },
         "trustPolicy": "reversible",
@@ -24,7 +24,32 @@
             "domain": "security"
           }
         ],
-        "dynamic": [],
+        "dynamic": [
+          {
+            "glyph": "α",
+            "original": "Property",
+            "frequency": 1,
+            "estimatedSavedChars": 7,
+            "provider": "raw",
+            "profile": "balanced"
+          },
+          {
+            "glyph": "β",
+            "original": "Fix src",
+            "frequency": 1,
+            "estimatedSavedChars": 6,
+            "provider": "raw",
+            "profile": "balanced"
+          },
+          {
+            "glyph": "γ",
+            "original": "server",
+            "frequency": 1,
+            "estimatedSavedChars": 5,
+            "provider": "raw",
+            "profile": "balanced"
+          }
+        ],
         "diagnostics": [
           {
             "original": "Property 'email' does not exist on type 'User'",
@@ -65,9 +90,9 @@
         "profile": "balanced",
         "trustPolicy": "reversible",
         "originalTokens": 18,
-        "compressedTokens": 6,
-        "ratio": "3.0x",
-        "savedPct": "67%"
+        "compressedTokens": 12,
+        "ratio": "1.5x",
+        "savedPct": "33%"
       }
     }
   },
@@ -79,21 +104,46 @@
       "privacyFirewall": true
     },
     "result": {
-      "compressed": "Use API_KEY=⟦SECRET_ASSIGNMENT_2⟧ and contact ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
+      "compressed": "α=⟦SECRET_ASSIGNMENT_2⟧ and γ ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
       "sourceMap": {
-        "version": "1.12.0",
+        "version": "1.13.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
           "provider": "raw",
           "strategy": "balanced",
-          "dynamicMinSavedChars": 10,
-          "maxDynamicEntries": 60,
+          "dynamicMinSavedChars": 4,
+          "maxDynamicEntries": 80,
           "codebookHint": "Generic text profile with balanced dynamic dictionary compression."
         },
         "trustPolicy": "privacy",
         "files": [],
-        "dynamic": [],
+        "dynamic": [
+          {
+            "glyph": "α",
+            "original": "Use API_KEY",
+            "frequency": 1,
+            "estimatedSavedChars": 10,
+            "provider": "raw",
+            "profile": "balanced"
+          },
+          {
+            "glyph": "β",
+            "original": "API_KEY",
+            "frequency": 1,
+            "estimatedSavedChars": 6,
+            "provider": "raw",
+            "profile": "balanced"
+          },
+          {
+            "glyph": "γ",
+            "original": "contact",
+            "frequency": 1,
+            "estimatedSavedChars": 6,
+            "provider": "raw",
+            "profile": "balanced"
+          }
+        ],
         "diagnostics": [],
         "codeBlocks": [],
         "ast": [],
@@ -147,6 +197,16 @@
             "kind": "privacy",
             "redacted": true,
             "label": "IPv4 address"
+          },
+          {
+            "glyph": "α",
+            "original": "Use API_KEY",
+            "kind": "dynamic"
+          },
+          {
+            "glyph": "γ",
+            "original": "contact",
+            "kind": "dynamic"
           }
         ],
         "replacements": [
@@ -177,6 +237,16 @@
             "compressed": "⟦IPV4_4⟧",
             "redacted": true,
             "label": "IPv4 address"
+          },
+          {
+            "kind": "dynamic",
+            "original": "Use API_KEY",
+            "compressed": "α"
+          },
+          {
+            "kind": "dynamic",
+            "original": "contact",
+            "compressed": "γ"
           }
         ]
       },
@@ -185,9 +255,9 @@
         "profile": "balanced",
         "trustPolicy": "privacy",
         "originalTokens": 25,
-        "compressedTokens": 18,
-        "ratio": "1.4x",
-        "savedPct": "28%"
+        "compressedTokens": 26,
+        "ratio": "1.0x",
+        "savedPct": "-4%"
       }
     }
   },
@@ -216,14 +286,14 @@
         }
       ],
       "sourceMap": {
-        "version": "1.12.0",
+        "version": "1.13.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
           "provider": "openai",
           "strategy": "chat-compact",
-          "dynamicMinSavedChars": 8,
-          "maxDynamicEntries": 72,
+          "dynamicMinSavedChars": 4,
+          "maxDynamicEntries": 80,
           "codebookHint": "OpenAI chat profile favors compact repeated identifiers and low message overhead."
         },
         "trustPolicy": "reversible",
@@ -279,14 +349,14 @@
         }
       ],
       "sourceMap": {
-        "version": "1.12.0",
+        "version": "1.13.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {
           "provider": "anthropic",
           "strategy": "cache-stable",
-          "dynamicMinSavedChars": 14,
-          "maxDynamicEntries": 48,
+          "dynamicMinSavedChars": 6,
+          "maxDynamicEntries": 64,
           "codebookHint": "Anthropic profile keeps the codebook stable for cache-friendly system prompts."
         },
         "trustPolicy": "reversible",
