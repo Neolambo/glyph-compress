@@ -2,7 +2,7 @@
 
 GlyphCompress is a semantic compression layer for IDE-to-LLM communication. It compresses repeated developer prompts, file paths, diagnostics, code blocks, provider payloads, and workspace metadata so coding assistants can receive richer context with fewer tokens.
 
-Current stable release: `v1.13.0`.
+Current stable release: `v1.14.0`.
 
 ## What GlyphCompress Does
 
@@ -15,11 +15,20 @@ Current stable release: `v1.13.0`.
 
 ## Release Status
 
-- npm: `glyph-compress@1.13.0`
-- GitHub release: `v1.13.0`
+- npm: `glyph-compress@1.14.0`
+- GitHub release: `v1.14.0`
 - VS Code Marketplace id: `neolambo.glyph-compress`
-- VSIX artifact: `glyph-compress-1.13.0.vsix`
+- VSIX artifact: `glyph-compress-1.14.0.vsix`
 - Marketplace verification: `npx @vscode/vsce show Neolambo.glyph-compress`
+
+### v1.14.0 Highlights (Attentional Decay Compaction)
+
+- Attentional Decay Compaction (ADC) progressively compacts older chat history based on distance `d` into Active (d=0), Warm (d=1-3), Cold (d=4-6), and Deep Freeze (d>6) zones.
+- Keeps 100% active prompt fidelity intact to avoid LLM instruction regression.
+- Native VS Code configuration setting `glyphCompress.experimentalDecay` toggles ADC in IDEs.
+- CLI arguments `--decay` and `--experimental-decay` support attentional decay from shell runs.
+- Unicode-aware language tag parsing handles minified language tags like `ʲˢ` cleanly in the cold zone.
+- Added comprehensive unit tests validating the 4 progressive decay zones.
 
 ### v1.13.0 Highlights (Cross-Session Dictionary Caching)
 

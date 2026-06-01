@@ -289,7 +289,16 @@ Status: delivered.
 - [x] Synchronize ESM and CommonJS middleware compilers and export public profile tables.
 - [x] Implement test coverage verifying dynamic dictionary warm-start restorations and maintain 51/51 passing tests.
 
-### v1.14.0: Context Router Wiring
+### v1.14.0: Attentional Decay Compaction (ADC)
+
+Status: delivered.
+
+- [x] Implement Attentional Decay Compaction (ADC) to scale chat transcripts toward near-infinite context capacity at minimal token costs by progressively compacting older history.
+- [x] Define a zone-based progressive compaction schema (Active, Warm, Cold, Deep Freeze) where older context is decayed into structural/episodic summaries.
+- [x] Wire the new `experimentalDecay` setting into VS Code configurations, CLI arguments, and proxy middleware.
+- [x] Deliver 100% test coverage for the 4 compaction zones, keeping active prompt fidelity intact and verified.
+
+### v1.15.0: Context Router Wiring
 
 Status: proposed.
 
@@ -297,14 +306,14 @@ Status: proposed.
 - [ ] Use active file, diagnostics, git diff, and recent task intent as router inputs.
 - [ ] Keep provider-aware routing behavior auditable through source-map or explanation metadata.
 
-### v1.15.0: Structured Diagnostics and Snapshots
+### v1.16.0: Structured Diagnostics and Snapshots
 
 Status: proposed.
 
 - [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
 - [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
 
-### v1.16.0: Expression-Level Source Maps
+### v1.17.0: Expression-Level Source Maps
 
 Status: proposed.
 
@@ -312,7 +321,7 @@ Status: proposed.
 - [ ] Expand language coverage for structural spans and reversible debug metadata.
 - [ ] Add targeted validation for source-map fidelity at the expression level.
 
-### v1.17.0: Provider Trust and UX
+### v1.18.0: Provider Trust and UX
 
 Status: proposed.
 
@@ -320,7 +329,7 @@ Status: proposed.
 - [ ] Add per-provider trust warnings or risk scoring for risky transformations.
 - [ ] Improve VS Code UX surfacing for provider choice, trust policy, and diagnostic output.
 
-### v1.18.0: Real Task Evaluation
+### v1.19.0: Real Task Evaluation
 
 Status: proposed.
 
@@ -328,7 +337,7 @@ Status: proposed.
 - [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
 - [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
 
-### v1.19.0: Adaptive Workspace Memory
+### v1.20.0: Adaptive Workspace Memory
 
 Status: proposed.
 

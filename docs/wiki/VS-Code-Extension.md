@@ -26,7 +26,7 @@ npx @vscode/vsce show Neolambo.glyph-compress
 ## Install a Specific VSIX
 
 ```powershell
-code.cmd --install-extension vscode-ext\glyph-compress-1.13.0.vsix --force
+code.cmd --install-extension vscode-ext\glyph-compress-1.14.0.vsix --force
 ```
 
 ## Commands
@@ -51,7 +51,8 @@ code.cmd --install-extension vscode-ext\glyph-compress-1.13.0.vsix --force
   "glyphCompress.trustPolicy": "auto",
   "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
-  "glyphCompress.targetApiUrl": "https://api.openai.com"
+  "glyphCompress.targetApiUrl": "https://api.openai.com",
+  "glyphCompress.experimentalDecay": false
 }
 ```
 

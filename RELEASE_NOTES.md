@@ -1,3 +1,27 @@
+## v1.14.0 — Attentional Decay Compaction (ADC)
+
+Changes since v1.13.0:
+
+### Compression & Attentional Decay Compaction
+- **Attentional Decay Compaction (ADC)**: Implemented an experimental, opt-in feature (`options.attentionalDecay`) that scales chat transcripts to near-infinite context capacity at minimal token costs by progressively compacting older history.
+- **Zone-Based Progressive Compaction**:
+  - **Active Zone (d = 0)**: Lossless high-fidelity standard prompt compression to preserve active queries.
+  - **Warm Zone (d = 1-3)**: Aggressive `ultra`-level minification (stripping comments/logs, normalizing spaces, collapsing filler phrases).
+  - **Cold Zone (d = 4-6)**: Replaces raw code blocks with signature/placeholder summaries (e.g., `// [Summary: <lang> block, <N> lines]`).
+  - **Deep Freeze Zone (d > 6)**: Discards code blocks entirely and condenses message text to a high-density episodic/conceptual summary (`[Radical Summary: <concept>...]`).
+- **Unicode-Aware Language Extraction**: Enhanced the cold-zone regex parser to reliably match all language identifiers, including minified Unicode superscript markers (e.g. `ʲˢ`).
+
+### VS Code Extension & CLI/Proxy Integration
+- **VS Code Configuration**: Registered the `glyphCompress.experimentalDecay` configuration setting to allow users to toggle ADC natively within their IDE.
+- **CLI Arguments & Flags**: Added `--decay` and `--experimental-decay` arguments to enable attentional decay directly from command line invocations.
+- **Proxy Server Support**: Supported transparent progressive decay within the Zero-Command proxy forwarding logic.
+
+### Tests & Verification
+- **ADC Test Coverage**: Added comprehensive test cases in `test/unit.js` covering Active, Warm, Cold, and Deep Freeze zones.
+- **Complete Suite Validation**: All 51 tests across integration, unit, metadata, CLI, proxy, extension, and workspace pass with 100% success.
+
+***
+
 ## v1.13.0 — Cross-Session Dictionary Caching
 
 Changes since v1.12.0:

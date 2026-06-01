@@ -42,6 +42,7 @@ function activate(context) {
     provider: config.get('provider', 'auto'),
     trustPolicy: config.get('trustPolicy', 'auto'),
     workspacePath,
+    attentionalDecay: config.get('experimentalDecay', false),
   });
 
   if (config.get('autoUpdateWorkspaceRules', false)) {
@@ -329,6 +330,7 @@ function activate(context) {
           provider: newConfig.get('provider', 'auto'),
           trustPolicy: newConfig.get('trustPolicy', 'auto'),
           workspacePath,
+          attentionalDecay: newConfig.get('experimentalDecay', false),
         });
         outputChannel.appendLine(
           `Config updated: enabled=${compressor.enabled}, level=${compressor.level}, trust=${compressor.trustPolicy}`

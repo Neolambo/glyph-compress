@@ -356,6 +356,7 @@ var GlyphCompressor = class {
     this.workspacePath = options.workspacePath || options.cacheKey || null;
     this.cacheFile = null;
     this._initCache();
+    this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
   }
   // ─── MAIN API ─────────────────────────────────────────────
   /**
@@ -412,12 +413,45 @@ var GlyphCompressor = class {
   }
   _compressMessagesForStrategy(messages, provider, origTokens, baseState, candidate) {
     this.resetSourceMap();
-    const rolesToCompress = new Set(candidate.roles || ["user"]);
+    const rolesToCompress = this.attentionalDecay ? /* @__PURE__ */ new Set(["user", "assistant"]) : new Set(candidate.roles || ["user"]);
     const allCompressibleText = messages.filter((m) => rolesToCompress.has(m.role)).map((m) => this._normalizeMessageContent(m.content)).join("\n");
     const safeText = this._applyPrivacyFirewall(allCompressibleText, false);
     this._buildDynamicDictionary(safeText);
-    const compressed = messages.map((msg) => {
+    const compressed = messages.map((msg, index) => {
       if (!rolesToCompress.has(msg.role)) return msg;
+      if (this.attentionalDecay) {
+        const d = messages.length - 1 - index;
+        if (d === 0) {
+          return {
+            ...msg,
+            content: this._compressUserMessage(msg.content, safeText)
+          };
+        } else if (d <= 3) {
+          const prevLevel = this.level;
+          this.level = "ultra";
+          const result = this._compressUserMessage(msg.content, safeText);
+          this.level = prevLevel;
+          return { ...msg, content: result };
+        } else if (d <= 6) {
+          const prevLevel = this.level;
+          this.level = "ultra";
+          const compressedText = this._compressUserMessage(msg.content, safeText);
+          this.level = prevLevel;
+          const decayed = compressedText.replace(/```([^\n\r]*?)[\r\n]+([\s\S]*?)[\r\n]+\s*```/g, (match, lang, code) => {
+            const lines = code.split("\n").length;
+            const language = lang || "code";
+            return `// [Summary: ${language} block, ${lines} lines]`;
+          });
+          return { ...msg, content: decayed };
+        } else {
+          let cleanText = msg.content.replace(/```[\s\S]*?```/g, "").replace(/\s+/g, " ").trim();
+          if (cleanText.length > 120) {
+            cleanText = cleanText.slice(0, 120) + "...";
+          }
+          const decayed = `[Radical Summary: ${cleanText}]`;
+          return { ...msg, content: decayed };
+        }
+      }
       return {
         ...msg,
         content: this._compressUserMessage(msg.content, safeText)
@@ -786,7 +820,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.13.0",
+      version: "1.14.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

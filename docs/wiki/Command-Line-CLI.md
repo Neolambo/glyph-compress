@@ -31,6 +31,8 @@ npx glyph-compress [file|command] [options]
 | `--policy <policy>` | same as `--trust` | Alias for `--trust`. |
 | `--json` | flag | Print machine-readable JSON for supported commands. |
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. |
+| `--decay` | flag | Enable experimental Attentional Decay Compaction to progressively compress older chat history. |
+| `--experimental-decay` | flag | Alias for `--decay`. |
 | `-h, --help` | flag | Show built-in CLI help. |
 
 ## Practical Examples

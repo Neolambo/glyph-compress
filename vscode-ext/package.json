@@ -2,7 +2,7 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
   "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",
   "engines": {
@@ -131,6 +131,11 @@
           "type": "string",
           "default": "https://api.openai.com",
           "description": "Base URL to forward proxy traffic to (e.g., https://api.openai.com or https://generativelanguage.googleapis.com)"
+        },
+        "glyphCompress.experimentalDecay": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental: Enable Attentional Decay Compaction to progressively compress older chat history"
         }
       }
     }

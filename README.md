@@ -22,25 +22,42 @@ Watch the latest YouTube video to see how GlyphCompress achieves 90% token savin
 
 ---
 
+## 📌 Table of Contents
+
+- [🎯 The Problem](#-the-problem)
+- [✨ The Solution](#-the-solution)
+- [🔍 Realistic Session Showcase](#-realistic-session-showcase)
+- [📈 Benchmarks & Token Analytics](#-benchmarks)
+- [🚀 Quick Start (Code & Extension)](#-quick-start)
+- [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy-v050)
+- [🎛️ Compression Levels & Aggressiveness](#-compression-levels)
+- [🛡️ Safe Compression Trust Policies](#️-safe-compression-trust-policies)
+- [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
+- [🧩 Custom Integrations (API Wrapping)](#-custom-integrations)
+- [👥 Contributing & Contributor Hygiene](#-contributing)
+- [📄 License & Licensing Policy](#-license)
+
+---
+
 ## 🎯 The Problem
 
-Every IDE→LLM request carries massive, redundant context:
+Every IDE→LLM request carries massive, redundant context. As coding sessions grow longer, the **chat history** accumulates exponentially, causing token costs to explode, performance to lag, and LLMs to hit context window limits:
 
 ```
-System prompt:        ~2,000 tokens (repeated every time)
-Open files:           ~3,000 tokens
-Errors/diagnostics:   ~500 tokens  
-Chat history:         ~2,000 tokens
-User prompt:          ~500 tokens
-─────────────────────────────────────
-TOTAL:                ~8,000 tokens/request
+System prompt:             ~2,000 tokens (repeated every time)
+Open files:                ~3,000 tokens
+Errors/diagnostics:        ~500 tokens  
+Chat history (multi-turn): ~4,000 tokens (explodes exponentially)
+User prompt:               ~500 tokens
+─────────────────────────────────────────
+TOTAL:                     ~10,000 tokens/request
 ```
 
-At 50 requests/day → **400K tokens/day** → $6-12/day on Claude/GPT-4.
+At 50 requests/day → **500K tokens/day** → $8-15/day on Claude/GPT-4.
 
 ## ✨ The Solution
 
-GlyphCompress intercepts outgoing LLM requests, compresses context using a shared codebook, and saves **80-90% of tokens**:
+GlyphCompress intercepts outgoing LLM requests, compresses context using a shared codebook, and utilizes **experimental Attentional Decay Compaction (ADC)** to progressively condense older history into summaries, saving **80-90% of tokens** and enabling **near-infinite multi-turn chats**:
 
 ```
 BEFORE (1,734 chars):
@@ -56,6 +73,79 @@ AFTER (137 chars):
 
 → 12.7x compression, 92% saved
 ```
+
+## 🔍 Realistic Session Showcase
+
+GlyphCompress includes a built-in interactive demo benchmark (`npm run demo`) simulating real-world developer tasks (React debugging, SQL optimization, Python ML pipelines, YAML config) to measure character and token reduction. 
+
+Here is what a typical compressed session telemetry looks like:
+
+### 1. Fix TypeScript diagnostic in React Component
+* **Original Context**: `1,734 chars` (includes `UserProfile.tsx` contents, history, and TS2339 error code).
+* **Compressed Output**: `137 chars` (**12.7x compression, 92% saved**).
+* **Emitted Payload**:
+  ```text
+  [F: ◈₍1₎=src/components/UserProfile.tsx]
+  ⺌✗ ◈₍2₎
+  ◈₍1₎ᵗ [imp:5 exp:1 ◇:4 ⟿:2 ⟳:5 44L]
+  ◈₍1₎:42 ✗∉prop 'department'∉User
+  [T1:U:⺍▲] [T2:A:⺍▲]
+  ```
+
+### 2. Optimize slow Prisma/SQL API endpoint
+* **Original Context**: `1,999 chars` (includes two TS controller/service files, Express imports, and history).
+* **Compressed Output**: `195 chars` (**10.3x compression, 90% saved**).
+* **Emitted Payload**:
+  ```text
+  [F: ⊜₍3₎=src/controllers/orders.controller.ts | ⊜₍4₎=src/services/order.service.ts]
+  ⺋ the orders API endpoint
+  ⊜₍3₎ᵗ [imp:3 exp:1 20L]
+  ⊜₍4₎ᵗ [imp:1 exp:1 26L]
+  [T1:U:The /api/orders endp] [T2:A:⺎▼]
+  ```
+
+### 3. Deploy application to Kubernetes
+* **Original Context**: `730 chars` (includes raw Kubernetes Deployment YAML block and prompt).
+* **Compressed Output**: `84 chars` (**8.7x compression, 88% saved**).
+* **Emitted Payload**:
+  ```text
+  [F: ◊₍5₎=k8s/deployment.yaml]
+  ⺏ the application→the production 𝒦 cluster
+  ◊₍5₎ [27L]
+  ```
+
+### 4. Debug Python ML preprocessing pipeline
+* **Original Context**: `1,925 chars` (includes `preprocess.py` content, scikit-learn imports, and active diagnostics).
+* **Compressed Output**: `249 chars` (**7.7x compression, 87% saved**).
+* **Emitted Payload**:
+  ```text
+  [F: ◇₍6₎=src/pipeline/preprocess.py]
+  ⺃ the data preprocessing pipeline
+  ◇₍6₎ᵖ [imp:2 𝒞:1 37L]
+  ◇₍6₎:18 ⚠⚠unused Unused import train_test_split
+  ◇₍6₎:25 ⚠ FutureWarning: DataFrame.fillna with 'method' is deprecated
+  [T1:U:The pipeline crashes] [T2:A:⺎▼]
+  ```
+
+### 📊 Session Aggregate Efficiency (Amortized Cost)
+* **Total Session Chars**: `6,504` chars → **`698` chars** (**9.3x overall ratio, 89.3% saved**).
+* **System Prompt Overhead**: `601` chars (~`151` tokens, sent once per session).
+* **Amortized Monthly Savings (Claude Sonnet @ $3/M tokens)**: Saves **$5.85/month** for a single developer at just 50 requests/day, scaling exponentially for teams.
+
+***
+
+
+### New in v1.14.0 (Attentional Decay Compaction)
+
+1. **Attentional Decay Compaction (ADC)**: Scales chat transcripts toward near-infinite context capacity at minimal token costs by progressively compacting older history.
+2. **Zone-Based Compaction Rules**:
+   - **Active Zone (d = 0)**: Lossless standard prompt compression to ensure 100% active query fidelity.
+   - **Warm Zone (d = 1-3)**: Aggressive `ultra`-level minification (stripping comments/logs, normalizing spaces, collapsing filler phrases).
+   - **Cold Zone (d = 4-6)**: Replaces raw code blocks with signature/placeholder summaries (e.g. `// [Summary: <lang> block, <N> lines]`).
+   - **Deep Freeze Zone (d > 6)**: Discards code completely and compacts message text to a high-density conceptual summary (e.g., `[Radical Summary: <concept>...]`).
+3. **VS Code configuration support**: Toggle ADC easily within IDE settings via `glyphCompress.experimentalDecay`.
+4. **CLI/Proxy Flags**: Enables decay on the command-line or local proxy server via `--decay` or `--experimental-decay`.
+5. **Unicode superscript tagging compatibility**: Enhanced regex parsing ensures cold zone summaries perfectly extract minified superscript language tags (e.g. `ʲˢ`).
 
 ### New in v1.13.0 (Cross-Session Dictionary Caching)
 
@@ -341,7 +431,47 @@ npx glyph-compress --proxy 8080
 
 ## 🚀 Quick Start
 
-### Standalone (any project)
+Get up and running with GlyphCompress in under 60 seconds. We highly recommend starting with the **Automated (Invisible)** workflow:
+
+### 1. 🤖 Automated & Transparent Workflows (Recommended)
+
+* **Option A: Zero-Command Invisible Proxy (100% Automatic)**
+  Compresses all your outgoing IDE chat payloads automatically in the background without changing any of your development habits:
+  1. Install the extension **GlyphCompress** from the VS Code Marketplace (id: `neolambo.glyph-compress`).
+  2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run: `GlyphCompress: Start Zero-Command Proxy`.
+  3. Configure your IDE (Cursor, Cline, Continue, etc.) to use the local proxy address `http://localhost:8080` (or `http://localhost:8080/v1`) as its OpenAI Base URL. *(See the [Step-by-Step IDE Integration Guide](#️-step-by-step-ide-integration-guide) below for exact configurations).*
+  *Every request is now automatically and transparently compressed on the fly!*
+
+* **Option B: Auto-Managed Workspace Rules**
+  Let the extension automatically inject the codebook instructions into your workspace:
+  1. Toggle `"glyphCompress.autoUpdateWorkspaceRules": true` in your VS Code settings.
+  2. The extension will automatically create and update `.cursorrules` and `.github/copilot-instructions.md` in your project root with the compression codebook.
+  3. Cursor and Copilot Chat models will **instantly understand** compressed glyphs natively!
+
+---
+
+### 2. 🎛️ Manual Workflows
+
+* **Option C: One-Click Extension Command (`Ctrl+Alt+G`)**
+  Manually compress files or code selections on demand:
+  1. Highlight any block of code in your editor (or leave unselected to compress the whole file).
+  2. Press `Ctrl+Alt+G` (or `Cmd+Alt+G` on Mac).
+  3. The extension instantly compresses your selection and automatically opens your VS Code Chat pre-filled. Just hit enter!
+
+* **Option D: Zero-Install CLI Tool**
+  Compress any project file in your terminal and copy the glyph payload directly to your clipboard:
+  ```bash
+  npx glyph-compress src/app.ts --copy
+  ```
+
+* **Option E: JS/TS Developer SDK**
+  Integrate semantic compression directly into your own API scripts or AI agents:
+  ```bash
+  npm install glyph-compress
+  ```
+  See the code templates below:
+
+### Standalone SDK Usage (Any project)
 
 ```javascript
 import { GlyphCompressor } from 'glyph-compress';
@@ -421,7 +551,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.13.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.14.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
@@ -456,7 +586,8 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
   "glyphCompress.trustPolicy": "privacy",     // "auto" | "lossless" | "reversible" | "privacy" | "lossy"
   "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
-  "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com"
+  "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com",
+  "glyphCompress.experimentalDecay": false
 }
 ```
 
@@ -647,165 +778,6 @@ GlyphCompress is grounded in information theory:
 The key insight: development communication is **highly structured** — the same patterns (`fix error`, `deploy to`, `create component`) repeat thousands of times with different parameters. By encoding these patterns as composable radicals, we achieve compression ratios far beyond what byte-level algorithms can reach.
 
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
-
-## 📜 Version History (Changelog)
-
-### v1.9.3 (Proxy Diagnostics Hotfix)
-- **Upstream Status Visibility**: Proxy forwarding now logs upstream HTTP status codes for successful and failed provider responses.
-- **Safe Error Diagnostics**: Upstream error bodies are logged with bearer tokens and API key fields redacted.
-- **Stream Completion Logs**: Successful responses log completed byte counts, and early client disconnects are flagged for Continue/Cursor-style debugging.
-
-### v1.9.0 (Proxy and Packaging Hardening)
-- **Proxy Options Preserved**: CLI and VS Code proxy startup now pass provider, trust policy, privacy, and target API options into the compressor.
-- **Gemini-Compatible Forwarding**: OpenAI-compatible `/v1/*` requests are mapped to Gemini's `/v1beta/openai/*` route when the target is Google Generative Language.
-- **ESM Export Cleanup**: Public ESM middleware import now goes through `src/glyph-middleware.js`, avoiding Node warnings caused by importing ESM from the VS Code package scope.
-- **Focused npm Tarball**: The package allowlist now includes runtime files and essential docs without publishing broad outreach drafts or demo-generation scripts.
-- **VS Code Hardening**: Proxy startup, status-bar toggling, and interval disposal were tightened for a cleaner extension lifecycle.
-
-### v1.8.0 (Safe Compression Trust Policies)
-- **Explicit Trust Policies**: Added `TRUST_POLICY_PROFILES` for `lossless`, `reversible`, `privacy`, and `lossy` modes.
-- **Policy-Enforced Transformations**: Lossless mode preserves input text, reversible mode blocks code minification/summaries, privacy mode redacts sensitive values, and lossy mode allows aggressive/ultra transformations.
-- **Source Map Trust Metadata**: Added `sourceMap.trustPolicy` and `sourceMap.trust` for audit-friendly downstream tooling.
-- **CLI and VS Code Controls**: Added CLI `--trust <policy>` / `--policy <policy>` and VS Code `glyphCompress.trustPolicy` setting.
-- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.8.0`.
-
-### v1.7.0 (Provider-Aware Compression Profiles)
-- **Provider Compression Profiles**: Added `PROVIDER_COMPRESSION_PROFILES` for raw, OpenAI, Anthropic, Gemini-compatible, and local-model targets.
-- **Estimator-Guided Thresholds**: Dynamic dictionary selection now uses provider-specific savings thresholds and dictionary caps.
-- **Source Map Metadata**: Added top-level `sourceMap.provider` and `sourceMap.profile`, with provider/profile metadata on dynamic entries.
-- **CLI Provider Selection**: Added `--provider <provider>` and explanation output for the selected provider/profile strategy.
-- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.7.0`.
-
-### v1.6.0 (AST-Like Code Block Source Spans)
-- **Code Block Token Maps**: Added `codeBlocks[].tokens` entries for structural tokens inside aggressive minified and ultra summarized code blocks.
-- **Top-Level AST Map**: Added `sourceMap.ast` with span metadata and block mode for fast inspection by debugging, explain, and editor workflows.
-- **Language-Aware Coverage**: Tracks imports, exports, functions, classes, declarations, return/yield, package/use/using, visibility, and type markers across common language families.
-- **TypeScript Declarations**: Added `GlyphAstTokenSpan` and exposed `ast` through `getReversibleDictionaries()`.
-- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.6.0`.
-
-### v1.5.0 (Privacy Firewall Mode)
-- **Opt-In Redaction**: Added `privacyFirewall: true` / `privacy: true` for library consumers and `--privacy` for the CLI.
-- **Sensitive Pattern Coverage**: Redacts common API keys, secret assignments, bearer tokens, JWTs, GitHub tokens, AWS access keys, emails, and IPv4 addresses before compression.
-- **Safe Source Map Metadata**: Added `sourceMap.privacy` with placeholder, kind, label, span, and short SHA-256 hash metadata without retaining raw sensitive values.
-- **Reversible Dictionary Access**: Added privacy redaction entries to `getReversibleDictionaries()` for inspection workflows.
-- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.5.0`.
-
-### v1.4.0 (Extension & Proxy Smoke Suites)
-- **VS Code Activation Coverage**: Added a mocked VS Code extension host smoke suite that checks activation, command registration, output logging, and subscription tracking.
-- **Proxy Coverage**: Added a local proxy smoke suite that stubs upstream HTTPS, verifies compressed chat forwarding, preserves OpenAI-compatible paths, and checks corrected `content-length`.
-- **Activation Hardening**: Updated the extension activation path to require `glyph-middleware.cjs`, keeping VS Code's CommonJS host aligned with the packaged middleware artifact.
-- **Focused Scripts**: Added `npm run test:extension` and `npm run test:proxy`, and included both in the full suite runner.
-- **Release Metadata**: Updated source map, workspace codebook, benchmark, README, roadmap, issue template, npm, and VS Code extension versions to `1.4.0`.
-
-### v1.3.0 (Semantic Source Map Spans)
-- **Line/Column Ranges**: Added span metadata with line, column, and offset positions for prompt, tech, file, diagnostic, dynamic dictionary, and code block mappings.
-- **Symbol-Level Source Maps**: Added `sourceMap.symbols` to map emitted glyphs back to their original source text and replacement kind.
-- **Reversible Dictionaries**: Added symbol spans to `getReversibleDictionaries()` for downstream inspection and debugging workflows.
-- **TypeScript Declarations**: Added typed source position, source span, and symbol span interfaces.
-- **Integration Coverage**: Expanded integration coverage to 41 checks with multi-line span assertions.
-
-### v1.2.0 (Provider Accuracy & Test Suites)
-- **Provider-Aware Estimates**: Added reusable token estimator profiles for raw text, OpenAI, Anthropic, Gemini-compatible, and local-model payloads.
-- **Public API Exports**: Exposed `estimateProviderTokens()`, `compareTokenEstimates()`, `normalizeProvider()`, and `PROVIDER_TOKEN_PROFILES` from ESM, CommonJS, and TypeScript declarations.
-- **Benchmark Accuracy**: Updated the benchmark to use provider-specific estimates for chat-style fixtures.
-- **Split Test Suites**: Added focused unit, CLI, workspace, metadata, and integration suite scripts, with `npm test` orchestrating all suites.
-- **Integration Coverage**: Expanded integration metadata coverage to 40 checks.
-
-### v1.1.1 (License Hardening)
-- **Precise SPDX Metadata**: Updated npm and VS Code extension metadata to `AGPL-3.0-only`.
-- **Commercial Gate**: Reworked commercial licensing language to state that proprietary, hosted, SaaS, embedded, OEM, marketplace, or private redistribution rights require a separate written agreement.
-- **NOTICE and Policy Docs**: Added `NOTICE` and `docs/licensing.md`, and included them in npm packaging.
-- **Contributor Terms**: Added contribution licensing terms and a pull request checklist item to protect future dual licensing.
-
-### v1.1.0 (Contributor & Release Hygiene)
-- **Contributor Guide**: Added setup, testing, documentation style, public API, and release-process guidance.
-- **Release and Architecture Docs**: Added focused maintainer checklists and architecture notes under `docs/`.
-- **GitHub Templates**: Added bug, feature, provider compatibility, benchmark submission, and pull request templates.
-- **Link Checking**: Added `npm run check:links` and CI coverage for local Markdown links.
-- **Integration Coverage**: Added contributor hygiene metadata checks to the integration suite.
-
-### v1.0.0 (Stable Platform)
-- **Stable API Surface**: Documented and typed the public `GlyphCompressor`, provider wrappers, source maps, workspace intelligence helpers, and CLI workflows.
-- **TypeScript Declarations**: Added `src/index.d.ts` and middleware subpath declarations for editor and package consumer support.
-- **CI Validation**: Added GitHub Actions for Node 20/22 tests, benchmarks, npm pack dry-runs, and VS Code extension packaging.
-- **Formal Docs**: Added security, privacy, and enterprise deployment documents for production adoption.
-- **Packaging Hygiene**: Added a package allowlist to avoid publishing generated codebooks, scratch files, historical VSIX files, and unnecessary assets.
-
-### v0.9.0 (Workspace Intelligence)
-- **Persistent Codebook**: Added workspace scanning and `.glyphcompress/codebook.json` output with files, symbols, imports, diagnostics, owners, and git context.
-- **Intent Detection**: Added workflow detection for fix error, review diff, implement feature, explain architecture, write tests, and optimize performance.
-- **Relevant File Ranking**: Added query-aware file selection so future compression can focus on relevant files by default.
-- **CLI Commands**: Added `inspect`, `doctor`, and `benchmark` commands with JSON support for automation.
-- **Integration Coverage**: Added workspace intelligence, codebook persistence, doctor, CLI inspect, and intent-detection tests.
-
-### v0.8.0 (Reversible Compression & Source Maps)
-- **Source Map API**: `compressText()` and `compressMessages()` return a `sourceMap` object for files, dynamic identifiers, diagnostics, code blocks, and replacements.
-- **Reversible Dictionaries**: Added `getSourceMap()` and `getReversibleDictionaries()` to inspect mappings after compression.
-- **CLI Source Maps**: Added `--source-map` to print reversible source map metadata from the CLI.
-- **CommonJS Alignment**: Regenerated the CommonJS middleware so `require('glyph-compress')` consumers receive the same source map behavior.
-- **Integration Coverage**: Added source map, dynamic dictionary, and CLI source-map tests.
-
-### v0.7.0 (Trust & Measurement)
-- **Benchmark Harness**: Added `test/benchmark.js` and `npm run benchmark` for representative raw, OpenAI, Anthropic, Gemini-compatible, and ultra-mode payloads.
-- **Trust Metrics**: Reports payload compression ratio, token savings, context fidelity score, edit success proxy, and hallucinated file references.
-- **CLI Explain Mode**: Added `--explain` / `-x` to show compression behavior, indexed file refs, dynamic dictionary entries, and detected changes.
-- **Integration Coverage**: Added CLI explain coverage to the integration test suite.
-
-### v0.6.1 (Packaging & VS Code Hardening)
-- **Root API Alignment**: Exported `GlyphCompressor`, `wrapOpenAI`, `wrapAnthropic`, and `CODEBOOK_PROMPT` from the package root to match the README examples.
-- **CommonJS Entry Point**: Added `src/index.cjs` so the declared `require` entry works for CommonJS consumers.
-- **VS Code Extension Fixes**: The proxy now uses `glyphCompress.targetApiUrl`, workspace rule injection is opt-in, `ultra` is exposed in settings, and the extension test script points to the existing integration suite.
-
-### v0.6.0 (Project "Rosetta")
-- **Adaptive Payload Dictionary (APD)**: Introduced a real-time frequency analyzer that identifies and maps the heaviest token-consuming strings to a dynamic Unicode dictionary.
-- **Semantic Context Elision (Blackout Algorithm)**: Implemented `_elideIrrelevantContext` to intelligently strip out unrelated function bodies based on the intent of the user query.
-- **Anthropic Prompt Caching**: Auto-injects `cache_control: { type: 'ephemeral' }` into heavily weighted blocks for Claude optimization.
-- **Indentation Minification**: Added an explicit layer to minimize spaces to tabs for all structural context blocks.
-
-### v0.5.1 (Universal Minification & Gemini Integration)
-- **Universal Minification**: Expanded the `aggressive` minification to aggressively remove comments (`//`, `/* */`, `<!-- -->`, `#`) and empty lines across all supported languages (C-family, Python, Ruby, Web markup, CSS, etc.).
-- **Gemini Compatibility**: Enhanced the zero-command proxy to dynamically route standard OpenAI requests (`/v1/`) to Google Gemini's official OpenAI-compatible endpoint (`/v1beta/openai/`).
-
-### v0.5.0 (Zero-Command Transparent Proxy)
-- **Invisible Proxy Middleware**: Added `src/proxy.js`, a local HTTP server that intercepts OpenAI-compatible API requests.
-- **True Zero Commands**: Configured your IDE's API Base URL to point to `localhost:8080`, and GlyphCompress automatically intercepts, parses, and minifies your code blocks before they hit the real API.
-- Added Proxy start/stop commands in both CLI (`--proxy`) and VS Code Extension.
-
-### v0.4.0 (Multi-Language Syntax Minification)
-- **Intelligent Minification**: Upgraded the `aggressive` compression level. Instead of destructively summarizing code blocks, it now applies intelligent syntax minification to preserve logic and structure for debugging.
-- **Broad Language Support**: Added targeted RegEx parsing for C, C++, Python, Java, C#, Rust, Go, JavaScript, and TypeScript.
-- **Enhanced Codebook**: Expanded the glyph dictionary to include universal concepts like variables (`◇`), returns (`→`), and types (`◇t`).
-
-### v0.3.6 (Zero-Friction Base)
-- **True Zero-Friction UX**: The extension now automatically creates and updates `.cursorrules` and `.github/copilot-instructions.md` with the dynamic codebook, teaching AI assistants the semantic dictionary completely in the background.
-- **One-Click Ask (`Ctrl+Alt+G`)**: Added a new command to instantly compress the current file/selection and automatically open the native VS Code Chat sidebar, eliminating all copy-paste steps.
-
-### v0.3.4 (Zero-Friction Base)
-- **Zero-Friction LLM Chat Integration**: Added `GlyphCompress: Copy System Codebook` command. You can now instantly copy the codebook to your clipboard and paste it into Copilot/Claude Chat custom instructions, making GlyphCompress seamlessly interoperable with any built-in IDE chat.
-
-### v0.3.3 (VS Code Selection Fix)
-- **VS Code Extension Fix**: The `Compress Selection` command now automatically detects the editor language and wraps raw text in markdown backticks, ensuring the "Ultra" semantic compressor triggers correctly for code snippets.
-
-### v0.3.2 (Monetization & Legal)
-- **Monetization & Legal**: Migrated to Dual Licensing model (AGPL-3.0-only for open source, Enterprise for commercial).
-- **Marketplace Publishing**: Added official support and documentation for the Visual Studio Code Marketplace.
-- **Funding Support**: Enabled GitHub Sponsors and NPM funding links natively.
-
-### v0.3.0 & v0.3.1 (Next-Gen Features)
-- **Global CLI Tool (`npx glyph-compress`)**: Added the ability to compress and copy code directly from your terminal.
-- **Multi-Language Ultra Parser**: Extended the "Ultra" semantic codeblock compressor to support Python, Rust, Go, Java, and C# natively.
-- **Persistent Telemetry**: Added `globalState` tracking in VS Code to calculate *Lifetime Savings* across all sessions.
-
-### v0.2.0 (Advanced Edition)
-- **Dynamic Dictionary (Auto-Tuning)**: Implemented runtime frequency analysis to map repeated long variable/class names to single greek letters (`α`, `β`).
-- **"Ultra" Compression Level**: Introduced lossy semantic stripping that completely removes `console.log()` calls and inline/block comments before compression.
-- **Anthropic Prompt Caching**: Added native support for Claude's `cache_control: { type: 'ephemeral' }` to drastically reduce the codebook cost in long chat sessions.
-- **Antigravity Support**: Verified full compatibility with the Google Antigravity platform.
-
-### v0.1.0 (Initial Release)
-- **Glyph Protocol v0.1**: Defined the core 96-symbol dictionary mapping tech stacks, domains, and common actions to Unicode symbols.
-- **Codeblock Summarizer**: Introduced the `[imp:3 ƒ:2 44L]` structural summary format for code blocks.
-- **Middleware API**: Created wrappers for OpenAI and Anthropic SDKs to automatically inject the codebook and compress user messages.
 
 ## ⚖️ Dual Licensing Model
 

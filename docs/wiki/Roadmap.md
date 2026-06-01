@@ -3,7 +3,16 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.13.0`: Cross-Session Dictionary Caching.
+`v1.14.0`: Attentional Decay Compaction (ADC).
+
+## Delivered in v1.14.0
+
+- Attentional Decay Compaction (ADC) progressively compacts older chat history based on distance `d` into Active (d=0), Warm (d=1-3), Cold (d=4-6), and Deep Freeze (d>6) zones.
+- Keeps 100% active prompt fidelity intact to avoid LLM instruction regression.
+- Experimental `experimentalDecay` configuration added natively to VS Code configurations.
+- CLI arguments `--decay` and `--experimental-decay` support attentional decay from shell runs.
+- Unicode-aware language tag parsing handles minified language tags like `ʲˢ` cleanly in the cold zone.
+- Added comprehensive unit tests validating the 4 progressive decay zones.
 
 Delivered in `v1.13.0`:
 
@@ -27,13 +36,13 @@ Delivered in `v1.12.0`:
 - Anthropic hybrid wrapper: first-turn lightweight, multi-turn structured cacheable blocks.
 - ESM and CJS middleware are fully synchronized.
 
-## Verified Through v1.13.0
+## Verified Through v1.14.0
 
-- npm `latest` is `1.13.0`.
-- GitHub release `v1.13.0` exists with `glyph-compress-1.13.0.vsix` attached.
+- npm `latest` is `1.14.0`.
+- GitHub release `v1.14.0` exists with `glyph-compress-1.14.0.vsix` attached.
 - VS Code Marketplace lists `neolambo.glyph-compress`.
 - `npm run benchmark` reports 1.4× aggregate ratio, 28% genuine savings, 100% fidelity, 0 hallucinated refs.
-- `npm test` passes 51/51 integration tests.
+- `npm test` passes all integration and unit tests.
 
 ## Real Remaining Work
 
@@ -46,12 +55,12 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.14.0`: context router wiring.
-- `v1.15.0`: structured diagnostics and payload snapshots.
-- `v1.16.0`: expression-level source maps.
-- `v1.17.0`: provider trust and UX.
-- `v1.18.0`: real task evaluation.
-- `v1.19.0`: adaptive workspace memory.
+- `v1.15.0`: context router wiring.
+- `v1.16.0`: structured diagnostics and payload snapshots.
+- `v1.17.0`: expression-level source maps.
+- `v1.18.0`: provider trust and UX.
+- `v1.19.0`: real task evaluation.
+- `v1.20.0`: adaptive workspace memory.
 
 ## Longer-Term Ideas
 

@@ -35,6 +35,7 @@ let privacyFirewall = false;
 let provider = 'raw';
 let providerSet = false;
 let trustPolicy = undefined;
+let attentionalDecay = false;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -51,6 +52,8 @@ for (let i = 0; i < args.length; i++) {
     printSourceMap = true;
   } else if (arg === '--privacy') {
     privacyFirewall = true;
+  } else if (arg === '--decay' || arg === '--experimental-decay') {
+    attentionalDecay = true;
   } else if (arg === '--provider') {
     provider = args[++i] || provider;
     providerSet = true;
@@ -81,6 +84,7 @@ Options:
   -x, --explain         Explain what changed during compression
   --source-map          Print the reversible source map JSON
   --privacy             Redact secrets and sensitive identifiers before compression
+  --decay               Enable experimental attentional decay compaction for history
   --provider <provider> Provider profile: raw, openai, anthropic, gemini, local (default: raw)
   --trust <policy>      Trust policy: lossless, reversible, privacy, lossy (default: auto)
   --target <url>        Proxy upstream base URL (default: https://api.openai.com)
@@ -103,6 +107,7 @@ if (command) {
       provider: providerSet ? provider : 'auto',
       trustPolicy,
       privacyFirewall,
+      attentionalDecay,
     });
   }).catch(err => {
     console.error('Failed to start proxy:', err);
@@ -123,7 +128,7 @@ if (!fs.existsSync(targetPath)) {
 const content = fs.readFileSync(targetPath, 'utf8');
 const ext = path.extname(targetPath).substring(1);
 
-const gc = new GlyphCompressor({ level, privacyFirewall, provider, trustPolicy, workspacePath: process.cwd() });
+const gc = new GlyphCompressor({ level, privacyFirewall, provider, trustPolicy, workspacePath: process.cwd(), attentionalDecay });
 // Wrap in backticks to trigger full semantic code block compression if in aggressive/ultra mode
 const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``, provider);
 

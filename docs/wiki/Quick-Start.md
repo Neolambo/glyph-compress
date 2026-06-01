@@ -62,7 +62,7 @@ code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.gl
 ```bash
 npm view glyph-compress version dist-tags --json
 npx @vscode/vsce show Neolambo.glyph-compress
-gh release view v1.13.0 --json tagName,isDraft,isPrerelease,assets,url
+gh release view v1.14.0 --json tagName,isDraft,isPrerelease,assets,url
 ```
 
-Use `v1.13.0` above to verify the currently published release.
+Use `v1.14.0` above to verify the currently published release.

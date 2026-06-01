@@ -9,6 +9,7 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
     provider: options.provider,
     trustPolicy: options.trustPolicy,
     privacyFirewall: options.privacyFirewall,
+    attentionalDecay: options.attentionalDecay,
   });
   const log = createLogger(options.outputChannel);
 
@@ -51,10 +52,13 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
   });
 
   server.listen(port, () => {
-    log(`\nGlyphProxy is running on http://localhost:${port}`);
+    log(`\nGlyphProxy is running on http://localhost:${server.address().port}`);
     log(`Forwarding to: ${targetApiUrl}`);
-    log(`Compression: provider=${options.compressionProvider}, level=${compressor.level}, trust=${compressor.trustPolicy}`);
-    log(`Configure your IDE (Cursor, Cline, etc.) to use http://localhost:${port} as the OpenAI Base URL.`);
+    log(`Compression: provider=${options.compressionProvider}, level=${options.level}, trust=${options.trustPolicy}`);
+    if (options.attentionalDecay) {
+      log(`Decay: experimental attentional decay compaction enabled`);
+    }
+    log(`Configure your IDE (Cursor, Cline, etc.) to use http://localhost:${server.address().port} as the OpenAI Base URL.`);
   });
   
   return server;
@@ -80,6 +84,7 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
     compressionProvider: provider === 'auto' ? inferProviderFromTarget(targetApiUrl) : provider,
     trustPolicy: raw.trustPolicy || raw.policy || raw.compressor?.trustPolicy || 'auto',
     privacyFirewall: Boolean(raw.privacyFirewall || raw.privacy),
+    attentionalDecay: Boolean(raw.attentionalDecay || raw.decay || raw.compressor?.attentionalDecay),
     compressor: raw.compressor || sharedCompressor || null,
     outputChannel: raw.outputChannel || outputChannel || null,
   };
