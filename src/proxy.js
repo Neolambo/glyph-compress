@@ -1,6 +1,7 @@
 import http from 'http';
 import https from 'https';
 import { GlyphCompressor } from './glyph-middleware.js';
+import { getDashboardHTML } from './dashboard.js';
 
 export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai.com', levelOrOptions = 'aggressive', sharedCompressor = null, outputChannel = null) {
   const options = normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, targetApiUrl);
@@ -11,9 +12,60 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
     privacyFirewall: options.privacyFirewall,
     attentionalDecay: options.attentionalDecay,
   });
-  const log = createLogger(options.outputChannel);
+
+  const statsHistory = [];
+  const logHistory = [];
+  let totalOriginalTokens = 0;
+  let totalCompressedTokens = 0;
+  let messagesProcessed = 0;
+
+  const rawLog = createLogger(options.outputChannel);
+  const log = (message) => {
+    rawLog(message);
+    logHistory.push({
+      timestamp: new Date().toLocaleTimeString(),
+      text: message
+    });
+    if (logHistory.length > 50) logHistory.shift();
+  };
 
   const server = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost:' + port}`);
+
+    // Serve HTML Dashboard
+    if (req.method === 'GET' && url.pathname === '/dashboard') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(getDashboardHTML());
+      return;
+    }
+
+    // Serve real-time JSON stats
+    if (req.method === 'GET' && url.pathname === '/stats') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'active',
+        provider: options.compressionProvider,
+        level: options.level,
+        decay: options.attentionalDecay,
+        target: targetApiUrl,
+        history: statsHistory,
+        logs: logHistory,
+        totals: {
+          original: totalOriginalTokens,
+          compressed: totalCompressedTokens,
+          saved: totalOriginalTokens - totalCompressedTokens,
+          processed: messagesProcessed,
+          ratio: totalOriginalTokens > 0 
+            ? (totalOriginalTokens / Math.max(1, totalCompressedTokens)).toFixed(2) + 'x' 
+            : '1.00x',
+          pct: totalOriginalTokens > 0 
+            ? ((1 - totalCompressedTokens / totalOriginalTokens) * 100).toFixed(0) + '%' 
+            : '0%'
+        }
+      }));
+      return;
+    }
+
     // We only care about intercepting POST requests with JSON body (like chat/completions)
     if (req.method === 'POST') {
       let body = '';
@@ -31,7 +83,28 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
             payload.messages = compressedMessages;
             
             log(`[Proxy] Provider=${options.compressionProvider} level=${compressor.level} trust=${compressor.trustPolicy}`);
-            log(`[Proxy] Compression ratio: ${stats.thisMessage?.ratio || '1.0x'} (Saved: ${stats.thisMessage?.savedPct || '0%'})`);
+            
+            const thisMsg = stats.thisMessage;
+            if (thisMsg) {
+              log(`[Proxy] Compression ratio: ${thisMsg.ratio || '1.0x'} (Saved: ${thisMsg.savedPct || '0%'})`);
+              
+              totalOriginalTokens += thisMsg.originalTokens || 0;
+              totalCompressedTokens += thisMsg.compressedTokens || 0;
+              messagesProcessed++;
+
+              statsHistory.unshift({
+                id: messagesProcessed,
+                timestamp: new Date().toLocaleTimeString(),
+                originalTokens: thisMsg.originalTokens,
+                compressedTokens: thisMsg.compressedTokens,
+                saved: thisMsg.saved,
+                ratio: thisMsg.ratio,
+                savedPct: thisMsg.savedPct,
+                selectedLevel: thisMsg.selectedLevel,
+                provider: thisMsg.provider
+              });
+              if (statsHistory.length > 50) statsHistory.pop();
+            }
           }
           
           // Forward the modified request to the actual LLM API
