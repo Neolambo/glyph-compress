@@ -5,11 +5,11 @@
 
 export function getDashboardHTML() {
   return `<!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GlyphCompress — Dashboard Real-time</title>
+  <title>GlyphCompress — Real-time Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
@@ -533,10 +533,10 @@ export function getDashboardHTML() {
           <span class="logo-glow">GlyphCompress 🔮</span>
           <span class="badge-live">Live</span>
         </div>
-        <p class="subtitle">Engine di compressione e risparmio token di contesto per Antigravity</p>
+        <p class="subtitle">Context window token saving & compression engine for Antigravity</p>
       </div>
       <div class="upstream-badge">
-        <span>Stato Server:</span>
+        <span>Server Status:</span>
         <span class="upstream-target" id="upstreamTarget">http://127.0.0.1:...</span>
       </div>
     </header>
@@ -544,24 +544,24 @@ export function getDashboardHTML() {
     <!-- KPIs -->
     <div class="kpi-grid">
       <div class="card">
-        <p class="card-label">Token Totali Risparmiati</p>
+        <p class="card-label">Total Tokens Saved</p>
         <h2 class="card-value saved-tokens" id="kpiSaved">0</h2>
-        <p class="card-desc">Valore stimato: <strong id="kpiValue">$0.00</strong></p>
+        <p class="card-desc">Estimated value: <strong id="kpiValue">$0.00</strong></p>
       </div>
       <div class="card">
-        <p class="card-label">Rapporto Medio di Compressione</p>
+        <p class="card-label">Average Compression Ratio</p>
         <h2 class="card-value ratio" id="kpiRatio">1.00x</h2>
-        <p class="card-desc">Volume totale ridotto</p>
+        <p class="card-desc">Total volume reduced</p>
       </div>
       <div class="card">
-        <p class="card-label">Efficienza Complessiva</p>
+        <p class="card-label">Overall Efficiency</p>
         <h2 class="card-value" style="color: var(--accent-cyan)" id="kpiPct">0%</h2>
-        <p class="card-desc">Di spazio prompt risparmiato</p>
+        <p class="card-desc">Of prompt context saved</p>
       </div>
       <div class="card">
-        <p class="card-label">Richieste Elaborate</p>
+        <p class="card-label">Requests Processed</p>
         <h2 class="card-value" style="color: #fff" id="kpiProcessed">0</h2>
-        <p class="card-desc">Richieste ottimizzate in sessione</p>
+        <p class="card-desc">Requests optimized in session</p>
       </div>
     </div>
 
@@ -570,14 +570,14 @@ export function getDashboardHTML() {
       
       <!-- Visualizer & History -->
       <div class="card">
-        <h3 class="panel-title">Footprint del Contesto (Token)</h3>
+        <h3 class="panel-title">Context Footprint (Tokens)</h3>
         
         <div class="visualizer-container" style="margin-bottom: 2rem;">
           <div class="bar-wrapper">
             <div class="bar-header">
               <div class="bar-label">
                 <span class="bar-indicator original"></span>
-                <span>Dimensione Originale</span>
+                <span>Original Size</span>
               </div>
               <span class="bar-value" id="valOriginal">0 tokens</span>
             </div>
@@ -590,7 +590,7 @@ export function getDashboardHTML() {
             <div class="bar-header">
               <div class="bar-label">
                 <span class="bar-indicator compressed"></span>
-                <span>Dimensione Ottimizzata (Glyphs)</span>
+                <span>Optimized Size (Glyphs)</span>
               </div>
               <span class="bar-value" id="valCompressed" style="color: var(--accent-cyan)">0 tokens</span>
             </div>
@@ -601,17 +601,17 @@ export function getDashboardHTML() {
         </div>
 
         <h3 class="panel-title" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;">
-          Cronologia Richieste in Sessione
+          Session Requests History
         </h3>
         
         <div class="request-list-container" id="requestsList">
-          <div class="no-data">Nessuna richiesta catturata. Fai una domanda in chat per iniziare.</div>
+          <div class="no-data">No requests intercepted yet. Send a prompt to start.</div>
         </div>
       </div>
 
       <!-- Donut Savings Chart -->
       <div class="card" style="display: flex; flex-direction: column;">
-        <h3 class="panel-title">Tasso di Risparmio</h3>
+        <h3 class="panel-title">Savings Rate</h3>
         <div class="savings-efficiency-panel">
           <div class="donut-chart-container">
             <svg width="140" height="140" viewBox="0 0 100 100">
@@ -627,16 +627,16 @@ export function getDashboardHTML() {
             <div class="donut-text" id="donutText">0%</div>
           </div>
           <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; line-height: 1.4;">
-            La compressione è attiva con profilo <strong style="color: var(--accent-cyan)">Aggressive</strong> ed algoritmi ADC di Attentional Decay.
+            Compression is active using <strong style="color: var(--accent-cyan)">Aggressive</strong> profile and ADC (Attentional Decay Compaction) algorithms.
           </p>
         </div>
       </div>
 
       <!-- Live Logs Panel -->
       <div class="card console-panel">
-        <h3 class="panel-title">Consolle di Log in Tempo Reale <span class="badge" id="logsCount">0</span></h3>
+        <h3 class="panel-title">Real-time Operations Log Console <span class="badge" id="logsCount">0</span></h3>
         <div class="console-body" id="consoleLogs">
-          <div style="color: #4b5563;">In attesa di eventi...</div>
+          <div style="color: #4b5563;">Waiting for events...</div>
         </div>
       </div>
 
@@ -656,7 +656,7 @@ export function getDashboardHTML() {
         // KPIs
         document.getElementById('kpiSaved').textContent = data.totals.saved.toLocaleString();
         
-        // Calcola valore monetario basato su Claude 3.5 Sonnet ($3.00 / milione di token di input)
+        // Calculate monetary value based on Claude 3.5 Sonnet ($3.00 / million input tokens)
         const savedCost = (data.totals.saved / 1000000) * 3.00;
         document.getElementById('kpiValue').textContent = '$' + savedCost.toFixed(4);
         
@@ -688,7 +688,7 @@ export function getDashboardHTML() {
         // History List
         const listContainer = document.getElementById('requestsList');
         if (data.history.length === 0) {
-          listContainer.innerHTML = '<div class="no-data">Nessuna richiesta catturata. Fai una domanda in chat per iniziare.</div>';
+          listContainer.innerHTML = '<div class="no-data">No requests intercepted yet. Send a prompt to start.</div>';
         } else {
           let listHtml = '';
           data.history.forEach(item => {
@@ -696,17 +696,17 @@ export function getDashboardHTML() {
               <div class="request-item">
                 <div class="req-meta">
                   <div class="req-title">
-                    Richiesta #\${item.id}
+                    Request #\${item.id}
                     <span class="req-level">\${item.selectedLevel || 'Aggressive'}</span>
                   </div>
-                  <span class="req-time">Elaborata alle \${item.timestamp}</span>
+                  <span class="req-time">Processed at \${item.timestamp}</span>
                 </div>
                 <div class="req-stats">
                   <div class="req-tokens">
-                    Originale: <span>\${item.originalTokens}</span><br>
-                    Ottimizzato: <span style="color: var(--accent-cyan)">\${item.compressedTokens}</span>
+                    Original: <span>\${item.originalTokens}</span><br>
+                    Optimized: <span style="color: var(--accent-cyan)">\${item.compressedTokens}</span>
                   </div>
-                  <div class="req-badge">\${item.savedPct} Risparmio</div>
+                  <div class="req-badge">\${item.savedPct} Saved</div>
                 </div>
               </div>
             \`;
