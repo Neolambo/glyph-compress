@@ -494,6 +494,11 @@ test('Source maps: CommonJS root export matches ESM behavior', () => {
   assert(r.sourceMap.version === currentVersion, 'Should expose source maps through require()');
   assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
   assert(typeof cjs.buildWorkspaceCodebook === 'function', 'Should expose workspace intelligence through require()');
+  assert(typeof cjs.Compressor === 'function', 'Should expose Compressor through require()');
+  assert(typeof cjs.Codebook === 'function', 'Should expose Codebook through require()');
+  assert(typeof cjs.generateSystemPrompt === 'function', 'Should expose generateSystemPrompt through require()');
+  assert(typeof cjs.estimateOverhead === 'function', 'Should expose estimateOverhead through require()');
+  assert(cjs.RADICALS && typeof cjs.RADICALS.CODE === 'string', 'Should expose RADICALS through require()');
 });
 
 test('CLI: explain flag prints compression explanation', () => {
