@@ -1,16 +1,20 @@
-# ⚡ GlyphCompress
+<h1 align="center">⚡ GlyphCompress</h1>
 
 <p align="center">
   <img src="./assets/logo.png" alt="GlyphCompress Logo" width="300">
 </p>
 
-[![NPM Version](https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60)](https://www.npmjs.com/package/glyph-compress)
-[![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
-[![Commercial License](https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg)](COMMERCIAL_LICENSE.md)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/neolambo.glyph-compress?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)
-[![GitHub Release](https://img.shields.io/github/v/release/Neolambo/glyph-compress?label=GitHub%20Release)](https://github.com/Neolambo/glyph-compress/releases)
+<p align="center">
+  <a href="https://www.npmjs.com/package/glyph-compress"><img src="https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60" alt="NPM Version"></a>
+  <a href="https://opensource.org/licenses/AGPL-3.0"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg" alt="License: AGPL-3.0-only"></a>
+  <a href="COMMERCIAL_LICENSE.md"><img src="https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg" alt="Commercial License"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress"><img src="https://img.shields.io/visual-studio-marketplace/v/neolambo.glyph-compress?label=VS%20Code%20Marketplace" alt="VS Code Marketplace"></a>
+  <a href="https://github.com/Neolambo/glyph-compress/releases"><img src="https://img.shields.io/github/v/release/Neolambo/glyph-compress?label=GitHub%20Release" alt="GitHub Release"></a>
+</p>
 
-**Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.**
+<p align="center">
+  <strong>Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.</strong>
+</p>
 
 GlyphCompress uses a compositional radical-based encoding system (inspired by Chinese logograms) to compress the verbose context exchanged between IDEs and Large Language Models. A shared codebook injected into the LLM's system prompt enables it to decode compact glyph sequences back into full semantic concepts.
 
@@ -317,9 +321,9 @@ Attentional Decay simulates human memory inside the multi-turn chat transcript. 
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.13.0)
+### 📏 Benchmark Snapshot (v1.15.0)
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **1.4x**, **28% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **25% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction.
 
 ### 🧪 Realistic Benchmark Notes
 
