@@ -135,14 +135,10 @@ Here is what a typical compressed session telemetry looks like:
 ***
 
 
-### New in v1.14.0 (Attentional Decay Compaction)
+### New in v1.15.0 (Holographic Folding & Intent Diffs)
 
-1. **Attentional Decay Compaction (ADC)**: Scales chat transcripts toward near-infinite context capacity at minimal token costs by progressively compacting older history.
-2. **Zone-Based Compaction Rules**:
-   - **Active Zone (d = 0)**: Lossless standard prompt compression to ensure 100% active query fidelity.
-   - **Warm Zone (d = 1-3)**: Aggressive `ultra`-level minification (stripping comments/logs, normalizing spaces, collapsing filler phrases).
-   - **Cold Zone (d = 4-6)**: Replaces raw code blocks with signature/placeholder summaries (e.g. `// [Summary: <lang> block, <N> lines]`).
-   - **Deep Freeze Zone (d > 6)**: Discards code completely and compacts message text to a high-density conceptual summary (e.g., `[Radical Summary: <concept>...]`).
+1. **Holographic Context Folding**: Folds overlapping related files and import boilerplate into layered, structured blocks (e.g. `⟦Base: ...⟧ ↷ [file1.tsx ↷ file2.tsx]`), saving up to 40% characters on multi-file workspaces.
+2. **Generative Intent Diffs**: Condenses verbose unified git/IDE diffs into extremely short symbolic change action lines (e.g. `⚡: ⊝₍1₎ ▼𝒞 Auth | ▲𝒞 Authentication`), saving over 80% tokens on refactoring payloads.
 3. **VS Code configuration support**: Toggle ADC easily within IDE settings via `glyphCompress.experimentalDecay`.
 4. **CLI/Proxy Flags**: Enables decay on the command-line or local proxy server via `--decay` or `--experimental-decay`.
 5. **Unicode superscript tagging compatibility**: Enhanced regex parsing ensures cold zone summaries perfectly extract minified superscript language tags (e.g. `ʲˢ`).
@@ -551,7 +547,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.14.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.15.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`

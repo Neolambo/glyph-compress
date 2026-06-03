@@ -11,6 +11,8 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
     trustPolicy: options.trustPolicy,
     privacyFirewall: options.privacyFirewall,
     attentionalDecay: options.attentionalDecay,
+    holographicFolding: options.holographicFolding,
+    intentDiffs: options.intentDiffs,
   });
 
   const statsHistory = [];
@@ -158,6 +160,8 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
     trustPolicy: raw.trustPolicy || raw.policy || raw.compressor?.trustPolicy || 'auto',
     privacyFirewall: Boolean(raw.privacyFirewall || raw.privacy),
     attentionalDecay: Boolean(raw.attentionalDecay || raw.decay || raw.compressor?.attentionalDecay),
+    holographicFolding: Boolean(raw.holographicFolding || raw.folding || raw.compressor?.holographicFolding),
+    intentDiffs: Boolean(raw.intentDiffs || raw.intents || raw.compressor?.intentDiffs),
     compressor: raw.compressor || sharedCompressor || null,
     outputChannel: raw.outputChannel || outputChannel || null,
   };

@@ -107,8 +107,10 @@ export class Codebook {
 // ═══════════════════════════════════════════════════════════
 
 export class Compressor {
-  constructor(codebook = null) {
+  constructor(codebook = null, options = {}) {
     this.codebook = codebook || new Codebook();
+    this.holographicFolding = options.holographicFolding || false;
+    this.intentDiffs = options.intentDiffs || false;
   }
 
   /**
@@ -145,12 +147,20 @@ export class Compressor {
 
     // L1: Compress prompt
     if (context.prompt) {
-      result.prompt = this.compressPrompt(context.prompt);
+      let promptText = context.prompt;
+      if (this.intentDiffs) {
+        promptText = this.compressIntentDiffs(promptText);
+      }
+      result.prompt = this.compressPrompt(promptText);
     }
 
     // L2: Compress file contents
     if (context.files) {
-      result.files = context.files.map(f => this.compressFile(f)).join('\n');
+      if (this.holographicFolding) {
+        result.files = this.foldHolographicContext(context.files);
+      } else {
+        result.files = context.files.map(f => this.compressFile(f)).join('\n');
+      }
     }
 
     // L3: Compress diagnostics
@@ -360,5 +370,188 @@ export class Compressor {
     
     // Fallback: first 20 chars
     return content.substring(0, 20);
+  }
+
+  foldHolographicContext(files) {
+    if (!files || files.length === 0) return '';
+    
+    // Group files by directory or detect shared dependencies
+    const independentFiles = [];
+    const fileImports = new Map();
+    
+    for (const file of files) {
+      const imports = [];
+      const lines = file.content ? file.content.split('\n') : [];
+      for (const line of lines) {
+        const importMatch = line.match(/from\s+['"]\.\.?\/(.+)['"]/);
+        if (importMatch) {
+          imports.push(importMatch[1].split('/').pop());
+        }
+      }
+      fileImports.set(file.path.split('/').pop(), imports);
+    }
+
+    const visited = new Set();
+    const foldedBlocks = [];
+
+    for (const file of files) {
+      const name = file.path.split('/').pop();
+      if (visited.has(name)) continue;
+
+      const group = [file];
+      visited.add(name);
+
+      for (const other of files) {
+        const otherName = other.path.split('/').pop();
+        if (visited.has(otherName)) continue;
+
+        const importsOther = fileImports.get(name)?.some(imp => otherName.includes(imp));
+        const otherImportsThis = fileImports.get(otherName)?.some(imp => name.includes(imp));
+
+        if (importsOther || otherImportsThis) {
+          group.push(other);
+          visited.add(otherName);
+        }
+      }
+
+      if (group.length > 1) {
+        foldedBlocks.push(this._foldGroup(group));
+      } else {
+        independentFiles.push(file);
+      }
+    }
+
+    const normalCompressed = independentFiles.map(f => this.compressFile(f));
+    return [...foldedBlocks, ...normalCompressed].filter(Boolean).join('\n');
+  }
+
+  _foldGroup(group) {
+    const baseImports = new Set();
+    const fileOverlays = [];
+
+    for (const file of group) {
+      const ref = this.codebook.indexFile(file.path);
+      const lang = this._detectLang(file.path);
+      const techGlyph = TECH_GLYPHS[lang] || '';
+      
+      const lines = file.content ? file.content.split('\n') : [];
+      const nonImportLines = [];
+
+      for (const line of lines) {
+        if (/^import\s/.test(line.trim())) {
+          baseImports.add(line.trim());
+        } else {
+          nonImportLines.push(line);
+        }
+      }
+
+      const struct = this._analyzeStructure(nonImportLines, lang);
+      fileOverlays.push(`${ref}${techGlyph} ${struct}`);
+    }
+
+    const compressedImports = [...baseImports]
+      .map(imp => this._replaceTechNames(imp))
+      .join(' | ');
+
+    return `⟦Base: ${compressedImports}⟧ ↷ [${fileOverlays.join(' ↷ ')}]`;
+  }
+
+  compressIntentDiffs(text) {
+    if (!text) return text;
+    const lines = text.split('\n');
+    let inDiff = false;
+    const resultLines = [];
+    let currentFile = '';
+    let actions = [];
+    let originalDiffLinesCount = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      const fileHeaderMatch = line.match(/^(?:--- a\/|\+\+\+ b\/|diff --git a\/)(\S+)/);
+      if (fileHeaderMatch) {
+        if (actions.length > 0 || originalDiffLinesCount > 0) {
+          resultLines.push(this._formatIntentActions(actions, originalDiffLinesCount, currentFile));
+          actions = [];
+          originalDiffLinesCount = 0;
+        }
+        currentFile = fileHeaderMatch[1];
+        inDiff = true;
+        continue;
+      }
+
+      if (line.startsWith('@@')) {
+        inDiff = true;
+        continue;
+      }
+
+      if (inDiff) {
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          originalDiffLinesCount++;
+          const added = line.slice(1).trim();
+          if (added) {
+            const parsed = this._parseDiffLine('add', added, currentFile);
+            if (parsed) actions.push(parsed);
+          }
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          originalDiffLinesCount++;
+          const removed = line.slice(1).trim();
+          if (removed) {
+            const parsed = this._parseDiffLine('remove', removed, currentFile);
+            if (parsed) actions.push(parsed);
+          }
+        } else if (!line.startsWith(' ') && trimmed.length > 0 && !line.startsWith('+') && !line.startsWith('-') && !line.startsWith('\\')) {
+          inDiff = false;
+        }
+      }
+
+      if (!inDiff) {
+        if (actions.length > 0 || originalDiffLinesCount > 0) {
+          resultLines.push(this._formatIntentActions(actions, originalDiffLinesCount, currentFile));
+          actions = [];
+          originalDiffLinesCount = 0;
+        }
+        resultLines.push(line);
+      }
+    }
+
+    if (actions.length > 0 || originalDiffLinesCount > 0) {
+      resultLines.push(this._formatIntentActions(actions, originalDiffLinesCount, currentFile));
+    }
+
+    return resultLines.join('\n');
+  }
+
+  _parseDiffLine(type, code, filepath) {
+    const fileRef = filepath ? this.codebook.indexFile(filepath) : '';
+    const actionGlyph = type === 'add' ? '▲' : '▼';
+
+    if (/^import\s+.*from\s+['"](.+)['"]/.test(code)) {
+      const match = code.match(/^import\s+(.*?)\s+from\s+['"](.+)['"]/);
+      if (match) return { fileRef, actionGlyph, type: 'imp', symbol: match[1].trim(), detail: match[2] };
+    }
+    if (/class\s+(\w+)/.test(code)) {
+      const match = code.match(/class\s+(\w+)/);
+      if (match) return { fileRef, actionGlyph, type: 'class', symbol: match[1] };
+    }
+    if (/(?:async\s+)?function\s+(\w+)/.test(code) || /(?:async\s+)?(\w+)\s*\([^)]*\)\s*\{/.test(code)) {
+      const match = code.match(/(?:async\s+)?(?:function\s+)?(\w+)\s*\(/);
+      if (match) return { fileRef, actionGlyph, type: 'func', symbol: match[1] };
+    }
+
+    return null;
+  }
+
+  _formatIntentActions(actions, originalDiffLinesCount = 0, filepath = '') {
+    if (actions.length === 0) {
+      const fileRef = filepath ? this.codebook.indexFile(filepath) : '◈';
+      return `⚡: ${fileRef} ±${originalDiffLinesCount}L`;
+    }
+    const formatted = actions.map(act => {
+      const detail = act.detail ? ` (${act.detail})` : '';
+      return `${act.fileRef} ${act.actionGlyph}${act.type === 'imp' ? '📦' : act.type === 'class' ? '𝒞' : 'ƒ'} ${act.symbol}${detail}`;
+    });
+    return `⚡: ${formatted.join(' | ')}`;
   }
 }

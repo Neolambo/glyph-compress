@@ -357,6 +357,8 @@ var GlyphCompressor = class {
     this.cacheFile = null;
     this._initCache();
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
+    this.holographicFolding = options.holographicFolding === true || options.folding === true;
+    this.intentDiffs = options.intentDiffs === true || options.intents === true;
   }
   // ─── MAIN API ─────────────────────────────────────────────
   /**
@@ -820,7 +822,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.14.0",
+      version: "1.15.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -990,6 +992,12 @@ ${parsed.dynamicLine}`
   _compressUserMessage(content, allUserText) {
     if (!content) return content;
     let c = this._applyPrivacyFirewall(this._normalizeMessageContent(content));
+    if (this.intentDiffs) {
+      c = this.compressIntentDiffs(c);
+    }
+    if (this.holographicFolding) {
+      c = this._foldHolographicText(c);
+    }
     c = c.replace(/[ \t]+/g, " ");
     c = c.replace(/\n{3,}/g, "\n\n");
     c = c.replace(/[ \t]+$/gm, "");
@@ -1396,6 +1404,296 @@ ${parsed.dynamicLine}`
   }
   _estimateTokens(messages, provider = "raw") {
     return (0, import_token_estimator.estimateProviderTokens)(messages, provider);
+  }
+  _indexFile(filepath) {
+    if (this.fileIndex.has(filepath)) {
+      return this.fileIndex.get(filepath);
+    }
+    this.fileCounter++;
+    const domain = this._detectDomain(filepath);
+    const glyph = DOMAIN_GLYPHS[domain] || "\u{1F4C4}";
+    const ref = `${glyph}\u208D${this.fileCounter}\u208E`;
+    this.fileIndex.set(filepath, ref);
+    this.sourceMap.files.push({
+      ref,
+      path: filepath,
+      domain
+    });
+    return ref;
+  }
+  _detectLang(filepath) {
+    const ext = filepath.split(".").pop()?.toLowerCase();
+    const langMap = {
+      ts: "typescript",
+      tsx: "typescript",
+      js: "javascript",
+      jsx: "javascript",
+      py: "python",
+      rs: "rust",
+      go: "go",
+      java: "java",
+      cs: "csharp",
+      rb: "ruby",
+      swift: "swift"
+    };
+    return langMap[ext] || ext;
+  }
+  _analyzeStructure(lines, lang) {
+    const parts = [];
+    let imports = 0, functions = 0, classes = 0, exports2 = 0;
+    let hooks = 0, states = 0, effects = 0;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (/^import\s/.test(trimmed)) imports++;
+      if (/^export\s/.test(trimmed)) exports2++;
+      if (/(?:function|const\s+\w+\s*=\s*(?:\([^)]*\)|[^=])\s*=>)/.test(trimmed)) functions++;
+      if (/^class\s/.test(trimmed)) classes++;
+      if (/useState/.test(trimmed)) states++;
+      if (/useEffect/.test(trimmed)) effects++;
+      if (/use[A-Z]\w+/.test(trimmed)) hooks++;
+    }
+    if (imports) parts.push(`imp:${imports}`);
+    if (functions) parts.push(`\u0192:${functions}`);
+    if (classes) parts.push(`\u{1D49E}:${classes}`);
+    if (exports2) parts.push(`exp:${exports2}`);
+    if (states) parts.push(`\u25C7:${states}`);
+    if (effects) parts.push(`\u27FF:${effects}`);
+    if (hooks) parts.push(`\u27F3:${hooks}`);
+    parts.push(`${lines.length}L`);
+    return `[${parts.join(" ")}]`;
+  }
+  compressFile(file) {
+    const ref = this._indexFile(file.path);
+    const lang = this._detectLang(file.path);
+    const techGlyph = TECH_GLYPHS[lang] || "";
+    if (!file.content) {
+      return `${ref}${techGlyph}`;
+    }
+    const lines = file.content.split("\n");
+    const structure = this._analyzeStructure(lines, lang);
+    return `${ref}${techGlyph} ${structure}`;
+  }
+  foldHolographicContext(files) {
+    if (!files || files.length === 0) return "";
+    const independentFiles = [];
+    const fileImports = /* @__PURE__ */ new Map();
+    for (const file of files) {
+      const imports = [];
+      const lines = file.content ? file.content.split("\n") : [];
+      for (const line of lines) {
+        const importMatch = line.match(/from\s+['"]\.\.?\/(.+)['"]/);
+        if (importMatch) {
+          imports.push(importMatch[1].split("/").pop());
+        }
+      }
+      fileImports.set(file.path.split("/").pop(), imports);
+    }
+    const visited = /* @__PURE__ */ new Set();
+    const foldedBlocks = [];
+    for (const file of files) {
+      const name = file.path.split("/").pop();
+      if (visited.has(name)) continue;
+      const group = [file];
+      visited.add(name);
+      for (const other of files) {
+        const otherName = other.path.split("/").pop();
+        if (visited.has(otherName)) continue;
+        const importsOther = fileImports.get(name)?.some((imp) => otherName.includes(imp));
+        const otherImportsThis = fileImports.get(otherName)?.some((imp) => name.includes(imp));
+        if (importsOther || otherImportsThis) {
+          group.push(other);
+          visited.add(otherName);
+        }
+      }
+      if (group.length > 1) {
+        foldedBlocks.push(this._foldGroup(group));
+      } else {
+        independentFiles.push(file);
+      }
+    }
+    const normalCompressed = independentFiles.map((f) => this.compressFile(f));
+    return [...foldedBlocks, ...normalCompressed].filter(Boolean).join("\n");
+  }
+  _foldGroup(group) {
+    const baseImports = /* @__PURE__ */ new Set();
+    const fileOverlays = [];
+    for (const file of group) {
+      const ref = this._indexFile(file.path);
+      const lang = this._detectLang(file.path);
+      const techGlyph = TECH_GLYPHS[lang] || "";
+      const lines = file.content ? file.content.split("\n") : [];
+      const nonImportLines = [];
+      for (const line of lines) {
+        if (/^import\s/.test(line.trim())) {
+          baseImports.add(line.trim());
+        } else {
+          nonImportLines.push(line);
+        }
+      }
+      const struct = this._analyzeStructure(nonImportLines, lang);
+      fileOverlays.push(`${ref}${techGlyph} ${struct}`);
+    }
+    const compressedImports = [...baseImports].map((imp) => this._compressTechNames(imp)).join(" | ");
+    return `\u27E6Base: ${compressedImports}\u27E7 \u21B7 [${fileOverlays.join(" \u21B7 ")}]`;
+  }
+  compressIntentDiffs(text) {
+    if (!text) return text;
+    const lines = text.split("\n");
+    let inDiff = false;
+    const resultLines = [];
+    let currentFile = "";
+    let actions = [];
+    let originalDiffLinesCount = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      const fileHeaderMatch = line.match(/^(?:--- a\/|\+\+\+ b\/|diff --git a\/)(\S+)/);
+      if (fileHeaderMatch) {
+        if (actions.length > 0 || originalDiffLinesCount > 0) {
+          resultLines.push(this._formatIntentActions(actions, originalDiffLinesCount, currentFile));
+          actions = [];
+          originalDiffLinesCount = 0;
+        }
+        currentFile = fileHeaderMatch[1];
+        inDiff = true;
+        continue;
+      }
+      if (line.startsWith("@@")) {
+        inDiff = true;
+        continue;
+      }
+      if (inDiff) {
+        if (line.startsWith("+") && !line.startsWith("+++")) {
+          originalDiffLinesCount++;
+          const added = line.slice(1).trim();
+          if (added) {
+            const parsed = this._parseDiffLine("add", added, currentFile);
+            if (parsed) actions.push(parsed);
+          }
+        } else if (line.startsWith("-") && !line.startsWith("---")) {
+          originalDiffLinesCount++;
+          const removed = line.slice(1).trim();
+          if (removed) {
+            const parsed = this._parseDiffLine("remove", removed, currentFile);
+            if (parsed) actions.push(parsed);
+          }
+        } else if (!line.startsWith(" ") && trimmed.length > 0 && !line.startsWith("+") && !line.startsWith("-") && !line.startsWith("\\")) {
+          inDiff = false;
+        }
+      }
+      if (!inDiff) {
+        if (actions.length > 0 || originalDiffLinesCount > 0) {
+          resultLines.push(this._formatIntentActions(actions, originalDiffLinesCount, currentFile));
+          actions = [];
+          originalDiffLinesCount = 0;
+        }
+        resultLines.push(line);
+      }
+    }
+    if (actions.length > 0 || originalDiffLinesCount > 0) {
+      resultLines.push(this._formatIntentActions(actions, originalDiffLinesCount, currentFile));
+    }
+    return resultLines.join("\n");
+  }
+  _parseDiffLine(type, code, filepath) {
+    const fileRef = filepath ? this._indexFile(filepath) : "";
+    const actionGlyph = type === "add" ? "\u25B2" : "\u25BC";
+    if (/^import\s+.*from\s+['"](.+)['"]/.test(code)) {
+      const match = code.match(/^import\s+(.*?)\s+from\s+['"](.+)['"]/);
+      if (match) return { fileRef, actionGlyph, type: "imp", symbol: match[1].trim(), detail: match[2] };
+    }
+    if (/class\s+(\w+)/.test(code)) {
+      const match = code.match(/class\s+(\w+)/);
+      if (match) return { fileRef, actionGlyph, type: "class", symbol: match[1] };
+    }
+    if (/(?:async\s+)?function\s+(\w+)/.test(code) || /(?:async\s+)?(\w+)\s*\([^)]*\)\s*\{/.test(code)) {
+      const match = code.match(/(?:async\s+)?(?:function\s+)?(\w+)\s*\(/);
+      if (match) return { fileRef, actionGlyph, type: "func", symbol: match[1] };
+    }
+    return null;
+  }
+  _formatIntentActions(actions, originalDiffLinesCount = 0, filepath = "") {
+    if (actions.length === 0) {
+      const fileRef = filepath ? this._indexFile(filepath) : "\u25C8";
+      return `\u26A1: ${fileRef} \xB1${originalDiffLinesCount}L`;
+    }
+    const formatted = actions.map((act) => {
+      const detail = act.detail ? ` (${act.detail})` : "";
+      return `${act.fileRef} ${act.actionGlyph}${act.type === "imp" ? "\u{1F4E6}" : act.type === "class" ? "\u{1D49E}" : "\u0192"} ${act.symbol}${detail}`;
+    });
+    return `\u26A1: ${formatted.join(" | ")}`;
+  }
+  _foldHolographicText(text) {
+    if (!text) return text;
+    const fileBlockRegex = /(?:(?:File|Path|Source):\s*)?((?:[a-zA-Z]:)?[A-Za-z0-9_\-\.\/\\\\]+\.[a-zA-Z0-9]+)\s*[\r\n]+`{3,}(\w*)\n([\s\S]+?)`{3,}/gi;
+    const matches = [];
+    let match;
+    while ((match = fileBlockRegex.exec(text)) !== null) {
+      matches.push({
+        index: match.index,
+        length: match[0].length,
+        path: match[1],
+        lang: match[2],
+        content: match[3],
+        raw: match[0]
+      });
+    }
+    if (matches.length === 0) return text;
+    const fileImports = /* @__PURE__ */ new Map();
+    for (const m of matches) {
+      const imports = [];
+      const lines = m.content ? m.content.split("\n") : [];
+      for (const line of lines) {
+        const importMatch = line.match(/from\s+['"]\.\.?\/(.+)['"]/);
+        if (importMatch) {
+          imports.push(importMatch[1].split("/").pop());
+        }
+      }
+      fileImports.set(m.path.split("/").pop(), imports);
+    }
+    const visited = /* @__PURE__ */ new Set();
+    const groups = [];
+    for (const m of matches) {
+      const name = m.path.split("/").pop();
+      if (visited.has(name)) continue;
+      const group = [m];
+      visited.add(name);
+      for (const other of matches) {
+        const otherName = other.path.split("/").pop();
+        if (visited.has(otherName)) continue;
+        const importsOther = fileImports.get(name)?.some((imp) => otherName.includes(imp));
+        const otherImportsThis = fileImports.get(otherName)?.some((imp) => name.includes(imp));
+        if (importsOther || otherImportsThis) {
+          group.push(other);
+          visited.add(otherName);
+        }
+      }
+      groups.push(group);
+    }
+    const replacements = /* @__PURE__ */ new Map();
+    for (const group of groups) {
+      if (group.length === 1) {
+        const m = group[0];
+        const compressedFile = this.compressFile({ path: m.path, content: m.content });
+        replacements.set(m, compressedFile);
+      } else {
+        const foldedBlock = this._foldGroup(group.map((m) => ({ path: m.path, content: m.content })));
+        replacements.set(group[0], foldedBlock);
+        for (let i = 1; i < group.length; i++) {
+          replacements.set(group[i], "");
+        }
+      }
+    }
+    let lastIndex = 0;
+    let result = "";
+    const sortedMatches = [...matches].sort((a, b) => a.index - b.index);
+    for (const m of sortedMatches) {
+      result += text.substring(lastIndex, m.index);
+      result += replacements.get(m);
+      lastIndex = m.index + m.length;
+    }
+    result += text.substring(lastIndex);
+    return result;
   }
 };
 function wrapOpenAI(client, options = {}) {

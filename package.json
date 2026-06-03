@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {

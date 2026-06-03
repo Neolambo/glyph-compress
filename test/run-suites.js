@@ -11,6 +11,8 @@ const suites = [
   ['metadata', 'test/metadata.js'],
   ['snapshots', 'test/snapshots.js'],
   ['integration', 'test/integration.js'],
+  ['holographic', 'test/holographic-test.js'],
+  ['intent', 'test/intent-test.js'],
 ];
 
 for (const [name, file] of suites) {
