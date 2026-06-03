@@ -1,3 +1,24 @@
+## v1.15.0 — Holographic Context Folding & Generative Intent Diffs
+
+Changes since v1.14.0:
+
+### Compression & Semantic Layering
+- **Holographic Context Folding**: Folds overlapping related files and import boilerplate into layered, structured blocks (e.g. `⟦Base: ...⟧ ↷ [file1.tsx ↷ file2.tsx]`), saving up to 40% characters on multi-file workspaces.
+- **Generative Intent Diffs**: Condenses verbose unified git/IDE diffs into extremely short symbolic change action lines (e.g. `⚡: ⊝₍1₎ ▼𝒞 Auth | ▲𝒞 Authentication`), saving over 80% tokens on refactoring payloads.
+
+### CLI & Zero-Command Proxy
+- **CLI Options**: Added `--folding` (`--holographic-folding`) and `--intents` (`--intent-diffs`) to the CLI command parser.
+- **Proxy Integrations**: Forwarded folding and intents configurations through proxy server settings, enabling automated context optimization on IDE chat requests.
+- **Startup Preset**: Configured automated startup preset (`start-proxy.js`) to enable attentional decay, holographic folding, and intent diffs by default.
+
+### Tests & Verification
+- **New Test Suites**: Created `test/holographic-test.js` and `test/intent-test.js` covering core and middleware text transformations, with strict token-savings threshold validation.
+- **Complete Suite Validation**: All 53 tests pass with 100% success.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.14.0 — Attentional Decay Compaction (ADC)
 
 Changes since v1.13.0:

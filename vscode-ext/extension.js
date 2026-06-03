@@ -43,6 +43,8 @@ function activate(context) {
     trustPolicy: config.get('trustPolicy', 'auto'),
     workspacePath,
     attentionalDecay: config.get('experimentalDecay', false),
+    holographicFolding: config.get('holographicFolding', false),
+    intentDiffs: config.get('intentDiffs', false),
   });
 
   if (config.get('autoUpdateWorkspaceRules', false)) {
@@ -331,6 +333,8 @@ function activate(context) {
           trustPolicy: newConfig.get('trustPolicy', 'auto'),
           workspacePath,
           attentionalDecay: newConfig.get('experimentalDecay', false),
+          holographicFolding: newConfig.get('holographicFolding', false),
+          intentDiffs: newConfig.get('intentDiffs', false),
         });
         outputChannel.appendLine(
           `Config updated: enabled=${compressor.enabled}, level=${compressor.level}, trust=${compressor.trustPolicy}`

@@ -298,7 +298,16 @@ Status: delivered.
 - [x] Wire the new `experimentalDecay` setting into VS Code configurations, CLI arguments, and proxy middleware.
 - [x] Deliver 100% test coverage for the 4 compaction zones, keeping active prompt fidelity intact and verified.
 
-### v1.15.0: Context Router Wiring
+### v1.15.0: Holographic Folding & Intent Diffs
+
+Status: delivered.
+
+- [x] Implement Holographic Context Folding (Concept 4) to group overlapping related files and import boilerplate into layered structure blocks.
+- [x] Implement Generative Intent Diffs (Concept 3) to minify unified diff outputs into high-density declarative change action lines.
+- [x] Wire folding and intents configurations into GlyphCompressor options, CLI flags (`--folding` / `--intents`), and proxy server.
+- [x] Create comprehensive unit test suites in `test/holographic-test.js` and `test/intent-test.js` verifying behavior and saving thresholds.
+
+### v1.16.0: Context Router Wiring
 
 Status: proposed.
 
@@ -306,14 +315,14 @@ Status: proposed.
 - [ ] Use active file, diagnostics, git diff, and recent task intent as router inputs.
 - [ ] Keep provider-aware routing behavior auditable through source-map or explanation metadata.
 
-### v1.16.0: Structured Diagnostics and Snapshots
+### v1.17.0: Structured Diagnostics and Snapshots
 
 Status: proposed.
 
 - [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
 - [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
 
-### v1.17.0: Expression-Level Source Maps
+### v1.18.0: Expression-Level Source Maps
 
 Status: proposed.
 
@@ -321,7 +330,7 @@ Status: proposed.
 - [ ] Expand language coverage for structural spans and reversible debug metadata.
 - [ ] Add targeted validation for source-map fidelity at the expression level.
 
-### v1.18.0: Provider Trust and UX
+### v1.19.0: Provider Trust and UX
 
 Status: proposed.
 
@@ -329,7 +338,7 @@ Status: proposed.
 - [ ] Add per-provider trust warnings or risk scoring for risky transformations.
 - [ ] Improve VS Code UX surfacing for provider choice, trust policy, and diagnostic output.
 
-### v1.19.0: Real Task Evaluation
+### v1.20.0: Real Task Evaluation
 
 Status: proposed.
 
@@ -337,7 +346,7 @@ Status: proposed.
 - [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
 - [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
 
-### v1.20.0: Adaptive Workspace Memory
+### v1.21.0: Adaptive Workspace Memory
 
 Status: proposed.
 

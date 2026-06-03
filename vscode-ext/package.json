@@ -136,6 +136,16 @@
           "type": "boolean",
           "default": false,
           "description": "Experimental: Enable Attentional Decay Compaction to progressively compress older chat history"
+        },
+        "glyphCompress.holographicFolding": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Holographic Context Folding to group overlapping related files and import boilerplate into layered structure blocks"
+        },
+        "glyphCompress.intentDiffs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Generative Intent Diffs to condense verbose unified git/IDE diffs into extremely short symbolic change action lines"
         }
       }
     }

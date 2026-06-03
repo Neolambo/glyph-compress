@@ -27,15 +27,14 @@ Watch the latest YouTube video to see how GlyphCompress achieves 90% token savin
 - [🎯 The Problem](#-the-problem)
 - [✨ The Solution](#-the-solution)
 - [🔍 Realistic Session Showcase](#-realistic-session-showcase)
-- [📈 Benchmarks & Token Analytics](#-benchmarks)
+- [🧠 Advanced Features: Holographic Folding, Intent Diffs & History Decay](#-advanced-features-holographic-folding-intent-diffs--history-decay)
+- [📊 Benchmarks](#-benchmarks)
+- [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
 - [🚀 Quick Start (Code & Extension)](#-quick-start)
 - [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy-v050)
-- [🎛️ Compression Levels & Aggressiveness](#-compression-levels)
-- [🛡️ Safe Compression Trust Policies](#️-safe-compression-trust-policies)
-- [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
-- [🧩 Custom Integrations (API Wrapping)](#-custom-integrations)
-- [👥 Contributing & Contributor Hygiene](#-contributing)
-- [📄 License & Licensing Policy](#-license)
+- [🔤 The Glyph Protocol](#-the-glyph-protocol)
+- [👥 Contributing](#-contributing)
+- [⚖️ Dual Licensing Model](#%EF%B8%8F-dual-licensing-model)
 
 ---
 
@@ -128,9 +127,47 @@ Here is what a typical compressed session telemetry looks like:
   ```
 
 ### 📊 Session Aggregate Efficiency (Amortized Cost)
-* **Total Session Chars**: `6,504` chars → **`698` chars** (**9.3x overall ratio, 89.3% saved**).
-* **System Prompt Overhead**: `601` chars (~`151` tokens, sent once per session).
 * **Amortized Monthly Savings (Claude Sonnet @ $3/M tokens)**: Saves **$5.85/month** for a single developer at just 50 requests/day, scaling exponentially for teams.
+
+## 🧠 Advanced Features: Holographic Folding, Intent Diffs & History Decay
+
+GlyphCompress includes state-of-the-art context optimization layers designed for large, multi-turn, and multi-file developer workflows.
+
+### 1. Holographic Context Folding (v1.15.0)
+Holographic Folding analyzes import relationships across multiple files in your prompt. Instead of sending repetitive, boilerplated imports for each file, it extracts them into a single `Base` shared header and presents the files as structured overlays:
+* **How it works**: Detects mutual dependencies and group-folds files that share imports.
+* **Format**: `⟦Base: import A | import B⟧ ↷ [◈Ref struct ↷ ◈Ref struct]`
+* **Savings**: Up to 40% character/token reduction on multi-file contexts.
+* **Activation**:
+  * **CLI**: `--folding` (or `--holographic-folding`)
+  * **VS Code**: Toggle `"glyphCompress.holographicFolding": true` in settings.
+
+> [!NOTE]
+> For example, when reading two dependent React component files, the middleware extracts the common React imports and groups their core declarations to avoid LLM token overhead on repeating boilerplate.
+
+### 2. Generative Intent Diffs (v1.15.0)
+Generative Intent Diffs intercept git/IDE unified diffs (which are traditionally very verbose and costly for LLMs) and translate them into a sequence of structural action lines:
+* **How it works**: Syntactically parses addition (`+`) and deletion (`-`) blocks to summarize added/deleted classes (`▲𝒞` / `▼𝒞`), functions (`▲ƒ` / `▼ƒ`), or packages (`▲📦` / `▼📦`).
+* **Format**: `⚡: ⊝₍1₎ ▼𝒞 OldClass | ⊝₍1₎ ▲𝒞 NewClass` (or `⚡: ◈ ±LineCount` for non-symbol changes).
+* **Savings**: Over 80% token savings on code refactoring context.
+* **Activation**:
+  * **CLI**: `--intents` (or `--intent-diffs`)
+  * **VS Code**: Toggle `"glyphCompress.intentDiffs": true` in settings.
+
+> [!TIP]
+> This feature is exceptionally powerful when using git diffs in Cline, RooCode, or Cursor chats. The engine strips the massive `+` and `-` source lines, sending only the semantic intention of the refactor.
+
+### 3. Attentional Decay Compaction (ADC) (v1.14.0)
+Attentional Decay simulates human memory inside the multi-turn chat transcript. As the conversation progresses, older messages are progressively compacted into dense, emoji-tagged summaries while keeping the latest turns in high-fidelity full text.
+* **How it works**: Categorizes chat history into 4 decay zones based on distance from the current turn:
+  * **Hot Zone** (turns 1-2): 100% full text.
+  * **Warm Zone** (turns 3-4): Light minification.
+  * **Cool Zone** (turns 5-6): Semantic summaries.
+  * **Cold Zone** (turns 7+): Highly compressed language-tagged bullet-point glyph summaries.
+* **Savings**: Prevents chat history token explosion, enabling near-infinite conversation length.
+* **Activation**:
+  * **CLI**: `--decay` (or `--experimental-decay`)
+  * **VS Code**: Toggle `"glyphCompress.experimentalDecay": true` in settings.
 
 ***
 
@@ -388,6 +425,9 @@ npx glyph-compress [file|command] [options]
 | `--provider <provider>` | `raw`, `openai`, `anthropic`, `gemini`, `local` | Select provider-aware estimates and compression profile. Default: `raw`. | `npx glyph-compress src/app.ts --provider openai --explain` |
 | `--trust <policy>` | `lossless`, `reversible`, `privacy`, `lossy` | Select allowed transformation policy. Default: auto. | `npx glyph-compress src/app.ts --trust reversible --source-map` |
 | `--policy <policy>` | `lossless`, `reversible`, `privacy`, `lossy` | Alias for `--trust`. | `npx glyph-compress src/app.ts --policy privacy` |
+| `--decay` | flag | Enable Attentional Decay Compaction on chat history messages. | `npx glyph-compress --decay` |
+| `--folding` | flag | Enable holographic context folding for overlapping related files. | `npx glyph-compress --folding` |
+| `--intents` | flag | Enable generative intent diffs compression for code changes. | `npx glyph-compress --intents` |
 | `--json` | flag | Print machine-readable JSON for supported commands such as `inspect` and `doctor`. | `npx glyph-compress inspect "review diff" --json` |
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. Default port: `8080`. | `npx glyph-compress --proxy 8080` |
 | `-h, --help` | flag | Show built-in CLI help. | `npx glyph-compress --help` |
@@ -583,7 +623,9 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
   "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
   "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com",
-  "glyphCompress.experimentalDecay": false
+  "glyphCompress.experimentalDecay": false,
+  "glyphCompress.holographicFolding": false,
+  "glyphCompress.intentDiffs": false
 }
 ```
 
