@@ -16,6 +16,7 @@ These drafts are written to present concrete metrics, implementation details, an
 ## 1. Hacker News (Show HN)
 *   **Target Stage**: Problem/Solution Aware.
 *   **Persuasion Approach**: Pitch the engineering novelty of semantic context folding vs. traditional byte-level compression or simple window slicing. Explain the mechanics.
+*   **Formatting Layout**: No images (Hacker News is text-only). Keep layout clean with minimal markdown formatting. Use indentation for code blocks.
 
 ### Post Title
 ```text
@@ -55,6 +56,8 @@ GitHub: https://github.com/Neolambo/glyph-compress
 ## 2. LinkedIn
 *   **Target Stage**: Problem Aware (concerned with enterprise API bills and codebase privacy leaks).
 *   **Persuasion Approach**: Highlight cost metrics, budget control, and security firewall features.
+*   **Formatting Layout**: Place the cost-savings infographic as the main visual media attachment. Place links at the very bottom of the post text to optimize LinkedIn algorithm distribution.
+*   **Visual Asset**: `docs/assets/linkedin_cost_savings.png` (Infographic detailing 40% folding savings and 80% intent diff savings on a dark UI grid).
 
 ### Post text
 ```text
@@ -80,15 +83,18 @@ https://github.com/Neolambo/glyph-compress
 ## 3. X / Twitter Thread
 *   **Target Stage**: Solution Aware.
 *   **Persuasion Approach**: Visual, high-impact, code-focused comparisons. Keep tweets short and focused on "before/after" representation.
+*   **Formatting Layout**: Standard 4-tweet thread. Attach the symbolic diff transition visual to the first tweet to drive CTR and thread expansion.
+*   **Visual Asset**: `docs/assets/twitter_symbolic_diff.png` (Split screen showing messy unified git diff transforming via a glowing arrow to a clean AST intent symbol).
 
 ### Tweet 1 (Hook & Numbers)
 ```text
 LLM context is expensive. If you are sending raw multi-file directories or line-by-line diffs to AI coding agents, you are wasting 30% to 80% of your tokens.
 
-GlyphCompress v1.15.0 is out, introducing two new semantic compression features:
+GlyphCompress v1.15.0 is out, introducing two new semantic context compression features:
 https://github.com/Neolambo/glyph-compress
 (1/4)
 ```
+*(Attach visual: `docs/assets/twitter_symbolic_diff.png`)*
 
 ### Tweet 2 (Holographic Context Folding)
 ```text
@@ -131,6 +137,8 @@ https://youtu.be/XRwRYEsReJU
 ## 4. Reddit (r/LocalLLaMA)
 *   **Target Stage**: Product Aware (understanding VRAM limitations and local context bottlenecks).
 *   **Persuasion Approach**: Pitch as a way to run complex multi-file coding agents on consumer hardware (e.g. 24GB GPUs) without hitting OOM or suffering heavy prompt processing latency.
+*   **Formatting Layout**: Image post format (Link/Image tab). Upload the VRAM savings diagram as the primary post image. Place the post body text as the first explanatory comment or in the text body if sub rules allow image+text submissions.
+*   **Visual Asset**: `docs/assets/reddit_local_vram.png` (Futuristic console chart showing standard context crashing VRAM vs. compressed context maintaining a 50% safety margin).
 
 ### Post Title
 ```text
@@ -163,6 +171,8 @@ Let me know if you run this against local models (Llama 3, Qwen 2.5 Coder) and w
 ## 5. Reddit (r/vscode)
 *   **Target Stage**: Unaware/Problem Aware (experience slow extension responses or high cost).
 *   **Persuasion Approach**: Focus on developer quality-of-life, ease of installation, and VS Code marketplace integration.
+*   **Formatting Layout**: Standard rich-text text post. Embed the VS Code settings UI mockup directly inside the text body.
+*   **Visual Asset**: `docs/assets/vscode_ext_ui.png` (VS Code dark theme editor screen displaying settings toggles for Folding and Intents with cyan indicators).
 
 ### Post Title
 ```text
@@ -179,6 +189,9 @@ The latest version adds two core features:
 - Holographic Context Folding: Folds shared imports and structures across open workspace files into a layered block, cutting multi-file context sizes by up to 40%.
 - Generative Intent Diffs: Compresses line-by-line git edit blocks into AST-like intent signatures (saving up to 80% on refactoring steps).
 
+*(VS Code Extension Settings Mockup)*
+*(Embed Image: docs/assets/vscode_ext_ui.png)*
+
 It runs locally as a VS Code extension, a CLI, or an OpenAI-compatible proxy. You can configure rules using explicit trust policies to control when to apply lossy, lossless, or privacy-first compression.
 
 You can install it directly from the Marketplace:
@@ -193,6 +206,7 @@ https://github.com/Neolambo/glyph-compress
 ## 6. AI Coding Agent communities (Cline / Continue)
 *   **Target Stage**: Solution Aware.
 *   **Persuasion Approach**: Pitch as an integration proposal (middleware, context provider, or API proxy wrapper).
+*   **Formatting Layout**: Markdown proposal format for GitHub Issues/Discussions or Discord forums. No promotional images; focus on raw code snippets.
 
 ### Integration proposal draft
 ```text
@@ -206,7 +220,9 @@ I'm building GlyphCompress, an open-source semantic context compressor. In the r
 We also compile ES Module and CommonJS builds specifically to make it easy to drop GlyphCompress into Node-based agent runtimes (e.g. VS Code extensions or CLI agents).
 
 It can run as a local proxy wrapping standard OpenAI/Anthropic API calls, or be imported directly as an npm library:
-`import { GlyphCompressor } from 'glyph-compress';`
+```javascript
+import { GlyphCompressor } from 'glyph-compress';
+```
 
 Would you be open to a proof-of-concept PR or discussing how we could expose this as an optional token-saving layer for users?
 
