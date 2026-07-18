@@ -93,6 +93,36 @@ var TECH_GLYPHS = {
   agent: "\u03B1",
   prompt: "\u03C0"
 };
+var MEASURED_TECH_GLYPH_TOKENS_OPENAI = {
+  typescript: [1, 1, 3, 3],
+  javascript: [1, 1, 4, 4],
+  python: [1, 1, 3, 3],
+  rust: [1, 1, 2, 2],
+  go: [1, 1, 3, 3],
+  java: [1, 1, 2, 2],
+  csharp: [2, 2, 3, 3],
+  swift: [1, 1, 2, 2],
+  ruby: [1, 1, 3, 3],
+  react: [1, 1, 2, 2],
+  nextjs: [2, 2, 2, 2],
+  vue: [1, 1, 3, 3],
+  angular: [1, 1, 3, 3],
+  svelte: [2, 2, 3, 3],
+  django: [1, 1, 3, 3],
+  rails: [1, 1, 2, 2],
+  express: [1, 1, 5, 5],
+  fastapi: [2, 2, 3, 3],
+  docker: [1, 1, 3, 3],
+  kubernetes: [2, 2, 3, 3],
+  terraform: [1, 1, 3, 3],
+  postgres: [1, 1, 2, 2],
+  mysql: [1, 1, 2, 2],
+  mongodb: [1, 1, 2, 2],
+  redis: [1, 1, 3, 3],
+  llm: [2, 2, 2, 2],
+  agent: [1, 1, 1, 1],
+  prompt: [1, 1, 1, 1]
+};
 var TECH_LABEL_OVERRIDES = {
   typescript: "TS",
   javascript: "JS",
@@ -1163,9 +1193,17 @@ ${parsed.dynamicLine}`
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
     const charsPerToken = this.providerProfile ? { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4 : 4;
     for (const [name, glyph] of entries) {
-      const origTokenCost = name.length / charsPerToken;
-      const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
-      if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
+      const measured = this.provider === "openai" ? MEASURED_TECH_GLYPH_TOKENS_OPENAI[name] : null;
+      let skip;
+      if (measured) {
+        const [wordCl, wordO2, glyphCl, glyphO2] = measured;
+        skip = glyphCl >= wordCl || glyphO2 >= wordO2;
+      } else {
+        const origTokenCost = name.length / charsPerToken;
+        const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
+        skip = this.provider !== "raw" && glyphTokenCost >= origTokenCost;
+      }
+      if (skip) continue;
       if (!this._techRegexCache) this._techRegexCache = /* @__PURE__ */ new Map();
       let regex = this._techRegexCache.get(name);
       if (!regex) {

@@ -413,6 +413,42 @@ Status: proposed.
 - [x] Add link checking to GitHub Actions.
 - [x] Add release notes automation from conventional commits.
 
+## Strategic Priorities — Becoming the Default IDE↔LLM Compression Layer
+
+GlyphCompress competes against a moving target: providers are shipping native prompt caching for free, and research tools like LLMLingua attack the same problem from a different angle. Winning that space requires more than character-level glyph substitution — it requires being the trusted, invisible default that every AI-native IDE and coding agent uses without the user thinking about it. This section tracks that path, grouped by leverage.
+
+### 1. Technical Foundation (highest leverage, do first)
+
+- [x] Tokenizer-calibrated cost measurement exists for `TECH_GLYPHS` (`npm run calibrate:tokenizer`, v1.16.0).
+- [x] Extend tokenizer calibration to every glyph family: `DOMAIN_GLYPHS`, `STRUCTURE_GLYPHS`/error-pattern symbols, and `PROMPT_PATTERNS` output — not just `TECH_GLYPHS`. Also added phrase-level (whole diagnostic/prompt string) before/after comparison, not just isolated glyphs.
+- [x] Compare each glyph against the *actual replaced word/phrase* token cost (apples-to-apples). Result: **all 28 `TECH_GLYPHS` are a net token loss on real OpenAI tokenizers** — common tech names are already 1-2 BPE tokens, and the glyph that replaced them cost as much or more (worst case: "express" 1 token vs `𝔼ˣ` 5 tokens).
+- [x] Replace the heuristic breakeven formula with a real, measured per-glyph token-cost table (`MEASURED_TECH_GLYPH_TOKENS_OPENAI`) for the `openai` provider — tech-name substitution now never fires when it would lose tokens. `raw` (demos, character-level reporting) is intentionally unaffected. Locked in by `test/tech-glyph-economics.js` (30 assertions).
+- [ ] Extend calibration to Anthropic (token-count endpoint) and Gemini (`countTokens` API) so all three primary providers are optimized against real tokenizers, not one out of three.
+- [ ] Add repeatable model-based comprehension tests (tracked below under Experimental Ideas as "LLM Comprehension Tests") to verify decoding, not just assume it.
+
+### 2. Trust at Scale
+
+- [ ] Publish a reproducible public benchmark against known alternatives (LLMLingua, no compression, naive truncation) with open methodology.
+- [ ] Commission a third-party security audit of the proxy (it intercepts real provider API keys) to unblock enterprise adoption beyond self-reported SECURITY.md/PRIVACY.md.
+
+### 3. Distribution Beyond VS Code
+
+- [ ] Ship an MCP (Model Context Protocol) server so GlyphCompress plugs into Claude Code, Claude Desktop, and other MCP-compatible clients with no IDE-specific integration work.
+- [ ] Add a JetBrains plugin and a Neovim plugin — most backend/enterprise developers are not on VS Code.
+- [ ] Upstream native integration (not just manual proxy config) into Continue.dev, Cline, RooCode, and Aider.
+- [ ] Offer an optional hosted/cloud proxy for teams that do not want to self-host, aligned with the existing dual AGPL/commercial license.
+
+### 4. Product Moat
+
+- [ ] Ship Context Router Wiring (v1.17.0, already planned) — automatic relevant-context selection is a larger savings lever than glyph substitution alone.
+- [ ] Systematically orchestrate provider-side prompt caching (not just Anthropic `cache_control`) by treating the codebook and stable context as cache-first blocks across OpenAI and Gemini's implicit caching too.
+- [ ] Ship Team Codebook Registry (tracked below under Experimental Ideas) for shared, org-wide dictionaries — a network effect a single-user tool cannot replicate.
+
+### 5. Go-to-Market
+
+- [ ] Publish honest case studies using realistic (not synthetic-demo) numbers from real repositories, ideally with a citable customer.
+- [ ] Publish a public comparison table against alternatives (native provider caching alone, LLMLingua, no compression) that states plainly where GlyphCompress does and does not help.
+
 ## Experimental Ideas
 
 - [ ] Glyph Negotiation Protocol: Have the assistant reply with which glyph subsets it understood, then adapt future compression to that model.

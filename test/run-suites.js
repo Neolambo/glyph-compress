@@ -16,6 +16,7 @@ const suites = [
   ['codebook-completeness', 'test/codebook-completeness.js'],
   ['auto-level', 'test/auto-level.js'],
   ['cache-prefix-stability', 'test/cache-prefix-stability.js'],
+  ['tech-glyph-economics', 'test/tech-glyph-economics.js'],
 ];
 
 for (const [name, file] of suites) {

@@ -59,6 +59,7 @@
     "calibrate:tokenizer": "node test/tokenizer-calibration.js",
     "test:auto-level": "node test/auto-level.js",
     "test:cache-prefix": "node test/cache-prefix-stability.js",
+    "test:tech-glyph-economics": "node test/tech-glyph-economics.js",
     "test:integration": "node test/integration.js",
     "benchmark": "node test/benchmark.js",
     "benchmark:realistic": "node test/benchmark-realistic.js",

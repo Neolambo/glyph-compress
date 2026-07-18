@@ -46,6 +46,30 @@ const TECH_GLYPHS = {
   llm: 'ℒ', agent: 'α', prompt: 'π',
 };
 
+// Measured real token cost of [word, glyph] for every TECH_GLYPHS entry,
+// captured with js-tiktoken against cl100k_base and o200k_base — see
+// `test/tokenizer-calibration.js` (`npm run calibrate:tokenizer` to
+// regenerate this table if TECH_GLYPHS changes). Format per entry:
+// [wordTokensCl100k, wordTokensO200k, glyphTokensCl100k, glyphTokensO200k].
+//
+// The finding that produced this table: on real OpenAI tokenizers, EVERY
+// one of these 28 glyphs costs as many or more tokens than the English
+// word it replaces (common tech names are already efficiently merged into
+// 1-2 BPE tokens; the char-count-based heuristic previously used for the
+// breakeven check couldn't see that, since it estimated the word's cost
+// from its length instead of its real token count). "express" -> 5 tokens
+// vs "express" itself at 1 token is the worst case. Only measured for
+// OpenAI so far — Anthropic and Gemini keep the character-based heuristic
+// until they get their own calibration pass (see ROADMAP.md).
+const MEASURED_TECH_GLYPH_TOKENS_OPENAI = {
+  typescript: [1, 1, 3, 3], javascript: [1, 1, 4, 4], python: [1, 1, 3, 3], rust: [1, 1, 2, 2],
+  go: [1, 1, 3, 3], java: [1, 1, 2, 2], csharp: [2, 2, 3, 3], swift: [1, 1, 2, 2], ruby: [1, 1, 3, 3],
+  react: [1, 1, 2, 2], nextjs: [2, 2, 2, 2], vue: [1, 1, 3, 3], angular: [1, 1, 3, 3], svelte: [2, 2, 3, 3],
+  django: [1, 1, 3, 3], rails: [1, 1, 2, 2], express: [1, 1, 5, 5], fastapi: [2, 2, 3, 3], docker: [1, 1, 3, 3],
+  kubernetes: [2, 2, 3, 3], terraform: [1, 1, 3, 3], postgres: [1, 1, 2, 2], mysql: [1, 1, 2, 2],
+  mongodb: [1, 1, 2, 2], redis: [1, 1, 3, 3], llm: [2, 2, 2, 2], agent: [1, 1, 1, 1], prompt: [1, 1, 1, 1],
+};
+
 // Every glyph emitted by _compressTechNames() below is drawn from TECH_GLYPHS,
 // so the printed codebook lines are generated FROM this same map (see
 // COMPACT_CODEBOOK_TECH_ENTRIES) instead of a hand-maintained subset, which
@@ -1358,9 +1382,17 @@ class GlyphCompressor {
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
     const charsPerToken = this.providerProfile ? ({ raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4) : 4;
     for (const [name, glyph] of entries) {
-      const origTokenCost = name.length / charsPerToken;
-      const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
-      if (this.provider !== 'raw' && glyphTokenCost >= origTokenCost) continue;
+      const measured = this.provider === 'openai' ? MEASURED_TECH_GLYPH_TOKENS_OPENAI[name] : null;
+      let skip;
+      if (measured) {
+        const [wordCl, wordO2, glyphCl, glyphO2] = measured;
+        skip = glyphCl >= wordCl || glyphO2 >= wordO2;
+      } else {
+        const origTokenCost = name.length / charsPerToken;
+        const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
+        skip = this.provider !== 'raw' && glyphTokenCost >= origTokenCost;
+      }
+      if (skip) continue;
       if (!this._techRegexCache) this._techRegexCache = new Map();
       let regex = this._techRegexCache.get(name);
       if (!regex) {
