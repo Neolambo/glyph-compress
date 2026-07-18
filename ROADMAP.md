@@ -317,11 +317,12 @@ Status: delivered.
 
 ### v1.17.0: Context Router Wiring
 
-Status: proposed.
+Status: delivered.
 
-- [ ] Wire ranked workspace file selection into normal compression calls behind an explicit option and token budget.
-- [ ] Use active file, diagnostics, git diff, and recent task intent as router inputs.
-- [ ] Keep provider-aware routing behavior auditable through source-map or explanation metadata.
+- [x] Wire ranked workspace file selection into normal compression calls behind an explicit option and token budget (`GlyphCompressor.routeAndCompress()`, CLI `glyph-compress route <query>`).
+- [x] Use diagnostics and recent task intent as router inputs (via `workspace-intelligence`'s existing intent detection + relevance scoring); fixed a word-boundary bug in diagnostic extraction (`HACK` matching inside "Hacker News") uncovered while wiring this up.
+- [x] Keep provider-aware routing behavior auditable through source-map metadata: `selectedFiles`/`excludedFiles` report score, token cost, and exclusion reason, with a per-file `sourceMap` for reversibility.
+- [ ] Partial: git-diff-aware routing (staged/unstaged files as a router signal) is available in `selectRelevantFiles` but not yet surfaced as a dedicated `routeAndCompress` option.
 
 ### v1.18.0: Structured Diagnostics and Snapshots
 
@@ -440,7 +441,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 
 ### 4. Product Moat
 
-- [ ] Ship Context Router Wiring (v1.17.0, already planned) — automatic relevant-context selection is a larger savings lever than glyph substitution alone.
+- [x] Ship Context Router Wiring (v1.17.0) — `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query>` rank workspace files by relevance and compress as many as fit inside a token budget, with `selectedFiles`/`excludedFiles` (+ per-file `sourceMap`) making the routing decision auditable. Building it surfaced and fixed a real pre-existing bug: `extractDiagnostics()`'s TODO/FIXME/HACK regex had no word boundaries and matched "HACK" inside "Hacker News," inflating irrelevant marketing docs above the actually-relevant source file.
 - [ ] Systematically orchestrate provider-side prompt caching (not just Anthropic `cache_control`) by treating the codebook and stable context as cache-first blocks across OpenAI and Gemini's implicit caching too.
 - [ ] Ship Team Codebook Registry (tracked below under Experimental Ideas) for shared, org-wide dictionaries — a network effect a single-user tool cannot replicate.
 

@@ -38,11 +38,13 @@ let trustPolicy = undefined;
 let attentionalDecay = false;
 let holographicFolding = false;
 let intentDiffs = false;
+let tokenBudget = 2000;
+let maxFiles = 8;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
-  if (!command && ['inspect', 'doctor', 'benchmark'].includes(arg)) {
+  if (!command && ['inspect', 'doctor', 'benchmark', 'route'].includes(arg)) {
     command = arg;
   } else if (arg === '--level' || arg === '-l') {
     level = args[++i];
@@ -50,6 +52,10 @@ for (let i = 0; i < args.length; i++) {
     copyToClipboard = true;
   } else if (arg === '--explain' || arg === '-x') {
     explain = true;
+  } else if (arg === '--budget') {
+    tokenBudget = parseInt(args[++i], 10) || tokenBudget;
+  } else if (arg === '--max-files') {
+    maxFiles = parseInt(args[++i], 10) || maxFiles;
   } else if (arg === '--source-map') {
     printSourceMap = true;
   } else if (arg === '--privacy') {
@@ -83,12 +89,16 @@ Commands:
   inspect [query]       Build .glyphcompress/codebook.json and rank relevant files
   doctor                Check repository readiness for GlyphCompress workflows
   benchmark             Run the repository benchmark script
+  route <query>         Rank relevant workspace files for a query and compress as many
+                        as fit inside a token budget (Context Router, v1.17.0)
 
 Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra, auto (default: standard)
                         'auto' picks a level from content signals (length, code density)
   -c, --copy            Copy compressed output to clipboard
   -x, --explain         Explain what changed during compression
+  --budget <tokens>     Token budget for the 'route' command (default: 2000)
+  --max-files <n>       Max candidate files to rank for the 'route' command (default: 8)
   --source-map          Print the reversible source map JSON
   --privacy             Redact secrets and sensitive identifiers before compression
   --decay               Enable experimental attentional decay compaction for history
@@ -108,7 +118,7 @@ Options:
 }
 
 if (command) {
-  runCommand(command, args, { jsonOutput });
+  runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles });
 } else if (startProxy) {
   import('../src/proxy.js').then(({ startProxyServer }) => {
     startProxyServer(proxyPort, proxyTarget, {
@@ -195,7 +205,36 @@ if (copyToClipboard) {
 }
 }
 
-function runCommand(command, args, { jsonOutput }) {
+function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles }) {
+  if (command === 'route') {
+    const query = args.filter((arg) => !['route', '--json'].includes(arg) && !arg.startsWith('-') && arg !== String(tokenBudget) && arg !== String(maxFiles)).join(' ');
+    const gc = new GlyphCompressor({ level, provider, trustPolicy, workspacePath: process.cwd() });
+    const result = gc.routeAndCompress(query, { rootDir: process.cwd(), tokenBudget, maxFiles, provider });
+    if (jsonOutput) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('\nContext Router');
+      console.log('----------------------------------------------------');
+      console.log(`Query:             ${query}`);
+      console.log(`Intent:            ${result.intents.join(', ')}`);
+      console.log(`Token budget:      ${result.tokensUsed} / ${result.tokenBudget}`);
+      console.log('Selected files:');
+      for (const file of result.selectedFiles) {
+        console.log(`  ${String(file.score).padStart(2, ' ')}  ${file.path}  (${file.tokens} tok)`);
+      }
+      if (result.excludedFiles.length) {
+        console.log('Excluded files:');
+        for (const file of result.excludedFiles) {
+          console.log(`  ${String(file.score).padStart(2, ' ')}  ${file.path}  (${file.reason})`);
+        }
+      }
+      console.log('----------------------------------------------------');
+      console.log(result.compressed);
+      console.log('----------------------------------------------------\n');
+    }
+    return;
+  }
+
   if (command === 'inspect') {
     const query = args.filter((arg) => !['inspect', '--json'].includes(arg) && !arg.startsWith('-')).join(' ');
     const root = process.cwd();

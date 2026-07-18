@@ -128,10 +128,35 @@ export interface GlyphCompressorOptions {
   privacy?: boolean;
 }
 
+export interface RouteAndCompressOptions {
+  rootDir?: string;
+  tokenBudget?: number;
+  maxFiles?: number;
+  provider?: Provider | string;
+}
+
+export interface RoutedFile {
+  path: string;
+  score: number;
+  tokens?: number;
+  reason?: string;
+  sourceMap?: GlyphSourceMap;
+}
+
+export interface RouteAndCompressResult {
+  compressed: string;
+  intents: string[];
+  selectedFiles: RoutedFile[];
+  excludedFiles: RoutedFile[];
+  tokenBudget: number;
+  tokensUsed: number;
+}
+
 export class GlyphCompressor {
   constructor(options?: GlyphCompressorOptions);
   compressText(text: string, provider?: Provider | string): CompressTextResult;
   compressMessages<TMessage extends { role: string; content: unknown }>(messages: TMessage[], provider?: Provider): CompressMessagesResult<TMessage>;
+  routeAndCompress(query: string, options?: RouteAndCompressOptions): RouteAndCompressResult;
   getCodebookPrompt(): string;
   getStats(): SessionStats;
   resetFileIndex(): void;

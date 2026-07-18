@@ -45,6 +45,7 @@ var import_node_fs = __toESM(require("node:fs"));
 var import_node_path = __toESM(require("node:path"));
 var import_node_os = __toESM(require("node:os"));
 var import_token_estimator = require("./token-estimator.cjs");
+var import_workspace_intelligence = require("../src/workspace-intelligence.cjs");
 var DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -630,6 +631,59 @@ var GlyphCompressor = class {
         ratio: (origTokens / Math.max(1, finalCompTokens)).toFixed(1) + "x",
         savedPct: ((1 - finalCompTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
       }
+    };
+  }
+  /**
+   * Context Router: rank workspace files relevant to a query (via
+   * workspace-intelligence's intent detection + relevance scoring), then
+   * compress as many as fit inside a token budget — instead of the IDE
+   * caller manually picking which open files to send. Explicit opt-in;
+   * existing compressText()/compressMessages() callers are unaffected.
+   *
+   * Files are taken in ranked-score order and skipped once the budget
+   * would be exceeded, so `selectedFiles`/`excludedFiles` on the result
+   * make the routing decision auditable (which files were sent and why
+   * others were not), per-file `sourceMap` included for reversibility.
+   *
+   * @param {string} query - user's task/prompt, used for intent + relevance ranking
+   * @param {Object} [options]
+   * @param {string} [options.rootDir] - workspace root, defaults to cwd
+   * @param {number} [options.tokenBudget] - max tokens to spend on routed file context (default 2000)
+   * @param {number} [options.maxFiles] - max candidate files to rank before budgeting (default 8)
+   * @param {string} [options.provider] - provider for token estimation, defaults to this.provider
+   */
+  routeAndCompress(query, options = {}) {
+    const rootDir = options.rootDir || process.cwd();
+    const tokenBudget = options.tokenBudget || 2e3;
+    const maxFiles = options.maxFiles || 8;
+    const provider = options.provider || this.provider;
+    const { intents, files } = (0, import_workspace_intelligence.routeContext)(rootDir, query, { limit: maxFiles });
+    const selectedFiles = [];
+    const excludedFiles = [];
+    const parts = [];
+    let tokensUsed = 0;
+    for (const file of files) {
+      if (!file.content) {
+        excludedFiles.push({ path: file.path, score: file.score, reason: "unreadable-or-too-large" });
+        continue;
+      }
+      const result = this.compressText(`[F: ${file.path}]
+${file.content}`, provider);
+      if (tokensUsed + result.stats.compressedTokens > tokenBudget) {
+        excludedFiles.push({ path: file.path, score: file.score, reason: "token-budget-exceeded" });
+        continue;
+      }
+      tokensUsed += result.stats.compressedTokens;
+      selectedFiles.push({ path: file.path, score: file.score, tokens: result.stats.compressedTokens, sourceMap: result.sourceMap });
+      parts.push(result.compressed);
+    }
+    return {
+      compressed: parts.join("\n"),
+      intents,
+      selectedFiles,
+      excludedFiles,
+      tokenBudget,
+      tokensUsed
     };
   }
   /**

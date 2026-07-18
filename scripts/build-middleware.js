@@ -33,11 +33,12 @@ try {
   execSync(`npx esbuild "${workspaceJs}" --platform=node --format=cjs --bundle --outfile="${workspaceCjs}"`, { stdio: 'inherit' });
 
   // 3. Build glyph-middleware.cjs
-  execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:../src/token-estimator.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:node:child_process --external:../src/token-estimator.js --external:../src/workspace-intelligence.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
 
-  // 4. Rewrite require in glyph-middleware.cjs
+  // 4. Rewrite requires in glyph-middleware.cjs
   let content = fs.readFileSync(middlewareCjs, 'utf8');
   content = content.replace('require("../src/token-estimator.js")', 'require("./token-estimator.cjs")');
+  content = content.replace('require("../src/workspace-intelligence.js")', 'require("../src/workspace-intelligence.cjs")');
   fs.writeFileSync(middlewareCjs, content, 'utf8');
 
   console.log('Middleware build successful!');

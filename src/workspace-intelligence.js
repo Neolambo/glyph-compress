@@ -118,6 +118,23 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
   return { intents, files: ranked, codebook };
 }
 
+/**
+ * Rank relevant files for a query AND read their content, ready to hand
+ * to a compressor's token-budgeted context router. Kept separate from
+ * compression itself (this module has no dependency on the compressor) —
+ * GlyphCompressor.routeAndCompress() in glyph-middleware.js is the
+ * consumer that turns this into compressed, budgeted output.
+ */
+export function routeContext(rootDir = process.cwd(), query = '', options = {}) {
+  const root = path.resolve(rootDir);
+  const { intents, files, codebook } = selectRelevantFiles(root, query, options);
+  const withContent = files.map((file) => ({
+    ...file,
+    content: readTextFile(path.join(root, file.path), options.maxFileBytes || 120_000),
+  }));
+  return { intents, files: withContent, codebook };
+}
+
 export function runDoctor(rootDir = process.cwd()) {
   const root = path.resolve(rootDir);
   const checks = [];
@@ -242,7 +259,7 @@ function extractDiagnostics(text) {
   const patterns = [
     /(error TS\d+:[^\n]+)/gi,
     /(warning:[^\n]+)/gi,
-    /(TODO|FIXME|HACK):?\s*([^\n]+)/gi,
+    /\b(TODO|FIXME|HACK)\b:?\s*([^\n]+)/gi,
   ];
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) diagnostics.push({ message: match[0].trim() });

@@ -42,4 +42,19 @@ const privacyMap = execFileSync(process.execPath, [cliPath, 'package.json', '--l
 });
 assert(privacyMap.includes('"privacy"'), 'CLI should print privacy redaction metadata when privacy mode is enabled');
 
+const routeJson = execFileSync(process.execPath, [cliPath, 'route', 'fix the dynamic dictionary bug', '--budget', '1500', '--max-files', '6', '--json'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+const routeResult = JSON.parse(routeJson);
+assert(Array.isArray(routeResult.selectedFiles), 'route --json should return a selectedFiles array');
+assert(Array.isArray(routeResult.intents) && routeResult.intents.includes('fix_error'), 'route should detect fix_error intent for this query');
+assert(routeResult.tokensUsed <= routeResult.tokenBudget, 'route should respect the requested token budget');
+
+const routeText = execFileSync(process.execPath, [cliPath, 'route', 'fix the dynamic dictionary bug', '--budget', '1500'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+assert(routeText.includes('Context Router'), 'route should print a human-readable report by default');
+
 console.log('cli suite ok');

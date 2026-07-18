@@ -438,6 +438,7 @@ npx glyph-compress [file|command] [options]
 | `inspect [query]` | Build `.glyphcompress/codebook.json`, detect intent, and rank relevant workspace files. | `npx glyph-compress inspect "fix auth error"` |
 | `doctor` | Check repository readiness plus optional local checks for installed extension version, Glyph settings, proxy config, and provider credentials. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
+| `route <query>` *(v1.17.0+)* | Context Router: rank workspace files relevant to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
 
 ### Command Line (CLI): Options
 
@@ -454,7 +455,9 @@ npx glyph-compress [file|command] [options]
 | `--decay` | flag | Enable Attentional Decay Compaction on chat history messages. | `npx glyph-compress --decay` |
 | `--folding` | flag | Enable holographic context folding for overlapping related files. | `npx glyph-compress --folding` |
 | `--intents` | flag | Enable generative intent diffs compression for code changes. | `npx glyph-compress --intents` |
-| `--json` | flag | Print machine-readable JSON for supported commands such as `inspect` and `doctor`. | `npx glyph-compress inspect "review diff" --json` |
+| `--budget <tokens>` | integer | Token budget for the `route` command. Default: `2000`. | `npx glyph-compress route "fix the bug" --budget 3000` |
+| `--max-files <n>` | integer | Max candidate files to rank for the `route` command. Default: `8`. | `npx glyph-compress route "fix the bug" --max-files 12` |
+| `--json` | flag | Print machine-readable JSON for supported commands such as `inspect`, `doctor`, and `route`. | `npx glyph-compress inspect "review diff" --json` |
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. Default port: `8080`. | `npx glyph-compress --proxy 8080` |
 | `-h, --help` | flag | Show built-in CLI help. | `npx glyph-compress --help` |
 

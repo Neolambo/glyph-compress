@@ -32,6 +32,7 @@ __export(workspace_intelligence_exports, {
   buildWorkspaceCodebook: () => buildWorkspaceCodebook,
   detectIntent: () => detectIntent,
   loadWorkspaceCodebook: () => loadWorkspaceCodebook,
+  routeContext: () => routeContext,
   runDoctor: () => runDoctor,
   saveWorkspaceCodebook: () => saveWorkspaceCodebook,
   selectRelevantFiles: () => selectRelevantFiles
@@ -155,6 +156,15 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
   }).filter((file) => file.score > 0).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, options.limit || 12);
   return { intents, files: ranked, codebook };
 }
+function routeContext(rootDir = process.cwd(), query = "", options = {}) {
+  const root = import_path.default.resolve(rootDir);
+  const { intents, files, codebook } = selectRelevantFiles(root, query, options);
+  const withContent = files.map((file) => ({
+    ...file,
+    content: readTextFile(import_path.default.join(root, file.path), options.maxFileBytes || 12e4)
+  }));
+  return { intents, files: withContent, codebook };
+}
 function runDoctor(rootDir = process.cwd()) {
   const root = import_path.default.resolve(rootDir);
   const checks = [];
@@ -271,7 +281,7 @@ function extractDiagnostics(text) {
   const patterns = [
     /(error TS\d+:[^\n]+)/gi,
     /(warning:[^\n]+)/gi,
-    /(TODO|FIXME|HACK):?\s*([^\n]+)/gi
+    /\b(TODO|FIXME|HACK)\b:?\s*([^\n]+)/gi
   ];
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) diagnostics.push({ message: match[0].trim() });
@@ -400,6 +410,7 @@ function detectProviderCredentials() {
   buildWorkspaceCodebook,
   detectIntent,
   loadWorkspaceCodebook,
+  routeContext,
   runDoctor,
   saveWorkspaceCodebook,
   selectRelevantFiles
