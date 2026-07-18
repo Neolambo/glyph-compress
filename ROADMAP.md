@@ -14,21 +14,16 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.11.0` for doctor expansion, configuration refresh, and regression snapshot coverage.
-- [x] Last stable release is `glyph-compress@1.11.0`.
-- [x] npm `latest` points to `1.11.0`.
-- [x] VS Code Marketplace listing is publicly available at `neolambo.glyph-compress@1.11.0`.
-- [x] GitHub release `v1.11.0` includes `glyph-compress-1.11.0.vsix`.
-- [x] Local VS Code extension metadata is aligned to `neolambo.glyph-compress@1.11.0`.
-- [x] `npm test` passed the unit, CLI, workspace, extension, proxy, metadata, snapshot, and integration suites during `v1.11.0` release validation.
-- [x] `npm run benchmark` reports 1.4x aggregate ratio, 28% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs (post-v1.12.0 performance calibration).
-- [x] npm package was reduced to a focused runtime/docs/types tarball using `package.json.files`.
+- [x] Current stable release is `v1.16.0` for codebook integrity fixes and automatic level selection.
+- [x] Last stable release was `glyph-compress@1.15.0` (Holographic Folding & Intent Diffs).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.16.0`.
+- [x] `npm test` passes 13 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability) for `v1.16.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — the genuine-savings figure is lower than the previously-reported 25% because the dynamic dictionary no longer counts single-occurrence substitutions that never paid for their own definition (see v1.16.0 below).
+- [ ] npm `latest`, VS Code Marketplace listing, and GitHub release for `1.16.0` are pending publication (requires npm and VSCE credentials this environment did not have).
 
 ## Prepared Next Release
 
-- [x] Prepared next release is `v1.12.0` for adaptive chat fallback, Anthropic hybrid payload shaping, realistic benchmark coverage, and cache-aware enterprise measurement.
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.12.0`.
-- [x] Release notes and public docs are updated for `v1.12.0`, but npm/GitHub/Marketplace verification remains pending until publication.
+- [ ] Prepared next release is `v1.17.0` for context router wiring (see Proposed Future Versions below).
 
 ## Release Reality Check
 
@@ -307,7 +302,20 @@ Status: delivered.
 - [x] Wire folding and intents configurations into GlyphCompressor options, CLI flags (`--folding` / `--intents`), and proxy server.
 - [x] Create comprehensive unit test suites in `test/holographic-test.js` and `test/intent-test.js` verifying behavior and saving thresholds.
 
-### v1.16.0: Context Router Wiring
+### v1.16.0: Codebook Integrity & Adaptive Levels
+
+Status: delivered.
+
+- [x] Fix dynamic-dictionary symbol collision: replace the Greek/Cyrillic glyph pool (which overlapped reserved `TECH_GLYPHS` symbols — `α` was both "Agent" and the first dynamic-dictionary assignment) with unbounded `§N` indexed references.
+- [x] Fix codebook completeness: generate the printed `TECH:` codebook line directly from `TECH_GLYPHS` so it cannot drift out of sync (13/28 glyphs were previously undocumented). Apply the same fix to the legacy `compressor.js`/`system-prompt-generator.js` engine (14/33 previously undocumented).
+- [x] Fix `getCodebookPrompt()` (the CLI's codebook source) to always include dynamic-dictionary `DYN:` definitions, not just when called through the messages/proxy path.
+- [x] Fix dynamic-dictionary economics: require a word to repeat at least twice and net out its own definition cost before counting it as a saving.
+- [x] Add net-negative fallback to `compressText()`, matching the fallback already present in `compressMessages()`.
+- [x] Add automatic level selection: `selectCompressionLevel()` and `level: 'auto'` pick light/standard/aggressive/ultra per request from content length and code density.
+- [x] Add tokenizer-calibrated glyph cost measurement (`npm run calibrate:tokenizer`, `js-tiktoken` dev dependency) to check the token-cost heuristic against real OpenAI tokenizers.
+- [x] Add `test/codebook-completeness.js` (60 assertions) and `test/cache-prefix-stability.js` as permanent regression suites.
+
+### v1.17.0: Context Router Wiring
 
 Status: proposed.
 
@@ -315,14 +323,14 @@ Status: proposed.
 - [ ] Use active file, diagnostics, git diff, and recent task intent as router inputs.
 - [ ] Keep provider-aware routing behavior auditable through source-map or explanation metadata.
 
-### v1.17.0: Structured Diagnostics and Snapshots
+### v1.18.0: Structured Diagnostics and Snapshots
 
 Status: proposed.
 
 - [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
 - [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
 
-### v1.18.0: Expression-Level Source Maps
+### v1.19.0: Expression-Level Source Maps
 
 Status: proposed.
 
@@ -330,7 +338,7 @@ Status: proposed.
 - [ ] Expand language coverage for structural spans and reversible debug metadata.
 - [ ] Add targeted validation for source-map fidelity at the expression level.
 
-### v1.19.0: Provider Trust and UX
+### v1.20.0: Provider Trust and UX
 
 Status: proposed.
 
@@ -338,7 +346,7 @@ Status: proposed.
 - [ ] Add per-provider trust warnings or risk scoring for risky transformations.
 - [ ] Improve VS Code UX surfacing for provider choice, trust policy, and diagnostic output.
 
-### v1.20.0: Real Task Evaluation
+### v1.21.0: Real Task Evaluation
 
 Status: proposed.
 
@@ -346,7 +354,7 @@ Status: proposed.
 - [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
 - [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
 
-### v1.21.0: Adaptive Workspace Memory
+### v1.22.0: Adaptive Workspace Memory
 
 Status: proposed.
 

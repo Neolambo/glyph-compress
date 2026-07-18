@@ -85,7 +85,8 @@ Commands:
   benchmark             Run the repository benchmark script
 
 Options:
-  -l, --level <level>   Compression level: light, standard, aggressive, ultra (default: standard)
+  -l, --level <level>   Compression level: light, standard, aggressive, ultra, auto (default: standard)
+                        'auto' picks a level from content signals (length, code density)
   -c, --copy            Copy compressed output to clipboard
   -x, --explain         Explain what changed during compression
   --source-map          Print the reversible source map JSON

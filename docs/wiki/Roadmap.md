@@ -3,7 +3,18 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.14.0`: Attentional Decay Compaction (ADC).
+`v1.16.0`: Codebook Integrity & Adaptive Levels.
+
+## Delivered in v1.16.0
+
+- Fixed a dynamic-dictionary symbol collision: the Greek/Cyrillic glyph pool overlapped reserved `TECH_GLYPHS` symbols (`α` was both "Agent" and the first dynamic-dictionary assignment). Dynamic entries are now unbounded `§N` indexed references.
+- Fixed codebook completeness: the printed `TECH:` codebook line is now generated directly from `TECH_GLYPHS`, so it cannot drift out of sync (13/28 glyphs were previously undocumented, including Java, C#, Swift, Ruby, Angular, Svelte, Django, Rails, Express, FastAPI, MySQL, MongoDB, and "prompt").
+- Fixed `getCodebookPrompt()` (the CLI's codebook source) to always include dynamic-dictionary `DYN:` definitions.
+- Fixed dynamic-dictionary economics: a word must repeat at least twice and net out its own definition cost before counting as a saving.
+- Added a net-negative fallback to `compressText()`, matching `compressMessages()`.
+- Added automatic level selection (`level: 'auto'`, CLI `--level auto`, VS Code setting `"auto"`).
+- Added tokenizer-calibrated glyph cost measurement (`npm run calibrate:tokenizer`) against real OpenAI tokenizers.
+- Added `test/codebook-completeness.js`, `test/auto-level.js`, and `test/cache-prefix-stability.js` as permanent regression suites (13 suites total, all passing).
 
 ## Delivered in v1.14.0
 
@@ -55,12 +66,12 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.15.0`: context router wiring.
-- `v1.16.0`: structured diagnostics and payload snapshots.
-- `v1.17.0`: expression-level source maps.
-- `v1.18.0`: provider trust and UX.
-- `v1.19.0`: real task evaluation.
-- `v1.20.0`: adaptive workspace memory.
+- `v1.17.0`: context router wiring.
+- `v1.18.0`: structured diagnostics and payload snapshots.
+- `v1.19.0`: expression-level source maps.
+- `v1.20.0`: provider trust and UX.
+- `v1.21.0`: real task evaluation.
+- `v1.22.0`: adaptive workspace memory.
 
 ## Longer-Term Ideas
 

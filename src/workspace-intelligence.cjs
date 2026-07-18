@@ -25,6 +25,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/workspace-intelligence.js
 var workspace_intelligence_exports = {};
 __export(workspace_intelligence_exports, {
   buildWorkspaceCodebook: () => buildWorkspaceCodebook,
@@ -39,10 +41,10 @@ var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
-const VERSION = "1.15.0";
-const CODEBOOK_DIR = ".glyphcompress";
-const CODEBOOK_FILE = "codebook.json";
-const SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
+var VERSION = "1.16.0";
+var CODEBOOK_DIR = ".glyphcompress";
+var CODEBOOK_FILE = "codebook.json";
+var SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
   ".js",
   ".jsx",
   ".ts",
@@ -63,8 +65,8 @@ const SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
   ".yml",
   ".yaml"
 ]);
-const IGNORED_DIRS = /* @__PURE__ */ new Set([".git", "node_modules", "dist", "build", "coverage", ".next", ".turbo", ".cache", "assets"]);
-const INTENT_PATTERNS = [
+var IGNORED_DIRS = /* @__PURE__ */ new Set([".git", "node_modules", "dist", "build", "coverage", ".next", ".turbo", ".cache", "assets"]);
+var INTENT_PATTERNS = [
   ["fix_error", /\b(fix|bug|error|exception|failing|broken|crash|typeerror|trace)\b/i],
   ["review_diff", /\b(review|diff|pr|pull request|staged|unstaged|changes?)\b/i],
   ["implement_feature", /\b(add|create|implement|feature|build|support)\b/i],

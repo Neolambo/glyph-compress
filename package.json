@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {
@@ -55,6 +55,10 @@
     "test:proxy": "node test/proxy.js",
     "test:metadata": "node test/metadata.js",
     "test:snapshots": "node test/snapshots.js",
+    "test:codebook": "node test/codebook-completeness.js",
+    "calibrate:tokenizer": "node test/tokenizer-calibration.js",
+    "test:auto-level": "node test/auto-level.js",
+    "test:cache-prefix": "node test/cache-prefix-stability.js",
     "test:integration": "node test/integration.js",
     "benchmark": "node test/benchmark.js",
     "benchmark:realistic": "node test/benchmark-realistic.js",
@@ -91,5 +95,8 @@
   "homepage": "https://github.com/Neolambo/glyph-compress#readme",
   "bugs": {
     "url": "https://github.com/Neolambo/glyph-compress/issues"
+  },
+  "devDependencies": {
+    "js-tiktoken": "^1.0.21"
   }
 }

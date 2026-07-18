@@ -37,12 +37,14 @@ Context uses compressed glyphs. Decode with this codebook:`);
     .map(([k, v]) => `${v}=${k}`).join(' ');
   parts.push(`ACT: ${actionStr}`);
 
-  // Tech glyphs (most important ones)
-  const topTechs = ['typescript', 'javascript', 'python', 'rust', 'go', 'react', 'nextjs', 'vue',
-    'docker', 'kubernetes', 'postgres', 'redis', 'llm', 'agent'];
-  const techStr = topTechs
-    .filter(t => TECH_GLYPHS[t])
-    .map(t => `${TECH_GLYPHS[t]}=${t}`).join(' ');
+  // Tech glyphs: every entry in TECH_GLYPHS, since _replaceTechNames() in
+  // compressor.js applies all of them, not just a curated subset. Printing
+  // only a hand-picked "most important" slice here previously let 19/33
+  // glyphs (Java, C#, Swift, Ruby, Angular, Svelte, Django, Rails, Express,
+  // FastAPI, NestJS, AWS, Azure, GCP, MySQL, MongoDB, embedding, prompt,
+  // and others) reach the model completely undocumented.
+  const techStr = Object.entries(TECH_GLYPHS)
+    .map(([name, glyph]) => `${glyph}=${name}`).join(' ');
   parts.push(`TECH: ${techStr}`);
 
   // Structure glyphs

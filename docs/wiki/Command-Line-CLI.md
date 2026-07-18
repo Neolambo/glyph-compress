@@ -21,7 +21,7 @@ npx glyph-compress [file|command] [options]
 
 | Option | Values | Purpose |
 |---|---|---|
-| `-l, --level <level>` | `light`, `standard`, `aggressive`, `ultra` | Select compression aggressiveness. |
+| `-l, --level <level>` | `light`, `standard`, `aggressive`, `ultra`, `auto` | Select compression aggressiveness, or let `auto` pick per request. |
 | `-c, --copy` | flag | Copy compressed output to the system clipboard. |
 | `-x, --explain` | flag | Explain what changed during compression. |
 | `--source-map` | flag | Print reversible source map JSON. |

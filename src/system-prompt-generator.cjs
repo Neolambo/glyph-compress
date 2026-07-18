@@ -182,23 +182,7 @@ Context uses compressed glyphs. Decode with this codebook:`);
   parts.push(`DOM: ${domainStr}`);
   const actionStr = Object.entries(ACTION_GLYPHS).map(([k, v]) => `${v}=${k}`).join(" ");
   parts.push(`ACT: ${actionStr}`);
-  const topTechs = [
-    "typescript",
-    "javascript",
-    "python",
-    "rust",
-    "go",
-    "react",
-    "nextjs",
-    "vue",
-    "docker",
-    "kubernetes",
-    "postgres",
-    "redis",
-    "llm",
-    "agent"
-  ];
-  const techStr = topTechs.filter((t) => TECH_GLYPHS[t]).map((t) => `${TECH_GLYPHS[t]}=${t}`).join(" ");
+  const techStr = Object.entries(TECH_GLYPHS).map(([name, glyph]) => `${glyph}=${name}`).join(" ");
   parts.push(`TECH: ${techStr}`);
   parts.push(`SYM: \u2717=error \u26A0=warn \u2209=type_mismatch \u2205=not_found \u2192=returns \u0192=func \u{1D49E}=class \u25C7=state \u27FF=effect`);
   if (codebook && codebook.fileIndex.size > 0) {

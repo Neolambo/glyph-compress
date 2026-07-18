@@ -46,6 +46,63 @@ const TECH_GLYPHS = {
   llm: 'ℒ', agent: 'α', prompt: 'π',
 };
 
+// Every glyph emitted by _compressTechNames() below is drawn from TECH_GLYPHS,
+// so the printed codebook lines are generated FROM this same map (see
+// COMPACT_CODEBOOK_TECH_ENTRIES) instead of a hand-maintained subset, which
+// previously let 13/28 tech glyphs (Java, C#, Swift, Ruby, Angular, Svelte,
+// Django, Rails, Express, FastAPI, MySQL, MongoDB, "prompt") reach the model
+// without ever being documented in the injected codebook.
+const TECH_LABEL_OVERRIDES = {
+  typescript: 'TS', javascript: 'JS', python: 'Py', csharp: 'C#',
+  nextjs: 'Next', kubernetes: 'K8s', postgres: 'PG', mongodb: 'Mongo',
+  llm: 'LLM', fastapi: 'FastAPI',
+};
+
+function _techLabel(name) {
+  return TECH_LABEL_OVERRIDES[name] || name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTOMATIC LEVEL SELECTION
+// ═══════════════════════════════════════════════════════════
+
+// compressMessages() already tries the user-configured level against
+// 'light' and keeps whichever measures fewer tokens (see
+// _candidateMessageStrategies), but it never tries 'aggressive'/'ultra' —
+// so a user stuck on 'standard' never discovers that a code-heavy payload
+// would compress much better under code minification/summary. And
+// compressText() (the CLI's method) has no multi-candidate trial at all;
+// it applies whatever level was configured, once. selectCompressionLevel()
+// gives both paths a real starting point instead of a fixed default,
+// based on cheap, content-derived signals rather than a guess:
+//   - very short text: 'light' — heavier transforms have near-zero room to
+//     help and only add fidelity risk for no measurable benefit.
+//   - code-dominated text: 'aggressive', or 'ultra' once it's also long
+//     enough that full architectural summarization has something
+//     meaningful to amortize against.
+//   - otherwise: 'standard'.
+const CODE_LINE_PATTERN = /^\s*(?:import\s|export\s|from\s|def\s|class\s|function\s|const\s|let\s|var\s|return\s|if\s*\(|for\s*\(|while\s*\(|#include|using\s|package\s|public\s|private\s|protected\s|@\w+|.*[{};]\s*$|.*=>\s*\{?\s*$)/;
+
+function selectCompressionLevel(text) {
+  if (typeof text !== 'string') return 'standard';
+  const trimmed = text.trim();
+  if (trimmed.length < 120) return 'light';
+
+  const fencedBlocks = trimmed.match(/```[\s\S]*?```/g) || [];
+  const fencedChars = fencedBlocks.reduce((sum, block) => sum + block.length, 0);
+  const fencedRatio = fencedChars / trimmed.length;
+
+  const lines = trimmed.split('\n').filter((line) => line.trim().length > 0);
+  const codeLines = lines.filter((line) => CODE_LINE_PATTERN.test(line));
+  const lineCodeRatio = lines.length > 0 ? codeLines.length / lines.length : 0;
+
+  const codeRatio = Math.max(fencedRatio, lineCodeRatio);
+
+  if (codeRatio >= 0.55 && trimmed.length > 600) return 'ultra';
+  if (codeRatio >= 0.3) return 'aggressive';
+  return 'standard';
+}
+
 const ERROR_PATTERNS = [
   [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'∉$2"],
   [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1∉→$2"],
@@ -209,34 +266,37 @@ const TRUST_POLICY_PROFILES = {
 // CODEBOOK SYSTEM PROMPT
 // ═══════════════════════════════════════════════════════════
 
-const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
-Context uses compressed glyphs. Decode:
-DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
-TECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent
-SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
-MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
-FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
-Respond normally. Context below uses these glyphs for brevity.
-[/GLYPH]`;
-const COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
-DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
-TECH: ᵗ=TS ʲˢ=JS ᵖ=Py ʳ=Rust ᵍ=Go ℜ=React ℕ=Next 𝕍=Vue 𝒟=Docker 𝒦=K8s 𝒯=Terraform ℙ=PG ᵣ=Redis ℒ=LLM α=Agent
-SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
-MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
-FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
-Decode:
-[/GLYPH]`;
 const COMPACT_CODEBOOK_DOM_ENTRIES = [
   ['◈', 'frontend'], ['◉', 'ai_ml'], ['◊', 'devops'], ['◆', 'database'],
   ['◇', 'lang'], ['⊕', 'auto'], ['⊗', 'arch'], ['⊙', 'mobile'],
   ['⊘', 'cloud'], ['⊚', 'data'], ['⊛', 'test'], ['⊜', 'backend'],
   ['⊝', 'security'], ['⊞', 'docs'], ['⊟', 'perf'], ['⊠', 'net'],
 ];
-const COMPACT_CODEBOOK_TECH_ENTRIES = [
-  ['ᵗ', 'TS'], ['ʲˢ', 'JS'], ['ᵖ', 'Py'], ['ʳ', 'Rust'], ['ᵍ', 'Go'],
-  ['ℜ', 'React'], ['ℕ', 'Next'], ['𝕍', 'Vue'], ['𝒟', 'Docker'], ['𝒦', 'K8s'],
-  ['𝒯', 'Terraform'], ['ℙ', 'PG'], ['ᵣ', 'Redis'], ['ℒ', 'LLM'], ['α', 'Agent'],
-];
+// Generated from TECH_GLYPHS (single source of truth) so every glyph the
+// compressor can emit is guaranteed to be documented here — see the note
+// above TECH_LABEL_OVERRIDES.
+const COMPACT_CODEBOOK_TECH_ENTRIES = Object.entries(TECH_GLYPHS)
+  .map(([name, glyph]) => [glyph, _techLabel(name)]);
+const TECH_CODEBOOK_LINE = COMPACT_CODEBOOK_TECH_ENTRIES.map(([g, l]) => `${g}=${l}`).join(' ');
+const CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+Context uses compressed glyphs. Decode:
+DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
+TECH: ${TECH_CODEBOOK_LINE}
+SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
+FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
+DYNFMT: §N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+Respond normally. Context below uses these glyphs for brevity.
+[/GLYPH]`;
+const COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+DOM: ◈=frontend ◉=ai_ml ◊=devops ◆=database ◇=lang ⊕=auto ⊗=arch ⊙=mobile ⊘=cloud ⊚=data ⊛=test ⊜=backend ⊝=security ⊞=docs ⊟=perf ⊠=net
+TECH: ${TECH_CODEBOOK_LINE}
+SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/fn 𝒞=class/struct ◇=var/const/let ◇t=type/int/void ⟿=effect ⺌=fix ⺋=perf ⺎=review ⺃=debug ⺏=deploy ▲=create ●=refactor ►=test ■=doc
+MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
+FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
+DYNFMT: §N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+Decode:
+[/GLYPH]`;
 const COMPACT_CODEBOOK_SYM_ENTRIES = [
   ['✗', 'err'], ['⚠', 'warn'], ['∉', 'type_err'], ['∅', 'missing'], ['→', 'return/yield'],
   ['ƒ', 'function/def/fn'], ['𝒞', 'class/struct'], ['◇t', 'type/int/void'], ['⟿', 'effect'],
@@ -428,10 +488,20 @@ class GlyphCompressor {
     };
   }
 
+  _resolveBaseLevel(messages = []) {
+    if (this.level !== 'auto') return this.level;
+    const userText = messages
+      .filter((m) => m.role === 'user')
+      .map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))
+      .join('\n');
+    return selectCompressionLevel(userText);
+  }
+
   _candidateMessageStrategies(messages = []) {
-    const levels = this.provider === 'raw' || this.level === 'light'
-      ? [this.level]
-      : [this.level, 'light'];
+    const baseLevel = this._resolveBaseLevel(messages);
+    const levels = this.provider === 'raw' || baseLevel === 'light'
+      ? [baseLevel]
+      : [baseLevel, 'light'];
     const strategies = levels.map((level) => ({ level, roles: ['user'] }));
 
     if (this.provider !== 'raw' && messages.some((message) => message.role === 'assistant')) {
@@ -497,31 +567,51 @@ class GlyphCompressor {
     this._setProvider(provider);
     this.resetSourceMap();
 
+    const configuredLevel = this.level;
+    const resolvedLevel = configuredLevel === 'auto' ? selectCompressionLevel(text) : configuredLevel;
+    this.level = resolvedLevel;
+
     const safeText = this._applyPrivacyFirewall(text, false);
     this._buildDynamicDictionary(safeText);
     const compressed = this._compressUserMessage(text, safeText);
     const origTokens = this._estimateTokens([{ content: text }], this.provider);
     const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
+    this.level = configuredLevel;
+
+    // compressMessages() already falls back to the original payload when
+    // compression is net-negative (see the `fallback` logic below), but
+    // compressText() — the method the CLI and standalone SDK usage call —
+    // had no equivalent safety net and would happily return output that
+    // costs MORE tokens than the input. 'raw' keeps its historical
+    // always-compress behavior (it exists specifically to report raw
+    // character-level deltas), matching the same provider guard already
+    // used for the messages path and per-glyph breakeven checks.
+    const fallback = this.provider !== 'raw' && compTokens >= origTokens;
+    const finalCompressed = fallback ? text : compressed;
+    const finalCompTokens = fallback ? origTokens : compTokens;
 
     // Track stats
     this.stats.totalOriginalTokens += origTokens;
-    this.stats.totalCompressedTokens += compTokens;
+    this.stats.totalCompressedTokens += finalCompTokens;
     this.stats.messagesProcessed++;
 
     this._saveCache();
 
     return {
-      compressed,
+      compressed: finalCompressed,
       original: text,
-      sourceMap: this.getSourceMap(),
+      fallback,
+      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
       stats: {
         provider: this.provider,
         profile: this.providerProfile.strategy,
         trustPolicy: this.trustPolicy,
         originalTokens: origTokens,
-        compressedTokens: compTokens,
-        ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + 'x',
-        savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
+        compressedTokens: finalCompTokens,
+        fallback,
+        selectedLevel: resolvedLevel,
+        ratio: (origTokens / Math.max(1, finalCompTokens)).toFixed(1) + 'x',
+        savedPct: ((1 - finalCompTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
       },
     };
   }
@@ -534,6 +624,16 @@ class GlyphCompressor {
     if (this.fileIndex.size > 0) {
       const files = [...this.fileIndex].map(([path, ref]) => `${ref}=${path}`).join(' | ');
       prompt = prompt.replace('[/GLYPH]', `FILES: ${files}\n[/GLYPH]`);
+    }
+    // compressText() callers (CLI, standalone SDK usage) never go through
+    // _injectCodebook(), so without this the CLI's default output —
+    // getCodebookPrompt() + compressed text — silently included dynamic
+    // §N glyphs the model was never told the meaning of. This instance's
+    // full dynamicDict is exactly what a standalone-compressed payload can
+    // reference, so it is always safe to disclose here.
+    if (this.dynamicDict.size > 0) {
+      const dyn = [...this.dynamicDict].map(([word, glyph]) => `${glyph}=${word}`).join(' | ');
+      prompt = prompt.replace('[/GLYPH]', `DYN: ${dyn}\n[/GLYPH]`);
     }
     return prompt;
   }
@@ -829,7 +929,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.15.0',
+      version: '1.16.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1154,18 +1254,37 @@ class GlyphCompressor {
       }
     }
 
-    const DYN_SYMBOLS = 'αβγδεζηθικλμνξοπρστυφχψωΓΔΘΛΞΠΣΦΨΩБВГДЖЗИКЛПФЦЧШЩЮЯ'.split('');
-
+    // Dynamic-dictionary glyphs are §N references (a single reserved marker
+    // + plain digits) instead of single exotic Unicode letters. The
+    // previous Greek/Cyrillic pool (a) collided with reserved TECH_GLYPHS
+    // symbols — α is literally the first assigned symbol, and
+    // TECH_GLYPHS.agent is also 'α', so every session with a dynamic entry
+    // silently produced an ambiguous glyph — and (b) exhausted after only
+    // 54 entries even though maxDynamicEntries goes up to 96. §N is
+    // collision-free, unbounded, and only 1 non-ASCII character (the
+    // digits are cheap ASCII), keeping the per-replacement token cost close
+    // to the original single-letter design. Estimated savings below assume
+    // a ~2-char glyph instead of the old 1-char assumption, so very short
+    // words correctly stop qualifying.
+    // A dictionary entry only pays for itself once its in-body savings
+    // exceed the cost of transmitting its own "word=glyph" definition (the
+    // DYN: line). A word seen once has nothing to amortize that definition
+    // against, so it is a guaranteed net loss once the definition cost is
+    // counted — the old formula ignored this and would happily spend a
+    // glyph on a single-occurrence word, which is why short multi-message
+    // sessions (see test: "Batch: overall compression") were barely
+    // breaking even. Requiring freq >= 2 fixes that at the source.
     const savings = [...counts.entries()].map(([word, freq]) => {
-      return { word, freq, save: freq * (word.length - 1) };
-    }).filter(x => x.save > this.providerProfile.dynamicMinSavedChars)
+      return { word, freq, save: freq * (word.length - 2) - (word.length + 2) };
+    }).filter(x => x.freq >= 2 && x.save > this.providerProfile.dynamicMinSavedChars)
       .sort((a, b) => b.save - a.save);
 
     for (const item of savings) {
-      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
-        this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
+      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
+        const glyph = `§${this.dynamicCounter + 1}`;
+        this.dynamicDict.set(item.word, glyph);
         this.sourceMap.dynamic.push({
-          glyph: DYN_SYMBOLS[this.dynamicCounter],
+          glyph,
           original: item.word,
           frequency: item.freq,
           estimatedSavedChars: item.save,
@@ -1177,12 +1296,24 @@ class GlyphCompressor {
     }
   }
 
+  // Non-ASCII penalty applies per non-ASCII character, not per glyph
+  // character overall — a glyph like §₍12₎ mixes one non-ASCII marker with
+  // ASCII digits, and blanket-penalizing every character in it (the
+  // previous formula) overstated its cost.
+  _estimateGlyphTokenCost(glyph, charsPerToken) {
+    let nonAsciiCount = 0;
+    for (let i = 0; i < glyph.length; i++) {
+      if (glyph.charCodeAt(i) > 127) nonAsciiCount++;
+    }
+    return glyph.length / charsPerToken + 1.5 * nonAsciiCount;
+  }
+
   _applyDynamicDictionary(text) {
     let result = text;
     const charsPerToken = ({ raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4);
     for (const [word, glyph] of this.dynamicDict) {
       const origTokenCost = word.length / charsPerToken;
-      const glyphTokenCost = glyph.length / charsPerToken + 1.5 * glyph.length;
+      const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
       if (this.provider !== 'raw' && glyphTokenCost >= origTokenCost) continue;
       if (!this._dynRegexCache) this._dynRegexCache = new Map();
       let regex = this._dynRegexCache.get(word);
@@ -1227,9 +1358,8 @@ class GlyphCompressor {
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
     const charsPerToken = this.providerProfile ? ({ raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4) : 4;
     for (const [name, glyph] of entries) {
-      const glyphUnicodeCost = 1.5;
       const origTokenCost = name.length / charsPerToken;
-      const glyphTokenCost = glyph.length / charsPerToken + glyphUnicodeCost * glyph.length;
+      const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
       if (this.provider !== 'raw' && glyphTokenCost >= origTokenCost) continue;
       if (!this._techRegexCache) this._techRegexCache = new Map();
       let regex = this._techRegexCache.get(name);
@@ -1999,8 +2129,9 @@ if (typeof module !== 'undefined' && module.exports) {
     TECH_GLYPHS,
     PROVIDER_COMPRESSION_PROFILES,
     TRUST_POLICY_PROFILES,
+    selectCompressionLevel,
   };
 }
 
 // ESM export for modern usage
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES };
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel };

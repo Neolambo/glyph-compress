@@ -1,4 +1,5 @@
 export type CompressionLevel = 'light' | 'standard' | 'aggressive' | 'ultra';
+export type CompressionLevelOption = CompressionLevel | 'auto';
 export type Provider = 'auto' | 'raw' | 'openai' | 'anthropic' | 'antigravity' | 'gemini' | 'local' | 'gpt' | 'claude' | 'google' | 'ollama';
 export type TrustPolicy = 'auto' | 'lossless' | 'reversible' | 'privacy' | 'lossy';
 
@@ -119,7 +120,7 @@ export interface CompressMessagesResult<TMessage = { role: string; content: unkn
 
 export interface GlyphCompressorOptions {
   enabled?: boolean;
-  level?: CompressionLevel;
+  level?: CompressionLevelOption;
   provider?: Provider | string;
   trustPolicy?: TrustPolicy | string;
   policy?: TrustPolicy | string;
@@ -172,6 +173,7 @@ export interface ProviderTokenProfile {
 }
 
 export const PROVIDER_TOKEN_PROFILES: Record<string, ProviderTokenProfile>;
+export function selectCompressionLevel(text: string): CompressionLevel;
 export function normalizeProvider(provider?: string): string;
 export function estimateProviderTokens(value: unknown, provider?: Provider | string): number;
 export function compareTokenEstimates(original: unknown, compressed: unknown, provider?: Provider | string): CompressionStats & { provider: string };

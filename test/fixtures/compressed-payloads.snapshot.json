@@ -6,7 +6,7 @@
     "result": {
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
-        "version": "1.15.0",
+        "version": "1.16.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -24,32 +24,7 @@
             "domain": "security"
           }
         ],
-        "dynamic": [
-          {
-            "glyph": "α",
-            "original": "Property",
-            "frequency": 1,
-            "estimatedSavedChars": 7,
-            "provider": "raw",
-            "profile": "balanced"
-          },
-          {
-            "glyph": "β",
-            "original": "Fix src",
-            "frequency": 1,
-            "estimatedSavedChars": 6,
-            "provider": "raw",
-            "profile": "balanced"
-          },
-          {
-            "glyph": "γ",
-            "original": "server",
-            "frequency": 1,
-            "estimatedSavedChars": 5,
-            "provider": "raw",
-            "profile": "balanced"
-          }
-        ],
+        "dynamic": [],
         "diagnostics": [
           {
             "original": "Property 'email' does not exist on type 'User'",
@@ -91,6 +66,8 @@
         "trustPolicy": "reversible",
         "originalTokens": 18,
         "compressedTokens": 12,
+        "fallback": false,
+        "selectedLevel": "standard",
         "ratio": "1.5x",
         "savedPct": "33%"
       }
@@ -104,9 +81,9 @@
       "privacyFirewall": true
     },
     "result": {
-      "compressed": "α=⟦SECRET_ASSIGNMENT_2⟧ and γ ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
+      "compressed": "Use API_KEY=⟦SECRET_ASSIGNMENT_2⟧ and contact ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
       "sourceMap": {
-        "version": "1.15.0",
+        "version": "1.16.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -118,32 +95,7 @@
         },
         "trustPolicy": "privacy",
         "files": [],
-        "dynamic": [
-          {
-            "glyph": "α",
-            "original": "Use API_KEY",
-            "frequency": 1,
-            "estimatedSavedChars": 10,
-            "provider": "raw",
-            "profile": "balanced"
-          },
-          {
-            "glyph": "β",
-            "original": "API_KEY",
-            "frequency": 1,
-            "estimatedSavedChars": 6,
-            "provider": "raw",
-            "profile": "balanced"
-          },
-          {
-            "glyph": "γ",
-            "original": "contact",
-            "frequency": 1,
-            "estimatedSavedChars": 6,
-            "provider": "raw",
-            "profile": "balanced"
-          }
-        ],
+        "dynamic": [],
         "diagnostics": [],
         "codeBlocks": [],
         "ast": [],
@@ -197,16 +149,6 @@
             "kind": "privacy",
             "redacted": true,
             "label": "IPv4 address"
-          },
-          {
-            "glyph": "α",
-            "original": "Use API_KEY",
-            "kind": "dynamic"
-          },
-          {
-            "glyph": "γ",
-            "original": "contact",
-            "kind": "dynamic"
           }
         ],
         "replacements": [
@@ -237,16 +179,6 @@
             "compressed": "⟦IPV4_4⟧",
             "redacted": true,
             "label": "IPv4 address"
-          },
-          {
-            "kind": "dynamic",
-            "original": "Use API_KEY",
-            "compressed": "α"
-          },
-          {
-            "kind": "dynamic",
-            "original": "contact",
-            "compressed": "γ"
           }
         ]
       },
@@ -255,9 +187,11 @@
         "profile": "balanced",
         "trustPolicy": "privacy",
         "originalTokens": 25,
-        "compressedTokens": 26,
-        "ratio": "1.0x",
-        "savedPct": "-4%"
+        "compressedTokens": 27,
+        "fallback": false,
+        "selectedLevel": "standard",
+        "ratio": "0.9x",
+        "savedPct": "-8%"
       }
     }
   },
@@ -286,7 +220,7 @@
         }
       ],
       "sourceMap": {
-        "version": "1.15.0",
+        "version": "1.16.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
@@ -349,7 +283,7 @@
         }
       ],
       "sourceMap": {
-        "version": "1.15.0",
+        "version": "1.16.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {

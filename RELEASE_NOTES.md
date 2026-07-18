@@ -1,3 +1,28 @@
+## v1.16.0 — Codebook Integrity & Adaptive Levels
+
+Changes since v1.15.0:
+
+### Correctness Fixes
+- **Dynamic-dictionary symbol collision fixed**: the per-session dynamic dictionary drew from a Greek/Cyrillic pool that overlapped reserved `TECH_GLYPHS` symbols — `α` was both the first dynamic-dictionary assignment and the fixed glyph for "Agent," producing genuinely ambiguous output whenever both occurred in the same payload (a common case, not an edge case). Dynamic entries are now unbounded `§N` indexed references, matching the existing file-ref convention (`◈₍1₎`).
+- **Undocumented tech glyphs fixed**: 13 of 28 `TECH_GLYPHS` entries (Java, C#, Swift, Ruby, Angular, Svelte, Django, Rails, Express, FastAPI, MySQL, MongoDB, "prompt") could reach compressed output without ever being documented in the injected codebook. The codebook's `TECH:` line is now generated directly from `TECH_GLYPHS`, so it cannot drift out of sync again. The legacy `compressor.js`/`system-prompt-generator.js` engine had the same class of bug (14/33 undocumented) and received the same fix.
+- **CLI codebook completeness fixed**: `getCodebookPrompt()` — the codebook source for `npx glyph-compress <file>` — never included the dynamic dictionary's `DYN:` definitions, so CLI output could contain undocumented `§N` glyphs. It now always includes them.
+- **Dynamic-dictionary economics fixed**: single-occurrence word substitutions were counted as "savings" even though they can never amortize the cost of their own `word=§N` definition. The dictionary now requires `freq >= 2` and nets out the definition cost.
+- **`compressText()` net-negative fallback added**: matches the fallback `compressMessages()` already had; `raw` provider intentionally keeps its unguarded always-compress behavior.
+
+### New Capabilities
+- **Automatic level selection**: `level: 'auto'` (CLI: `--level auto`) picks light/standard/aggressive/ultra per request from text length and code density; `selectCompressionLevel()` is exported for direct use.
+- **Tokenizer-calibrated glyph costs**: `npm run calibrate:tokenizer` measures real per-glyph token cost against OpenAI's cl100k_base/o200k_base tokenizers (`js-tiktoken` dev dependency) instead of relying solely on a fixed heuristic.
+- **VS Code setting**: `glyphCompress.compressionLevel` now accepts `"auto"`.
+
+### Tests & Verification
+- **New Test Suites**: `test/codebook-completeness.js` (60 assertions — deterministically exercises every `TECH_GLYPHS`/`DOMAIN_GLYPHS` entry and the dynamic dictionary), `test/auto-level.js`, `test/cache-prefix-stability.js` (locks in byte-stable codebook prefixes for OpenAI/Gemini implicit caching and Anthropic's `cache_control` block separation).
+- **Complete Suite Validation**: 13 suites, all passing.
+- **Honest benchmark numbers**: `npm run benchmark` genuine-savings figure moved from 25% to 22% as a direct, expected result of the dynamic-dictionary economics fix — the old number included illusory single-occurrence savings. `ultra`-level savings on code-heavy content are unaffected.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.15.0 — Holographic Context Folding & Generative Intent Diffs
 
 Changes since v1.14.0:

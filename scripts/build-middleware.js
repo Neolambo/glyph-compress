@@ -17,6 +17,8 @@ const compressorJs = path.join(rootDir, 'src', 'compressor.js');
 const compressorCjs = path.join(rootDir, 'src', 'compressor.cjs');
 const promptJs = path.join(rootDir, 'src', 'system-prompt-generator.js');
 const promptCjs = path.join(rootDir, 'src', 'system-prompt-generator.cjs');
+const workspaceJs = path.join(rootDir, 'src', 'workspace-intelligence.js');
+const workspaceCjs = path.join(rootDir, 'src', 'workspace-intelligence.cjs');
 
 console.log('Building middleware & core (CJS & ESM)...');
 
@@ -28,6 +30,7 @@ try {
   execSync(`npx esbuild "${alphabetJs}" --platform=node --format=cjs --bundle --outfile="${alphabetCjs}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${compressorJs}" --platform=node --format=cjs --bundle --outfile="${compressorCjs}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${promptJs}" --platform=node --format=cjs --bundle --outfile="${promptCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${workspaceJs}" --platform=node --format=cjs --bundle --outfile="${workspaceCjs}"`, { stdio: 'inherit' });
 
   // 3. Build glyph-middleware.cjs
   execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:../src/token-estimator.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });

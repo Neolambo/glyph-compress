@@ -13,6 +13,9 @@ const suites = [
   ['integration', 'test/integration.js'],
   ['holographic', 'test/holographic-test.js'],
   ['intent', 'test/intent-test.js'],
+  ['codebook-completeness', 'test/codebook-completeness.js'],
+  ['auto-level', 'test/auto-level.js'],
+  ['cache-prefix-stability', 'test/cache-prefix-stability.js'],
 ];
 
 for (const [name, file] of suites) {

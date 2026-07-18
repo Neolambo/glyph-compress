@@ -176,6 +176,28 @@ Attentional Decay simulates human memory inside the multi-turn chat transcript. 
 ***
 
 
+### New in v1.16.0 (Codebook Integrity & Adaptive Levels)
+
+This release fixes real correctness gaps found during an audit of the compression engine, then builds three new capabilities on top of the fixes.
+
+**Correctness fixes:**
+
+1. **Dynamic-dictionary symbol collision fixed**: the per-session dynamic dictionary used to draw from a pool of Greek/Cyrillic letters that overlapped with reserved `TECH_GLYPHS` symbols — `α` was both the first dynamic-dictionary assignment *and* the fixed glyph for "Agent", so any session with a repeated word and any mention of "Agent" produced an ambiguous glyph the model could not reliably decode. Dynamic entries are now `§N` references (the same indexed-reference convention already used for file refs like `◈₍1₎`), which is collision-free and has no fixed symbol-pool ceiling.
+2. **Undocumented tech glyphs fixed**: 13 of 28 `TECH_GLYPHS` entries (Java, C#, Swift, Ruby, Angular, Svelte, Django, Rails, Express, FastAPI, MySQL, MongoDB, "prompt") could appear in compressed output without ever being documented in the codebook sent to the model. The codebook is now generated directly from `TECH_GLYPHS`, so it cannot drift out of sync with what the compressor actually emits. The same class of bug (14/33 documented) was fixed in the legacy `compressor.js` engine used by `npm run demo`.
+3. **CLI codebook completeness fixed**: `getCodebookPrompt()` — the codebook source for `npx glyph-compress <file>` — never included the dynamic dictionary's `DYN:` definitions, so CLI output could contain `§N` glyphs with no definition attached anywhere in the printed output. It now always includes definitions for every dynamic entry it produced.
+4. **Dynamic-dictionary economics fixed**: a word seen only once in a payload was still being treated as a "saving," even though a single occurrence can never amortize the cost of transmitting its own `word=§N` definition. The dictionary now requires a word to repeat at least twice and nets out the definition cost when estimating savings.
+5. **`compressText()` net-negative fallback added**: `compressMessages()` already fell back to the original payload when compression measured net-negative; `compressText()` (used by the CLI and standalone SDK calls) had no equivalent safety net and could silently return output that cost *more* tokens than the input. It now shares the same fallback (for all providers except `raw`, which intentionally reports unguarded character-level deltas).
+
+**New capabilities:**
+
+6. **Automatic level selection (`level: 'auto'`)**: pass `level: 'auto'` (or `--level auto` on the CLI) and GlyphCompress picks `light`/`standard`/`aggressive`/`ultra` per request from content signals — text length and code density — instead of a fixed default. `selectCompressionLevel()` is also exported directly for programmatic use.
+7. **Tokenizer-calibrated glyph costs**: `npm run calibrate:tokenizer` measures the *real* token cost of every glyph against OpenAI's cl100k_base and o200k_base tokenizers (via the `js-tiktoken` dev dependency) instead of relying solely on a fixed heuristic, and flags any glyph whose real cost is worse than assumed.
+8. **Codebook completeness test suite**: `npm run test:codebook` deterministically exercises every `TECH_GLYPHS`/`DOMAIN_GLYPHS` entry and the dynamic dictionary, and asserts every emitted glyph is documented in whatever codebook ships with it — this is the test that would have caught fixes #1-#3 automatically.
+9. **Cache-prefix stability test suite**: `npm run test:cache-prefix` locks in that the injected codebook is byte-identical for identical content (required for OpenAI/Gemini implicit prompt caching) and that Anthropic's `cache_control`-tagged stable block never embeds request-specific dynamic-dictionary entries.
+
+> [!NOTE]
+> The aggregate benchmark numbers below moved slightly (25% → 22% genuine savings) as a direct, expected result of fix #4 — the old number included savings from single-occurrence substitutions that were never economically real. `ultra`-level savings on code-heavy content are unaffected.
+
 ### New in v1.15.0 (Holographic Folding & Intent Diffs)
 
 1. **Holographic Context Folding**: Folds overlapping related files and import boilerplate into layered, structured blocks (e.g. `⟦Base: ...⟧ ↷ [file1.tsx ↷ file2.tsx]`), saving up to 40% characters on multi-file workspaces.
@@ -321,9 +343,9 @@ Attentional Decay simulates human memory inside the multi-turn chat transcript. 
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.15.0)
+### 📏 Benchmark Snapshot (v1.16.0)
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **25% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. The genuine-savings figure dropped from 25% to 22% in v1.16.0 because the dynamic dictionary no longer counts single-occurrence word substitutions as savings (see "New in v1.16.0" below) — the new number is lower but honest, not a regression in the underlying engine.
 
 ### 🧪 Realistic Benchmark Notes
 
@@ -337,14 +359,14 @@ For future release planning and repository improvement priorities, see the [Glyp
 
 The current realistic benchmark shows a more nuanced picture than the synthetic fixture table below:
 
-- Raw repository files usually land around **1.2x-1.4x** compression in `light`, `standard`, and `aggressive` modes.
-- `ultra` can be dramatically better on some prose-heavy documents, but not on every file.
+- Raw repository files at `light`, `standard`, and `aggressive` are now close to break-even (roughly **0.9x-1.0x**) on typical prose-and-code documentation. As of v1.16.0, the dynamic dictionary requires a word to repeat at least twice and accounts for the cost of transmitting its own definition, so it no longer inflates this number with single-occurrence substitutions that never actually paid for themselves.
+- `ultra` remains the level with real, structural savings on code-heavy files (up to roughly **1.2x** on this repository's own source), though not universally — dense single-file prose/code mixes can still land slightly negative.
 - The **user message alone** usually compresses well for chat prompts.
 - The **full first-turn chat payload** can still get worse on short requests because the injected codebook outweighs the user-message savings.
 - The **cumulative multi-turn payload** is now measured separately, so you can see whether repeated turns start to amortize the codebook or keep carrying a net overhead.
-- The new **enterprise nominal usage** section reports a weighted professional-IDE summary. In the current benchmark, OpenAI lands around **4% full-payload savings** and **17% isolated user-message savings**.
+- The new **enterprise nominal usage** section reports a weighted professional-IDE summary. In the current benchmark, OpenAI's weighted full-payload and isolated user-message savings are both roughly **break-even (~0%)** on this fixture set — the codebook overhead and the in-body savings largely cancel out.
 - Anthropic now uses a **hybrid wrapper strategy**: first-turn requests keep `system` lightweight, while multi-turn transcripts switch to structured cacheable blocks once assistant history exists.
-- Anthropic-oriented sections include both a transmitted **payloadSaved** metric and a **cache-adjusted estimate**. In the current benchmark, Anthropic remains slightly negative on weighted transmitted payload at about **-5%**, while the cache-adjusted weighted estimate is still positive at about **9%**. This is a benchmark estimate, not a billing guarantee.
+- Anthropic-oriented sections include both a transmitted **payloadSaved** metric and a **cache-adjusted estimate**. In the current benchmark, Anthropic remains slightly negative on weighted transmitted payload at about **-5%**, while the cache-adjusted weighted estimate (accounting for `cache_control` reuse of the system block and largest user block) is positive at about **28%**. This is a benchmark estimate, not a billing guarantee.
 
 Use `npm run benchmark` as the stable regression benchmark and `npm run benchmark:realistic` when you want a more honest estimate of repository-scale and chat-payload behavior.
 
@@ -421,7 +443,7 @@ npx glyph-compress [file|command] [options]
 
 | Option | Values | Purpose | Example |
 |---|---|---|---|
-| `-l, --level <level>` | `light`, `standard`, `aggressive`, `ultra` | Select compression aggressiveness. Default: `standard`. | `npx glyph-compress src/app.ts --level ultra` |
+| `-l, --level <level>` | `light`, `standard`, `aggressive`, `ultra`, `auto` | Select compression aggressiveness, or let `auto` pick per request. Default: `standard`. | `npx glyph-compress src/app.ts --level ultra` |
 | `-c, --copy` | flag | Copy compressed output to the system clipboard. | `npx glyph-compress src/app.ts --copy` |
 | `-x, --explain` | flag | Print what was compressed, indexed, preserved, or transformed. | `npx glyph-compress src/app.ts --explain` |
 | `--source-map` | flag | Print reversible source map JSON, including file refs, dynamic entries, diagnostics, symbols, AST/code block metadata, privacy metadata, provider metadata, and trust metadata. | `npx glyph-compress src/app.ts --source-map` |
@@ -591,7 +613,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.15.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.16.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
@@ -622,7 +644,7 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
 {
   "glyphCompress.enabled": true,
   "glyphCompress.provider": "gemini",        // "auto" | "raw" | "openai" | "anthropic" | "antigravity" | "gemini" | "local"
-  "glyphCompress.compressionLevel": "standard", // "light" | "standard" | "aggressive" | "ultra"
+  "glyphCompress.compressionLevel": "standard", // "light" | "standard" | "aggressive" | "ultra" | "auto"
   "glyphCompress.trustPolicy": "privacy",     // "auto" | "lossless" | "reversible" | "privacy" | "lossy"
   "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
@@ -723,6 +745,7 @@ STRUCTURE:  ✗ Error   ⚠ Warning   ∉ Type mismatch   ∅ Not found
 | **standard** | Prompt patterns, tech names, file paths, diagnostics, repeated identifiers | Default coding assistant payloads |
 | **aggressive** | Standard compression plus multi-language syntax minification inside code blocks | Debugging or review where code structure still matters |
 | **ultra** | Aggressive compression plus architectural code summaries and redundancy stripping | Maximum context savings when inner code logic is less important |
+| **auto** *(v1.16.0+)* | Picks light/standard/aggressive/ultra per request from content length and code density | You don't want to hand-pick a level per payload |
 
 Use `sourceMap` or `--source-map` whenever you need to inspect or reverse the compressed references after the payload is sent.
 

@@ -35,6 +35,7 @@ __export(glyph_middleware_exports, {
   PROVIDER_COMPRESSION_PROFILES: () => PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS: () => TECH_GLYPHS,
   TRUST_POLICY_PROFILES: () => TRUST_POLICY_PROFILES,
+  selectCompressionLevel: () => selectCompressionLevel,
   wrapAnthropic: () => wrapAnthropic,
   wrapOpenAI: () => wrapOpenAI
 });
@@ -92,6 +93,37 @@ var TECH_GLYPHS = {
   agent: "\u03B1",
   prompt: "\u03C0"
 };
+var TECH_LABEL_OVERRIDES = {
+  typescript: "TS",
+  javascript: "JS",
+  python: "Py",
+  csharp: "C#",
+  nextjs: "Next",
+  kubernetes: "K8s",
+  postgres: "PG",
+  mongodb: "Mongo",
+  llm: "LLM",
+  fastapi: "FastAPI"
+};
+function _techLabel(name) {
+  return TECH_LABEL_OVERRIDES[name] || name.charAt(0).toUpperCase() + name.slice(1);
+}
+var CODE_LINE_PATTERN = /^\s*(?:import\s|export\s|from\s|def\s|class\s|function\s|const\s|let\s|var\s|return\s|if\s*\(|for\s*\(|while\s*\(|#include|using\s|package\s|public\s|private\s|protected\s|@\w+|.*[{};]\s*$|.*=>\s*\{?\s*$)/;
+function selectCompressionLevel(text) {
+  if (typeof text !== "string") return "standard";
+  const trimmed = text.trim();
+  if (trimmed.length < 120) return "light";
+  const fencedBlocks = trimmed.match(/```[\s\S]*?```/g) || [];
+  const fencedChars = fencedBlocks.reduce((sum, block) => sum + block.length, 0);
+  const fencedRatio = fencedChars / trimmed.length;
+  const lines = trimmed.split("\n").filter((line) => line.trim().length > 0);
+  const codeLines = lines.filter((line) => CODE_LINE_PATTERN.test(line));
+  const lineCodeRatio = lines.length > 0 ? codeLines.length / lines.length : 0;
+  const codeRatio = Math.max(fencedRatio, lineCodeRatio);
+  if (codeRatio >= 0.55 && trimmed.length > 600) return "ultra";
+  if (codeRatio >= 0.3) return "aggressive";
+  return "standard";
+}
 var ERROR_PATTERNS = [
   [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'\u2209$2"],
   [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1\u2209\u2192$2"],
@@ -246,23 +278,6 @@ var TRUST_POLICY_PROFILES = {
     }
   }
 };
-var CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
-Context uses compressed glyphs. Decode:
-DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
-TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
-SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
-MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
-FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
-Respond normally. Context below uses these glyphs for brevity.
-[/GLYPH]`;
-var COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
-DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
-TECH: \u1D57=TS \u02B2\u02E2=JS \u1D56=Py \u02B3=Rust \u1D4D=Go \u211C=React \u2115=Next \u{1D54D}=Vue \u{1D49F}=Docker \u{1D4A6}=K8s \u{1D4AF}=Terraform \u2119=PG \u1D63=Redis \u2112=LLM \u03B1=Agent
-SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
-MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
-FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
-Decode:
-[/GLYPH]`;
 var COMPACT_CODEBOOK_DOM_ENTRIES = [
   ["\u25C8", "frontend"],
   ["\u25C9", "ai_ml"],
@@ -281,23 +296,27 @@ var COMPACT_CODEBOOK_DOM_ENTRIES = [
   ["\u229F", "perf"],
   ["\u22A0", "net"]
 ];
-var COMPACT_CODEBOOK_TECH_ENTRIES = [
-  ["\u1D57", "TS"],
-  ["\u02B2\u02E2", "JS"],
-  ["\u1D56", "Py"],
-  ["\u02B3", "Rust"],
-  ["\u1D4D", "Go"],
-  ["\u211C", "React"],
-  ["\u2115", "Next"],
-  ["\u{1D54D}", "Vue"],
-  ["\u{1D49F}", "Docker"],
-  ["\u{1D4A6}", "K8s"],
-  ["\u{1D4AF}", "Terraform"],
-  ["\u2119", "PG"],
-  ["\u1D63", "Redis"],
-  ["\u2112", "LLM"],
-  ["\u03B1", "Agent"]
-];
+var COMPACT_CODEBOOK_TECH_ENTRIES = Object.entries(TECH_GLYPHS).map(([name, glyph]) => [glyph, _techLabel(name)]);
+var TECH_CODEBOOK_LINE = COMPACT_CODEBOOK_TECH_ENTRIES.map(([g, l]) => `${g}=${l}`).join(" ");
+var CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+Context uses compressed glyphs. Decode:
+DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
+TECH: ${TECH_CODEBOOK_LINE}
+SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
+MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
+FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
+DYNFMT: \xA7N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+Respond normally. Context below uses these glyphs for brevity.
+[/GLYPH]`;
+var COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
+DOM: \u25C8=frontend \u25C9=ai_ml \u25CA=devops \u25C6=database \u25C7=lang \u2295=auto \u2297=arch \u2299=mobile \u2298=cloud \u229A=data \u229B=test \u229C=backend \u229D=security \u229E=docs \u229F=perf \u22A0=net
+TECH: ${TECH_CODEBOOK_LINE}
+SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \u0192=function/def/fn \u{1D49E}=class/struct \u25C7=var/const/let \u25C7t=type/int/void \u27FF=effect \u2E8C=fix \u2E8B=perf \u2E8E=review \u2E83=debug \u2E8F=deploy \u25B2=create \u25CF=refactor \u25BA=test \u25A0=doc
+MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
+FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
+DYNFMT: \xA7N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+Decode:
+[/GLYPH]`;
 var COMPACT_CODEBOOK_SYM_ENTRIES = [
   ["\u2717", "err"],
   ["\u26A0", "warn"],
@@ -482,8 +501,14 @@ var GlyphCompressor = class {
       state: fallback ? baseState : this._captureCompressionState()
     };
   }
+  _resolveBaseLevel(messages = []) {
+    if (this.level !== "auto") return this.level;
+    const userText = messages.filter((m) => m.role === "user").map((m) => typeof m.content === "string" ? m.content : JSON.stringify(m.content)).join("\n");
+    return selectCompressionLevel(userText);
+  }
   _candidateMessageStrategies(messages = []) {
-    const levels = this.provider === "raw" || this.level === "light" ? [this.level] : [this.level, "light"];
+    const baseLevel = this._resolveBaseLevel(messages);
+    const levels = this.provider === "raw" || baseLevel === "light" ? [baseLevel] : [baseLevel, "light"];
     const strategies = levels.map((level) => ({ level, roles: ["user"] }));
     if (this.provider !== "raw" && messages.some((message) => message.role === "assistant")) {
       for (const level of levels) {
@@ -543,27 +568,37 @@ var GlyphCompressor = class {
     if (!this.enabled) return { compressed: text, original: text, stats: {} };
     this._setProvider(provider);
     this.resetSourceMap();
+    const configuredLevel = this.level;
+    const resolvedLevel = configuredLevel === "auto" ? selectCompressionLevel(text) : configuredLevel;
+    this.level = resolvedLevel;
     const safeText = this._applyPrivacyFirewall(text, false);
     this._buildDynamicDictionary(safeText);
     const compressed = this._compressUserMessage(text, safeText);
     const origTokens = this._estimateTokens([{ content: text }], this.provider);
     const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
+    this.level = configuredLevel;
+    const fallback = this.provider !== "raw" && compTokens >= origTokens;
+    const finalCompressed = fallback ? text : compressed;
+    const finalCompTokens = fallback ? origTokens : compTokens;
     this.stats.totalOriginalTokens += origTokens;
-    this.stats.totalCompressedTokens += compTokens;
+    this.stats.totalCompressedTokens += finalCompTokens;
     this.stats.messagesProcessed++;
     this._saveCache();
     return {
-      compressed,
+      compressed: finalCompressed,
       original: text,
-      sourceMap: this.getSourceMap(),
+      fallback,
+      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
       stats: {
         provider: this.provider,
         profile: this.providerProfile.strategy,
         trustPolicy: this.trustPolicy,
         originalTokens: origTokens,
-        compressedTokens: compTokens,
-        ratio: (origTokens / Math.max(1, compTokens)).toFixed(1) + "x",
-        savedPct: ((1 - compTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
+        compressedTokens: finalCompTokens,
+        fallback,
+        selectedLevel: resolvedLevel,
+        ratio: (origTokens / Math.max(1, finalCompTokens)).toFixed(1) + "x",
+        savedPct: ((1 - finalCompTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
       }
     };
   }
@@ -575,6 +610,11 @@ var GlyphCompressor = class {
     if (this.fileIndex.size > 0) {
       const files = [...this.fileIndex].map(([path2, ref]) => `${ref}=${path2}`).join(" | ");
       prompt = prompt.replace("[/GLYPH]", `FILES: ${files}
+[/GLYPH]`);
+    }
+    if (this.dynamicDict.size > 0) {
+      const dyn = [...this.dynamicDict].map(([word, glyph]) => `${glyph}=${word}`).join(" | ");
+      prompt = prompt.replace("[/GLYPH]", `DYN: ${dyn}
 [/GLYPH]`);
     }
     return prompt;
@@ -822,7 +862,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.15.0",
+      version: "1.16.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1045,15 +1085,15 @@ ${parsed.dynamicLine}`
         counts.set(bigram, (counts.get(bigram) || 0) + 1);
       }
     }
-    const DYN_SYMBOLS = "\u03B1\u03B2\u03B3\u03B4\u03B5\u03B6\u03B7\u03B8\u03B9\u03BA\u03BB\u03BC\u03BD\u03BE\u03BF\u03C0\u03C1\u03C3\u03C4\u03C5\u03C6\u03C7\u03C8\u03C9\u0393\u0394\u0398\u039B\u039E\u03A0\u03A3\u03A6\u03A8\u03A9\u0411\u0412\u0413\u0414\u0416\u0417\u0418\u041A\u041B\u041F\u0424\u0426\u0427\u0428\u0429\u042E\u042F".split("");
     const savings = [...counts.entries()].map(([word, freq]) => {
-      return { word, freq, save: freq * (word.length - 1) };
-    }).filter((x) => x.save > this.providerProfile.dynamicMinSavedChars).sort((a, b) => b.save - a.save);
+      return { word, freq, save: freq * (word.length - 2) - (word.length + 2) };
+    }).filter((x) => x.freq >= 2 && x.save > this.providerProfile.dynamicMinSavedChars).sort((a, b) => b.save - a.save);
     for (const item of savings) {
-      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < DYN_SYMBOLS.length && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
-        this.dynamicDict.set(item.word, DYN_SYMBOLS[this.dynamicCounter]);
+      if (!this.dynamicDict.has(item.word) && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
+        const glyph = `\xA7${this.dynamicCounter + 1}`;
+        this.dynamicDict.set(item.word, glyph);
         this.sourceMap.dynamic.push({
-          glyph: DYN_SYMBOLS[this.dynamicCounter],
+          glyph,
           original: item.word,
           frequency: item.freq,
           estimatedSavedChars: item.save,
@@ -1064,12 +1104,23 @@ ${parsed.dynamicLine}`
       }
     }
   }
+  // Non-ASCII penalty applies per non-ASCII character, not per glyph
+  // character overall — a glyph like §₍12₎ mixes one non-ASCII marker with
+  // ASCII digits, and blanket-penalizing every character in it (the
+  // previous formula) overstated its cost.
+  _estimateGlyphTokenCost(glyph, charsPerToken) {
+    let nonAsciiCount = 0;
+    for (let i = 0; i < glyph.length; i++) {
+      if (glyph.charCodeAt(i) > 127) nonAsciiCount++;
+    }
+    return glyph.length / charsPerToken + 1.5 * nonAsciiCount;
+  }
   _applyDynamicDictionary(text) {
     let result = text;
     const charsPerToken = { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4;
     for (const [word, glyph] of this.dynamicDict) {
       const origTokenCost = word.length / charsPerToken;
-      const glyphTokenCost = glyph.length / charsPerToken + 1.5 * glyph.length;
+      const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
       if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
       if (!this._dynRegexCache) this._dynRegexCache = /* @__PURE__ */ new Map();
       let regex = this._dynRegexCache.get(word);
@@ -1112,9 +1163,8 @@ ${parsed.dynamicLine}`
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
     const charsPerToken = this.providerProfile ? { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4 : 4;
     for (const [name, glyph] of entries) {
-      const glyphUnicodeCost = 1.5;
       const origTokenCost = name.length / charsPerToken;
-      const glyphTokenCost = glyph.length / charsPerToken + glyphUnicodeCost * glyph.length;
+      const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
       if (this.provider !== "raw" && glyphTokenCost >= origTokenCost) continue;
       if (!this._techRegexCache) this._techRegexCache = /* @__PURE__ */ new Map();
       let regex = this._techRegexCache.get(name);
@@ -1734,7 +1784,8 @@ if (typeof module !== "undefined" && module.exports) {
     DOMAIN_GLYPHS,
     TECH_GLYPHS,
     PROVIDER_COMPRESSION_PROFILES,
-    TRUST_POLICY_PROFILES
+    TRUST_POLICY_PROFILES,
+    selectCompressionLevel
   };
 }
 // Annotate the CommonJS export names for ESM import in node:
@@ -1745,6 +1796,7 @@ if (typeof module !== "undefined" && module.exports) {
   PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS,
   TRUST_POLICY_PROFILES,
+  selectCompressionLevel,
   wrapAnthropic,
   wrapOpenAI
 });
