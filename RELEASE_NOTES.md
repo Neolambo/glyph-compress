@@ -1,3 +1,26 @@
+## v1.21.1 — Critical Packaging Hotfix
+
+**The published VS Code extension was broken from v1.17.0 through v1.21.0.**
+
+### What broke
+`vscode-ext/glyph-middleware.cjs` required `../src/workspace-intelligence.cjs` and `../src/team-codebook.cjs`. Those relative paths resolve fine inside a full repository checkout — which is exactly what every test in this project's suite has always exercised, since they all `require()` files by repo-relative path. But `@vscode/vsce package` only includes files physically located inside `vscode-ext/` (see `vscode-ext/.vscodeignore`); the `src/` directory is not part of the packaged VSIX at all. The result: every VSIX built since the Context Router and Team Codebook Registry features wired `workspace-intelligence`/`team-codebook` into the middleware (v1.17.0) would throw `MODULE_NOT_FOUND` the instant any command tried to actually compress something — the extension would activate and log "ready," then fail on first real use.
+
+This was caught by extracting the VSIX that had just been installed into a real VS Code and starting the actual proxy from it, at the user's request to verify the install worked, rather than trusting the test suite — none of the automated tests exercised the packaged file layout.
+
+### The fix
+- Local, self-contained copies of `workspace-intelligence.cjs` and `team-codebook.cjs` are now built directly into `vscode-ext/`, matching the pattern already used for `token-estimator.cjs`. `glyph-middleware.cjs`'s requires now point to these local copies instead of `../src/*`.
+- **The equivalent npm-package risk was also real**: the new local copies were initially missing from `package.json`'s `files` allowlist, which would have broken `require('glyph-compress')` for npm consumers exactly the same way. Caught before any publish by extracting a real `npm pack` tarball and requiring the published entry points from it, not just by reading the allowlist.
+
+### Tests & Verification
+- **`test/extension.js`**: generalized a narrow, single-string check (only ever verified `token-estimator.cjs`) into a scan of every packaged `.cjs` file for *any* `require("../...")` escaping outside `vscode-ext/`.
+- **`test/npm-pack-smoke.js`** (new): runs a real `npm pack`, extracts the actual tarball to an isolated temp directory, and requires the published CJS entry point, the `glyph-compress/middleware` sub-export, and `routeAndCompress()` (which transitively needs both newly-local files) from it — the same authoritative "test the real artifact" methodology used for the VSIX side.
+- Both regression tests were verified to actually fail when the bug was deliberately reintroduced, and pass after the fix, before being trusted.
+- **Complete Suite Validation**: 22 suites, all passing.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.21.0 — Provider Trust & UX
 
 Changes since v1.20.0:

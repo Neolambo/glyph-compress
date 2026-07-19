@@ -186,6 +186,12 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.21.1 (Critical Packaging Hotfix)
+
+**The published VS Code extension was broken since v1.17.0.** `vscode-ext/glyph-middleware.cjs` required `../src/workspace-intelligence.cjs` and `../src/team-codebook.cjs` — paths that resolve fine inside this repo checkout, but `@vscode/vsce package` only includes files physically inside `vscode-ext/`, so every packaged VSIX since Context Router/Team Codebook Registry shipped (v1.17.0-v1.21.0) crashed with `MODULE_NOT_FOUND` the moment any command tried to compress anything. Caught by extracting a real installed VSIX and starting the proxy from it — every prior test required files by repo-relative path, which never exercises the actual packaged layout. **The equivalent npm-package risk was also real** (the local `vscode-ext/` copies this fix introduces were initially missing from `package.json`'s `files` allowlist) and is fixed in the same commit.
+
+Two new regression suites lock this in permanently: `test/extension.js` now scans every packaged `.cjs` file for any `require("../...")` escaping outside `vscode-ext/`, and `test/npm-pack-smoke.js` runs a real `npm pack`, extracts the actual tarball, and requires the published entry points from it — both reproduced the original failure on purpose before trusting the fix.
+
 ### New in v1.21.0 (Provider Trust & UX)
 
 1. **Code-block minification is now real-tokenizer-aware too**: the same measurement that found all 28 `TECH_GLYPHS` losing on OpenAI (v1.17.0) was applied to `_minifySyntax()`'s keyword-to-glyph substitutions inside code blocks (`return` → `→`, `function` → `ƒ`, `const` → `◇`, `public` → `+`, ...). Result: **all 33 keyword/glyph pairs tested are also net token losses on OpenAI** — common code keywords are already single BPE tokens (code is a huge fraction of pretraining data), so replacing them with a 1-4 token Unicode glyph never wins. Tech-name and code-keyword minification now both skip measured-loss substitutions on the `openai` provider; comment removal, blank-line removal, and indent-to-tab compaction (not glyph substitutions) still apply and still save real tokens.
@@ -381,7 +387,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.21.0)
+### 📏 Benchmark Snapshot (v1.21.1)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

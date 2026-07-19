@@ -46,8 +46,8 @@ var import_node_fs = __toESM(require("node:fs"));
 var import_node_path = __toESM(require("node:path"));
 var import_node_os = __toESM(require("node:os"));
 var import_token_estimator = require("./token-estimator.cjs");
-var import_workspace_intelligence = require("../src/workspace-intelligence.cjs");
-var import_team_codebook = require("../src/team-codebook.cjs");
+var import_workspace_intelligence = require("./workspace-intelligence.cjs");
+var import_team_codebook = require("./team-codebook.cjs");
 var DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -1047,7 +1047,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.21.0",
+      version: "1.21.1",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

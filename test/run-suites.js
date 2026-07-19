@@ -24,6 +24,7 @@ const suites = [
   ['ast-spans', 'test/ast-spans.js'],
   ['code-minify-economics', 'test/code-minify-economics.js'],
   ['trust-warnings', 'test/trust-warnings.js'],
+  ['npm-pack-smoke', 'test/npm-pack-smoke.js'],
 ];
 
 for (const [name, file] of suites) {

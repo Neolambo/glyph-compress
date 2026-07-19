@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.21.0`: Provider Trust & UX.
+`v1.21.1`: Critical Packaging Hotfix.
+
+## Delivered in v1.21.1
+
+- **The published VS Code extension was broken from v1.17.0 through v1.21.0** — `vscode-ext/glyph-middleware.cjs` required `../src/workspace-intelligence.cjs`/`../src/team-codebook.cjs`, paths that don't exist in a packaged VSIX (only `vscode-ext/` ships). Every install would fail on first real compression. Found by extracting an installed VSIX and starting the real proxy from it.
+- Fixed with local, self-contained copies inside `vscode-ext/` (same pattern as `token-estimator.cjs`); the equivalent npm-package risk (missing from `package.json`'s `files` allowlist) was also caught and fixed before any publish.
+- New `test/npm-pack-smoke.js` runs a real `npm pack` and requires the actual tarball's entry points; `test/extension.js` now scans all packaged files for any escaping `require("../...")`.
+- 22 suites total, all passing.
 
 ## Delivered in v1.21.0
 

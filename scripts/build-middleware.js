@@ -19,8 +19,10 @@ const promptJs = path.join(rootDir, 'src', 'system-prompt-generator.js');
 const promptCjs = path.join(rootDir, 'src', 'system-prompt-generator.cjs');
 const workspaceJs = path.join(rootDir, 'src', 'workspace-intelligence.js');
 const workspaceCjs = path.join(rootDir, 'src', 'workspace-intelligence.cjs');
+const workspaceCjsVsix = path.join(rootDir, 'vscode-ext', 'workspace-intelligence.cjs');
 const teamCodebookJs = path.join(rootDir, 'src', 'team-codebook.js');
 const teamCodebookCjs = path.join(rootDir, 'src', 'team-codebook.cjs');
+const teamCodebookCjsVsix = path.join(rootDir, 'vscode-ext', 'team-codebook.cjs');
 const proxyJs = path.join(rootDir, 'src', 'proxy.js');
 const proxyCjs = path.join(rootDir, 'vscode-ext', 'proxy.js');
 
@@ -36,15 +38,27 @@ try {
   execSync(`npx esbuild "${promptJs}" --platform=node --format=cjs --bundle --outfile="${promptCjs}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${workspaceJs}" --platform=node --format=cjs --bundle --outfile="${workspaceCjs}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${teamCodebookJs}" --platform=node --format=cjs --bundle --outfile="${teamCodebookCjs}"`, { stdio: 'inherit' });
+  // Also build LOCAL copies inside vscode-ext/, matching token-estimator.cjs's
+  // existing pattern: `@vscode/vsce package` only includes files physically
+  // inside vscode-ext/ (see vscode-ext/.vscodeignore), so a glyph-middleware.cjs
+  // that requires "../src/workspace-intelligence.cjs" resolves fine inside
+  // this repo but throws MODULE_NOT_FOUND in the packaged VSIX, where src/
+  // does not exist at all — found by actually starting the proxy from an
+  // extracted VSIX, not from repo-relative tests (which never exercise the
+  // packaged file layout).
+  execSync(`npx esbuild "${workspaceJs}" --platform=node --format=cjs --bundle --outfile="${workspaceCjsVsix}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${teamCodebookJs}" --platform=node --format=cjs --bundle --outfile="${teamCodebookCjsVsix}"`, { stdio: 'inherit' });
 
   // 3. Build glyph-middleware.cjs
   execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:node:child_process --external:../src/token-estimator.js --external:../src/workspace-intelligence.js --external:../src/team-codebook.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
 
-  // 4. Rewrite requires in glyph-middleware.cjs
+  // 4. Rewrite requires in glyph-middleware.cjs to local, self-contained
+  // vscode-ext/ copies — never a "../src/..." path, so the packaged VSIX
+  // (which only ships vscode-ext/*) always resolves everything it needs.
   let content = fs.readFileSync(middlewareCjs, 'utf8');
   content = content.replace('require("../src/token-estimator.js")', 'require("./token-estimator.cjs")');
-  content = content.replace('require("../src/workspace-intelligence.js")', 'require("../src/workspace-intelligence.cjs")');
-  content = content.replace('require("../src/team-codebook.js")', 'require("../src/team-codebook.cjs")');
+  content = content.replace('require("../src/workspace-intelligence.js")', 'require("./workspace-intelligence.cjs")');
+  content = content.replace('require("../src/team-codebook.js")', 'require("./team-codebook.cjs")');
   fs.writeFileSync(middlewareCjs, content, 'utf8');
 
   // 5. Build vscode-ext/proxy.js from src/proxy.js (was a hand-maintained

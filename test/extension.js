@@ -150,6 +150,27 @@ try {
   assert(fs.existsSync(path.join(root, 'vscode-ext', 'token-estimator.cjs')), 'VSIX should include local token estimator dependency');
   assert(!middlewareSource.includes('../src/token-estimator.cjs'), 'VSIX middleware should not require files outside the extension bundle');
 
+  // Regression guard, generalized: `@vscode/vsce package` only includes
+  // files physically inside vscode-ext/ (see vscode-ext/.vscodeignore).
+  // A require("../something") anywhere in a packaged .cjs file resolves
+  // fine inside this repo checkout (where src/ is a real sibling
+  // directory) but throws MODULE_NOT_FOUND the moment the VSIX is
+  // packaged and installed — a failure mode this repo's own tests never
+  // exercised because they all require() files by repo-relative path,
+  // not from an extracted VSIX. This shipped for real: workspace-
+  // intelligence.cjs and team-codebook.cjs were wired into
+  // glyph-middleware.cjs via "../src/*.cjs" externals (v1.17.0-v1.18.0)
+  // and broke every packaged VSIX since, caught only by manually
+  // extracting one and starting the proxy from it. The single hardcoded
+  // check above (token-estimator only) would not have caught this — this
+  // one scans every packaged CJS file for ANY escaping relative require.
+  const packagedCjsFiles = fs.readdirSync(path.join(root, 'vscode-ext')).filter((name) => name.endsWith('.cjs') || name === 'proxy.js');
+  for (const file of packagedCjsFiles) {
+    const source = fs.readFileSync(path.join(root, 'vscode-ext', file), 'utf8');
+    const escapingRequires = [...source.matchAll(/require\((["'])(\.\.\/[^"']+)\1\)/g)].map((m) => m[2]);
+    assert.strictEqual(escapingRequires.length, 0, `vscode-ext/${file} must not require() anything outside vscode-ext/ (the packaged VSIX only ships vscode-ext/*), found: ${escapingRequires.join(', ')}`);
+  }
+
   // Regression guard: vscode-ext/glyph-middleware.js hand-maintains a
   // second, manual `module.exports = {...}` block (a UMD-style dual
   // ESM/CJS shim) alongside its `export { ... }` statement — esbuild's

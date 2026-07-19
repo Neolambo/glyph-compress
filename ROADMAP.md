@@ -14,11 +14,11 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.21.0` for provider-aware code-block minification economics and trust warnings.
-- [x] Last stable release was `glyph-compress@1.20.0` (Expression-Level Source Maps).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.21.0`.
-- [x] `npm test` passes 21 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings) for `v1.21.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; disabling measurably-losing code-keyword substitution on OpenAI removed hidden waste with no observed downside, same pattern as the v1.17.0 TECH_GLYPHS fix.
+- [x] Current stable release is `v1.21.1`, a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
+- [x] Last feature release was `glyph-compress@1.21.0` (Provider Trust and UX).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.21.1`.
+- [x] `npm test` passes 22 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke) for `v1.21.1`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release is a packaging fix, not a compression-behavior change.
 
 ## Prepared Next Release
 
@@ -350,6 +350,15 @@ Status: delivered.
 - [x] Add per-provider trust warnings for risky transformations: `buildTrustWarnings(trustProfile, level)` and `sourceMap.trustWarnings` — every warning is derived strictly from the trust profile's own existing `reversible`/`redacts`/`lossy`/`allows.*` flags (no new, unverifiable claims about model behavior). Surfaced in CLI `--explain`.
 - [x] Improve VS Code UX surfacing for trust policy and diagnostic output: trust warnings now appear in the extension's output channel both at startup (for the configured level/policy) and after each manual compression.
 - [x] **Found and fixed a real export bug while adding this**: `vscode-ext/glyph-middleware.js` hand-maintains a second, manual `module.exports = {...}` block for CJS consumers alongside its `export {...}` statement (esbuild's own auto-generated CJS export is dead code there — `0 && (module.exports = {...})`). A symbol exported from one list but not the other silently produces `undefined` for `require()` consumers; `buildTrustWarnings` shipped with exactly this bug initially, caught immediately by a new regression test (`test/extension.js`) that now compares both lists and fails loudly if they diverge.
+
+### v1.21.1: Critical Packaging Hotfix
+
+Status: delivered.
+
+- [x] **The published VS Code extension was broken from `v1.17.0` through `v1.21.0`.** `vscode-ext/glyph-middleware.cjs` required `../src/workspace-intelligence.cjs` and `../src/team-codebook.cjs`. Those paths resolve fine inside a full repo checkout (which is all every prior test ever exercised — everything used repo-relative `require()`), but `@vscode/vsce package` only includes files physically inside `vscode-ext/`; `src/` is not part of the packaged VSIX at all. Every VSIX built since Context Router/Team Codebook Registry shipped would throw `MODULE_NOT_FOUND` the instant any command tried to compress anything. Found by extracting the actual just-installed VSIX and starting the real proxy from it, at the user's request to verify the install actually worked — not from any automated test, because none of them tested the packaged artifact.
+- [x] Fixed by building local, self-contained copies of `workspace-intelligence.cjs` and `team-codebook.cjs` directly into `vscode-ext/` (matching the existing pattern already used for `token-estimator.cjs`), and rewriting `glyph-middleware.cjs`'s requires to the local copies instead of `../src/*`.
+- [x] **The equivalent npm-package risk was also real**: the new local `vscode-ext/` copies were initially missing from `package.json`'s `files` allowlist, which would have broken `require('glyph-compress')` for npm consumers the same way, caught before any publish by extracting a real `npm pack` tarball and requiring the published entry points from it.
+- [x] Two new regression suites make this permanent: `test/extension.js` now scans every packaged `.cjs` file for any `require("../...")` escaping outside `vscode-ext/`, generalizing what used to be a single hardcoded check for one historical instance; `test/npm-pack-smoke.js` runs a real `npm pack`, extracts the tarball, and requires the published CJS entry point, the middleware sub-export, and `routeAndCompress()` from it. Both were verified to actually fail before the fix (reproduced the bug on purpose) and pass after.
 
 ### v1.22.0: Real Task Evaluation
 
