@@ -11,7 +11,7 @@ import { wrapOpenAI } from '../src/glyph-middleware.js';
 // 1. Create and wrap the client
 const client = wrapOpenAI(
   new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-  { level: 'standard' } // 'light' | 'standard' | 'aggressive'
+  { level: 'standard' } // 'light' | 'standard' | 'aggressive' | 'ultra' | 'auto'
 );
 
 // 2. Use it normally — compression is automatic

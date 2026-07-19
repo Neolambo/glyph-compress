@@ -1,7 +1,7 @@
 {
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
-  "description": "Compress IDE↔LLM communication using semantic radicals. Saves 80%+ tokens with OpenAI, Claude, and Antigravity.",
+  "description": "Compress IDE↔LLM communication using semantic radicals, with a Context Router and team-shared dictionaries. Supports OpenAI, Claude, Gemini, and Antigravity.",
   "version": "1.18.0",
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",

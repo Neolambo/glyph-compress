@@ -13,7 +13,10 @@
 </p>
 
 <p align="center">
-  <strong>Semantic compression for IDE↔LLM communication. Save 80%+ tokens with zero information loss.</strong>
+  <strong>Semantic compression for IDE↔LLM communication — CLI, VS Code extension, and MCP server, with reversible-by-default compression calibrated against real provider tokenizers.</strong>
+</p>
+<p align="center">
+  Up to 90%+ savings on well-suited payloads (see benchmarks below); real aggregate savings on the project's own benchmark suite is a more modest, honestly-reported 22%.
 </p>
 
 GlyphCompress uses a compositional radical-based encoding system (inspired by Chinese logograms) to compress the verbose context exchanged between IDEs and Large Language Models. A shared codebook injected into the LLM's system prompt enables it to decode compact glyph sequences back into full semantic concepts.
@@ -360,7 +363,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.17.0)
+### 📏 Benchmark Snapshot (v1.18.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -403,6 +406,9 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 5. **Persistent Telemetry**: The VS Code extension tracks your *Lifetime Savings* across all sessions, showing exactly how many millions of tokens (and dollars) you've saved overall.
 
 ## 📊 Benchmarks
+
+> [!NOTE]
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1180) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
@@ -832,43 +838,41 @@ The **codebook** (~150 tokens) is injected once into the system prompt. The LLM 
 
 ```
 glyph-compress/
+├── bin/
+│   ├── cli.js                    # `glyph-compress` CLI (compress/inspect/doctor/benchmark/route/team-codebook)
+│   └── mcp-server.js             # `glyph-compress-mcp` MCP server (compress_text/compress_file/route_context/get_codebook)
 ├── src/
 │   ├── index.js                  # Library entry point (ESM)
-│   ├── index.d.ts                # Stable TypeScript declarations
-│   ├── workspace-intelligence.js  # Workspace codebook, intent detection, and file ranking
-│   ├── radical-alphabet.js       # 96 symbols: radicals + glyphs
-│   ├── compressor.js             # Multi-level compression engine
-│   └── system-prompt-generator.js# Codebook system prompt generator
+│   ├── index.cjs / index.d.ts    # CommonJS entry point + stable TypeScript declarations
+│   ├── glyph-middleware.js       # Thin re-export of the compiled middleware (see vscode-ext/)
+│   ├── workspace-intelligence.js # Workspace codebook, intent detection, file ranking, and the Context Router's file reader
+│   ├── team-codebook.js          # Team Codebook Registry (glyphcompress.team.json read/write/merge)
+│   ├── token-estimator.js        # Provider-aware token estimators
+│   ├── radical-alphabet.js / compressor.js / system-prompt-generator.js  # Legacy standalone engine (used by `npm run demo`)
+│   └── workspace-intelligence.cjs, team-codebook.cjs, ...  # esbuild-generated CJS builds (see scripts/build-middleware.js)
 ├── vscode-ext/
 │   ├── package.json              # VS Code extension manifest
 │   ├── extension.js              # Extension activation & commands
-│   └── glyph-middleware.js       # Core middleware (OpenAI/Claude/Antigravity)
+│   └── glyph-middleware.js       # Core middleware: GlyphCompressor, wrapOpenAI/wrapAnthropic, routeAndCompress
 ├── test/
-│   ├── run-suites.js             # Runs focused test suites
-│   ├── unit.js                   # Core compressor and estimator checks
-│   ├── cli.js                    # CLI explain/source-map smoke checks
-│   ├── workspace.js              # Workspace intelligence smoke checks
-│   ├── metadata.js               # Package/docs metadata checks
-│   ├── benchmark.js              # Trust and measurement benchmark harness
-│   └── integration.js            # 41 legacy integration checks
+│   ├── run-suites.js             # Runs all 17 test suites
+│   ├── unit.js, cli.js, workspace.js, metadata.js, snapshots.js, integration.js, holographic-test.js, intent-test.js
+│   ├── codebook-completeness.js, auto-level.js, cache-prefix-stability.js, tech-glyph-economics.js
+│   ├── context-router.js, mcp-server.js, team-codebook.js  # newest suites — router, MCP protocol, shared dictionary
+│   ├── tokenizer-calibration.js  # real-tokenizer glyph-cost report (npm run calibrate:tokenizer)
+│   └── benchmark.js, benchmark-realistic.js
 ├── examples/
-│   ├── openai-example.js         # OpenAI usage example
-│   └── claude-example.js         # Claude usage example
+│   ├── openai-example.js, claude-example.js, antigravity-example.js
 ├── package.json
-├── SECURITY.md
-├── PRIVACY.md
-├── ENTERPRISE.md
-├── COMMERCIAL_LICENSE.md
-├── NOTICE
-├── LICENSE
-├── ROADMAP.md
+├── SECURITY.md, PRIVACY.md, ENTERPRISE.md, COMMERCIAL_LICENSE.md, NOTICE, LICENSE
+├── ROADMAP.md, RELEASE_NOTES.md
 └── README.md
 ```
 
 ## 🧪 Tests
 
 ```bash
-# Run all test suites
+# Run all 17 test suites
 npm test
 
 # Run focused suites
@@ -878,9 +882,19 @@ npm run test:workspace
 npm run test:extension
 npm run test:proxy
 npm run test:metadata
+npm run test:snapshots
+npm run test:holographic
+npm run test:intent
 npm run test:integration
+npm run test:codebook           # codebook-completeness: every emitted glyph must be documented
+npm run test:auto-level         # selectCompressionLevel() / level: 'auto'
+npm run test:cache-prefix       # byte-stable codebook prefix for provider-side implicit caching
+npm run test:tech-glyph-economics  # TECH_GLYPHS never lose real tokens on OpenAI
+npm run test:context-router     # routeAndCompress() + CLI `route`
+npm run test:mcp-server         # drives the real MCP server over stdio via the official SDK client
+npm run test:team-codebook      # glyphcompress.team.json shared dictionary
 
-# Run the stable release validation bundle
+# Run the stable release validation bundle (build, full test suite, benchmark, link check, npm pack dry-run)
 npm run check
 
 # Check local Markdown links
@@ -891,6 +905,9 @@ npm run benchmark
 
 # Run realistic corpus, payload, and throughput benchmark
 npm run benchmark:realistic
+
+# Measure real per-glyph token cost against OpenAI tokenizers (cl100k_base/o200k_base)
+npm run calibrate:tokenizer
 
 # Run interactive demo
 npm run demo
