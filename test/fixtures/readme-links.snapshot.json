@@ -1,8 +1,8 @@
 {
   "mustInclude": [
-    "https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60",
+    "https://img.shields.io/npm/v/glyph-compress",
     "https://www.npmjs.com/package/glyph-compress",
-    "https://img.shields.io/visual-studio-marketplace/v/neolambo.glyph-compress?label=VS%20Code%20Marketplace",
+    "https://img.shields.io/badge/VS%20Code%20Marketplace-neolambo.glyph--compress-blue",
     "https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress",
     "https://img.shields.io/github/v/release/Neolambo/glyph-compress?label=GitHub%20Release",
     "https://github.com/Neolambo/glyph-compress/releases",
@@ -10,6 +10,8 @@
   ],
   "mustExclude": [
     "https://github.com/Neolambo/glyph-compress/releases/latest/download/",
-    "~/.continue/config.json"
+    "~/.continue/config.json",
+    "https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60",
+    "https://img.shields.io/visual-studio-marketplace/v/neolambo.glyph-compress"
   ]
 }

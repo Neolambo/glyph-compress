@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/glyph-compress"><img src="https://img.shields.io/npm/v/glyph-compress?cacheSeconds=60" alt="NPM Version"></a>
+  <a href="https://www.npmjs.com/package/glyph-compress"><img src="https://img.shields.io/npm/v/glyph-compress" alt="NPM Version"></a>
   <a href="https://opensource.org/licenses/AGPL-3.0"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg" alt="License: AGPL-3.0-only"></a>
   <a href="COMMERCIAL_LICENSE.md"><img src="https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg" alt="Commercial License"></a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress"><img src="https://img.shields.io/visual-studio-marketplace/v/neolambo.glyph-compress?label=VS%20Code%20Marketplace" alt="VS Code Marketplace"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress"><img src="https://img.shields.io/badge/VS%20Code%20Marketplace-neolambo.glyph--compress-blue" alt="VS Code Marketplace"></a>
   <a href="https://github.com/Neolambo/glyph-compress/releases"><img src="https://img.shields.io/github/v/release/Neolambo/glyph-compress?label=GitHub%20Release" alt="GitHub Release"></a>
 </p>
 
