@@ -17,6 +17,7 @@ npx glyph-compress [file|command] [options]
 | `doctor` | Check repository readiness for GlyphCompress workflows. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
 | `route <query>` | Context Router: rank relevant workspace files and compress as many as fit inside a token budget. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
+| `team-codebook show` / `sync` | Team Codebook Registry: inspect or promote entries into the shared, git-committable `glyphcompress.team.json`. | `npx glyph-compress team-codebook sync` |
 
 ## Options
 

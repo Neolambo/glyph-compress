@@ -174,8 +174,18 @@ Attentional Decay simulates human memory inside the multi-turn chat transcript. 
   * **CLI**: `--decay` (or `--experimental-decay`)
   * **VS Code**: Toggle `"glyphCompress.experimentalDecay": true` in settings.
 
+### 4. Team Codebook Registry (v1.18.0)
+The per-session dynamic dictionary (and its cross-session cache) is per-machine — without this, two teammates working on the same repository independently learn different `§N` glyph assignments for the same identifiers, which both wastes the learning and defeats org-wide provider-side prompt caching (implicit caching keys off byte-identical prefixes, which requires the same word to produce the same glyph everywhere).
+* **How it works**: `glyphcompress.team.json` — a small, git-committable file at the workspace root (unlike the gitignored `.glyphcompress/` cache dir) — lists dictionary entries in priority order. Every `GlyphCompressor` instance seeds its `§N` indices from it before any per-session learning happens.
+* **Workflow**: `glyph-compress team-codebook sync` promotes this machine's locally-learned dictionary into the shared file; commit it to git so the whole team (and every CLI/MCP/proxy entry point) assigns the same glyph to the same word.
+* **Activation**: Automatic once `glyphcompress.team.json` exists at the workspace root — no flag needed. Inspect with `glyph-compress team-codebook show`.
+
 ***
 
+
+### New in v1.18.0 (Team Codebook Registry)
+
+1. **Team Codebook Registry**: `glyphcompress.team.json` (git-committable, at the workspace root) lets a team share a priority-ordered dynamic dictionary, so every teammate's `GlyphCompressor` — through the CLI, MCP server, VS Code extension, or proxy — assigns the exact same `§N` glyph to the same repeated identifier, instead of each machine learning its own independent, incompatible assignment. New CLI: `glyph-compress team-codebook show|sync`. See [Team Codebook Registry](#4-team-codebook-registry-v1180) above.
 
 ### New in v1.17.0 (MCP Server, Context Router & Real-Tokenizer Economics)
 
@@ -446,6 +456,8 @@ npx glyph-compress [file|command] [options]
 | `doctor` | Check repository readiness plus optional local checks for installed extension version, Glyph settings, proxy config, and provider credentials. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
 | `route <query>` *(v1.17.0+)* | Context Router: rank workspace files relevant to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
+| `team-codebook show` *(v1.18.0+)* | Print the shared team codebook (`glyphcompress.team.json`), if any. | `npx glyph-compress team-codebook show` |
+| `team-codebook sync` *(v1.18.0+)* | Promote this machine's locally-learned dynamic dictionary into `glyphcompress.team.json` for the whole team. | `npx glyph-compress team-codebook sync` |
 
 ### Command Line (CLI): Options
 

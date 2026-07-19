@@ -19,6 +19,7 @@ const suites = [
   ['tech-glyph-economics', 'test/tech-glyph-economics.js'],
   ['context-router', 'test/context-router.js'],
   ['mcp-server', 'test/mcp-server.js'],
+  ['team-codebook', 'test/team-codebook.js'],
 ];
 
 for (const [name, file] of suites) {

@@ -15,6 +15,7 @@
 
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { buildWorkspaceCodebook, saveWorkspaceCodebook, selectRelevantFiles, runDoctor } from '../src/workspace-intelligence.js';
+import { loadTeamCodebook, mergeTeamCodebook, readLocalDynamicDictWords, teamCodebookPath } from '../src/team-codebook.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -44,7 +45,7 @@ let maxFiles = 8;
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
-  if (!command && ['inspect', 'doctor', 'benchmark', 'route'].includes(arg)) {
+  if (!command && ['inspect', 'doctor', 'benchmark', 'route', 'team-codebook'].includes(arg)) {
     command = arg;
   } else if (arg === '--level' || arg === '-l') {
     level = args[++i];
@@ -91,6 +92,9 @@ Commands:
   benchmark             Run the repository benchmark script
   route <query>         Rank relevant workspace files for a query and compress as many
                         as fit inside a token budget (Context Router, v1.17.0)
+  team-codebook show    Print the shared team codebook (glyphcompress.team.json), if any
+  team-codebook sync    Promote this machine's locally-learned dynamic dictionary into
+                        glyphcompress.team.json for the whole team (commit it to git)
 
 Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra, auto (default: standard)
@@ -206,6 +210,52 @@ if (copyToClipboard) {
 }
 
 function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles }) {
+  if (command === 'team-codebook') {
+    const action = args.find((arg) => arg !== 'team-codebook' && !arg.startsWith('-')) || 'show';
+    const root = process.cwd();
+
+    if (action === 'sync') {
+      const localWords = readLocalDynamicDictWords(root);
+      if (localWords.length === 0) {
+        console.log('No locally-learned dynamic dictionary found for this workspace yet. Compress a few files first, then run sync again.');
+        return;
+      }
+      const result = mergeTeamCodebook(root, localWords);
+      const output = { path: path.relative(root, result.path), totalEntries: result.entries.length, addedCount: Math.max(0, result.addedCount) };
+      if (jsonOutput) {
+        console.log(JSON.stringify(output, null, 2));
+      } else {
+        console.log('\nTeam Codebook — sync');
+        console.log('----------------------------------------------------');
+        console.log(`File:          ${output.path}`);
+        console.log(`Total entries: ${output.totalEntries}`);
+        console.log(`New this run:  ${output.addedCount}`);
+        console.log('----------------------------------------------------');
+        console.log(`Commit ${output.path} to git so your whole team assigns the same §N glyphs to shared vocabulary.\n`);
+      }
+      return;
+    }
+
+    // action === 'show'
+    const team = loadTeamCodebook(root);
+    if (!team) {
+      console.log(`No team codebook found at ${path.relative(root, teamCodebookPath(root))}. Run "glyph-compress team-codebook sync" to create one from this machine's learned dictionary.`);
+      return;
+    }
+    if (jsonOutput) {
+      console.log(JSON.stringify(team, null, 2));
+    } else {
+      console.log('\nTeam Codebook');
+      console.log('----------------------------------------------------');
+      console.log(`Generated:     ${team.generatedAt}`);
+      console.log(`Entries:       ${team.entries.length}`);
+      team.entries.slice(0, 20).forEach((word, i) => console.log(`  §${i + 1}  ${word}`));
+      if (team.entries.length > 20) console.log(`  ... and ${team.entries.length - 20} more`);
+      console.log('----------------------------------------------------\n');
+    }
+    return;
+  }
+
   if (command === 'route') {
     const query = args.filter((arg) => !['route', '--json'].includes(arg) && !arg.startsWith('-') && arg !== String(tokenBudget) && arg !== String(maxFiles)).join(' ');
     const gc = new GlyphCompressor({ level, provider, trustPolicy, workspacePath: process.cwd() });

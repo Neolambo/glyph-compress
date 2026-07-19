@@ -14,11 +14,11 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.17.0` for the MCP server, Context Router wiring, and real-tokenizer TECH_GLYPHS economics.
-- [x] Last stable release was `glyph-compress@1.16.0` (Codebook Integrity & Adaptive Levels).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.17.0`.
-- [x] `npm test` passes 16 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server) for `v1.17.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged from v1.16.0 on these fixtures; disabling measurably-losing TECH_GLYPHS substitution on OpenAI removed hidden waste with no observed downside.
+- [x] Current stable release is `v1.18.0` for the Team Codebook Registry.
+- [x] Last stable release was `glyph-compress@1.17.0` (MCP Server, Context Router & Real-Tokenizer Economics).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.18.0`.
+- [x] `npm test` passes 17 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook) for `v1.18.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged from v1.17.0; the Team Codebook Registry affects cross-machine glyph consistency, not this single-session benchmark's numbers.
 
 ## Prepared Next Release
 
@@ -444,7 +444,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 
 - [x] Ship Context Router Wiring (v1.17.0) — `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query>` rank workspace files by relevance and compress as many as fit inside a token budget, with `selectedFiles`/`excludedFiles` (+ per-file `sourceMap`) making the routing decision auditable. Building it surfaced and fixed a real pre-existing bug: `extractDiagnostics()`'s TODO/FIXME/HACK regex had no word boundaries and matched "HACK" inside "Hacker News," inflating irrelevant marketing docs above the actually-relevant source file.
 - [ ] Systematically orchestrate provider-side prompt caching (not just Anthropic `cache_control`) by treating the codebook and stable context as cache-first blocks across OpenAI and Gemini's implicit caching too.
-- [ ] Ship Team Codebook Registry (tracked below under Experimental Ideas) for shared, org-wide dictionaries — a network effect a single-user tool cannot replicate.
+- [x] Ship Team Codebook Registry (tracked below under Experimental Ideas) for shared, org-wide dictionaries — a network effect a single-user tool cannot replicate.
 
 ### 5. Go-to-Market
 
@@ -456,7 +456,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 - [ ] Glyph Negotiation Protocol: Have the assistant reply with which glyph subsets it understood, then adapt future compression to that model.
 - [ ] Context Budget Planner: Let users set a target token budget and have GlyphCompress choose the compression strategy automatically.
 - [ ] Semantic Diff Compression: Compress only what changed since the previous chat turn, using stable references for unchanged context.
-- [ ] Team Codebook Registry: Allow teams to share project-specific dictionaries across repositories and agents.
+- [x] Team Codebook Registry: `glyphcompress.team.json` (git-committable, at the workspace root) lets a team share a priority-ordered dynamic dictionary — every GlyphCompressor instance seeds its §N indices from it before local learning, so the same word gets the same glyph on every teammate's machine (and via every MCP/CLI/proxy entry point). CLI: `glyph-compress team-codebook show|sync`. API: `loadTeamCodebook`/`saveTeamCodebook`/`mergeTeamCodebook` (`src/team-codebook.js`), `GlyphCompressor.getTeamCodebookInfo()`.
 - [ ] LLM Comprehension Tests: Ask multiple models to decode and solve tasks from compressed prompts, then score accuracy against expected edits.
 - [x] Privacy Firewall Mode: Redact secrets, credentials, and common customer identifiers before payload compression.
 

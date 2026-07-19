@@ -15,4 +15,5 @@ export { Compressor, Codebook } from './compressor.js';
 export { generateSystemPrompt, estimateOverhead } from './system-prompt-generator.js';
 export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel } from './glyph-middleware.js';
 export { buildWorkspaceCodebook, saveWorkspaceCodebook, loadWorkspaceCodebook, selectRelevantFiles, detectIntent, runDoctor } from './workspace-intelligence.js';
+export { loadTeamCodebook, saveTeamCodebook, mergeTeamCodebook, readLocalDynamicDictWords, teamCodebookPath, TEAM_CODEBOOK_FILENAME } from './team-codebook.js';
 export { PROVIDER_TOKEN_PROFILES, normalizeProvider, estimateProviderTokens, compareTokenEstimates } from './token-estimator.js';

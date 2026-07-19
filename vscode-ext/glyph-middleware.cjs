@@ -46,6 +46,7 @@ var import_node_path = __toESM(require("node:path"));
 var import_node_os = __toESM(require("node:os"));
 var import_token_estimator = require("./token-estimator.cjs");
 var import_workspace_intelligence = require("../src/workspace-intelligence.cjs");
+var import_team_codebook = require("../src/team-codebook.cjs");
 var DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -404,6 +405,8 @@ var GlyphCompressor = class {
       sessionStarted: Date.now()
     };
     this.workspacePath = options.workspacePath || options.cacheKey || null;
+    this.teamCodebookEntries = [];
+    this._seedTeamCodebook();
     this.cacheFile = null;
     this._initCache();
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
@@ -896,6 +899,40 @@ ${parsed.dynamicLine}`
   resetSourceMap() {
     this.sourceMap = this._createSourceMap();
   }
+  /**
+   * Report which dynamic-dictionary entries came from the shared, git-
+   * committed team codebook (glyphcompress.team.json) versus this
+   * session's own local learning, for transparency/debugging.
+   */
+  getTeamCodebookInfo() {
+    return {
+      loaded: this.teamCodebookEntries.length > 0,
+      entriesLoaded: this.teamCodebookEntries.length,
+      words: [...this.teamCodebookEntries]
+    };
+  }
+  // Seeds the dynamic dictionary from a git-committed glyphcompress.team.json
+  // (see src/team-codebook.js) BEFORE per-session learning or the personal
+  // local-cache restore happens, so every team member's compressor assigns
+  // the exact same §N index to the same shared vocabulary — deliberately,
+  // not by chance. Runs before _initCache() so the personal cache merge
+  // below can skip words already claimed by the team file.
+  _seedTeamCodebook() {
+    if (!this.workspacePath) return;
+    try {
+      const team = (0, import_team_codebook.loadTeamCodebook)(this.workspacePath);
+      if (!team || !Array.isArray(team.entries)) return;
+      for (const word of team.entries) {
+        if (!word || this.dynamicDict.has(word)) continue;
+        if (this.dynamicCounter >= this.providerProfile.maxDynamicEntries) break;
+        const glyph = `\xA7${this.dynamicCounter + 1}`;
+        this.dynamicDict.set(word, glyph);
+        this.teamCodebookEntries.push(word);
+        this.dynamicCounter++;
+      }
+    } catch (e) {
+    }
+  }
   _initCache() {
     try {
       if (this.workspacePath) {
@@ -915,12 +952,18 @@ ${parsed.dynamicLine}`
         const raw = import_node_fs.default.readFileSync(this.cacheFile, "utf8");
         const data = JSON.parse(raw);
         if (data.fileIndex && Array.isArray(data.fileIndex)) {
-          this.fileIndex = new Map(data.fileIndex);
-          this.fileCounter = typeof data.fileCounter === "number" ? data.fileCounter : this.fileIndex.size;
+          for (const [key, value] of data.fileIndex) {
+            if (!this.fileIndex.has(key)) this.fileIndex.set(key, value);
+          }
+          const cachedCounter = typeof data.fileCounter === "number" ? data.fileCounter : this.fileIndex.size;
+          this.fileCounter = Math.max(this.fileCounter, cachedCounter);
         }
         if (data.dynamicDict && Array.isArray(data.dynamicDict)) {
-          this.dynamicDict = new Map(data.dynamicDict);
-          this.dynamicCounter = typeof data.dynamicCounter === "number" ? data.dynamicCounter : this.dynamicDict.size;
+          for (const [word, glyph] of data.dynamicDict) {
+            if (!this.dynamicDict.has(word)) this.dynamicDict.set(word, glyph);
+          }
+          const cachedCounter = typeof data.dynamicCounter === "number" ? data.dynamicCounter : this.dynamicDict.size;
+          this.dynamicCounter = Math.max(this.dynamicCounter, cachedCounter);
         }
       }
     } catch (e) {
@@ -946,7 +989,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.17.0",
+      version: "1.18.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

@@ -1,3 +1,21 @@
+## v1.18.0 — Team Codebook Registry
+
+Changes since v1.17.0:
+
+### Product Moat
+- **Team Codebook Registry**: `glyphcompress.team.json` — a small, git-committable file at the workspace root (unlike the gitignored `.glyphcompress/` cache directory) — lists dynamic-dictionary entries in priority order. Every `GlyphCompressor` instance now seeds its `§N` glyph indices from this file before any per-session learning happens, so every team member's compressor (CLI, MCP server, VS Code extension, proxy — all of them) assigns the exact same glyph to the same repeated identifier. This fixes two problems the per-machine dynamic dictionary had: wasted relearning (every developer re-teaches the dictionary independently) and defeated provider-side prompt caching at the organization level (implicit caching keys off byte-identical prefixes, which requires the same word to produce the same glyph everywhere, not just within one developer's own sessions).
+- **New CLI commands**: `glyph-compress team-codebook show` (inspect the shared codebook) and `glyph-compress team-codebook sync` (promote this machine's locally-learned dictionary into the shared file, for committing to git).
+- **New API**: `loadTeamCodebook`/`saveTeamCodebook`/`mergeTeamCodebook`/`readLocalDynamicDictWords` (`src/team-codebook.js`), `GlyphCompressor.getTeamCodebookInfo()`.
+- The existing personal cross-session cache (`~/.glyphcompress/cache/<hash>.json`, v1.13.0) now merges into the dynamic dictionary instead of overwriting it, so a stale personal cache can never clobber team-seeded entries — fully backward compatible when no team codebook is present.
+
+### Tests & Verification
+- **New Test Suite**: `test/team-codebook.js` (9 assertions) covering the file format round-trip, index-collision safety between team and session-learned entries, and both CLI subcommands end-to-end.
+- **Complete Suite Validation**: 17 suites, all passing.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.17.0 — MCP Server, Context Router & Real-Tokenizer Economics
 
 Changes since v1.16.0:

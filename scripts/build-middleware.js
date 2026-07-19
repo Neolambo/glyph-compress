@@ -19,6 +19,8 @@ const promptJs = path.join(rootDir, 'src', 'system-prompt-generator.js');
 const promptCjs = path.join(rootDir, 'src', 'system-prompt-generator.cjs');
 const workspaceJs = path.join(rootDir, 'src', 'workspace-intelligence.js');
 const workspaceCjs = path.join(rootDir, 'src', 'workspace-intelligence.cjs');
+const teamCodebookJs = path.join(rootDir, 'src', 'team-codebook.js');
+const teamCodebookCjs = path.join(rootDir, 'src', 'team-codebook.cjs');
 
 console.log('Building middleware & core (CJS & ESM)...');
 
@@ -31,14 +33,16 @@ try {
   execSync(`npx esbuild "${compressorJs}" --platform=node --format=cjs --bundle --outfile="${compressorCjs}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${promptJs}" --platform=node --format=cjs --bundle --outfile="${promptCjs}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${workspaceJs}" --platform=node --format=cjs --bundle --outfile="${workspaceCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${teamCodebookJs}" --platform=node --format=cjs --bundle --outfile="${teamCodebookCjs}"`, { stdio: 'inherit' });
 
   // 3. Build glyph-middleware.cjs
-  execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:node:child_process --external:../src/token-estimator.js --external:../src/workspace-intelligence.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:node:child_process --external:../src/token-estimator.js --external:../src/workspace-intelligence.js --external:../src/team-codebook.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
 
   // 4. Rewrite requires in glyph-middleware.cjs
   let content = fs.readFileSync(middlewareCjs, 'utf8');
   content = content.replace('require("../src/token-estimator.js")', 'require("./token-estimator.cjs")');
   content = content.replace('require("../src/workspace-intelligence.js")', 'require("../src/workspace-intelligence.cjs")');
+  content = content.replace('require("../src/team-codebook.js")', 'require("../src/team-codebook.cjs")');
   fs.writeFileSync(middlewareCjs, content, 'utf8');
 
   console.log('Middleware build successful!');

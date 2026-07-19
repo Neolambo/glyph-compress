@@ -162,6 +162,7 @@ export class GlyphCompressor {
   resetFileIndex(): void;
   getSourceMap(): GlyphSourceMap;
   getReversibleDictionaries(): Pick<GlyphSourceMap, 'files' | 'dynamic' | 'diagnostics' | 'codeBlocks' | 'ast' | 'privacy' | 'symbols'>;
+  getTeamCodebookInfo(): { loaded: boolean; entriesLoaded: number; words: string[] };
   resetSourceMap(): void;
 }
 
@@ -241,3 +242,16 @@ export function saveWorkspaceCodebook(rootDir: string, codebook: WorkspaceCodebo
 export function loadWorkspaceCodebook(rootDir?: string): WorkspaceCodebook | null;
 export function selectRelevantFiles(rootDir?: string, query?: string, options?: WorkspaceIntelligenceOptions): { intents: WorkspaceIntent[]; files: Array<WorkspaceCodebookFile & { score: number }>; codebook: WorkspaceCodebook };
 export function runDoctor(rootDir?: string): { version: string; root: string; checks: Array<{ name: string; ok: boolean; detail: string; optional?: boolean }>; ok: boolean };
+
+export interface TeamCodebook {
+  version: number;
+  generatedAt: string;
+  entries: string[];
+}
+
+export const TEAM_CODEBOOK_FILENAME: string;
+export function teamCodebookPath(rootDir: string): string;
+export function loadTeamCodebook(rootDir: string): TeamCodebook | null;
+export function saveTeamCodebook(rootDir: string, entries: string[]): string;
+export function mergeTeamCodebook(rootDir: string, newEntries: string[]): { path: string; entries: string[]; addedCount: number };
+export function readLocalDynamicDictWords(workspacePath: string, homeDir?: string): string[];

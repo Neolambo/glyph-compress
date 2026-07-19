@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.17.0`: MCP Server, Context Router Wiring & Real-Tokenizer Economics.
+`v1.18.0`: Team Codebook Registry.
+
+## Delivered in v1.18.0
+
+- Added `glyphcompress.team.json`, a git-committable shared dynamic dictionary: every teammate's `GlyphCompressor` seeds the same `§N` glyph indices from it before per-session learning, so the same identifier gets the same glyph across the whole team and every entry point (CLI, MCP, VS Code, proxy).
+- New CLI commands: `glyph-compress team-codebook show` and `glyph-compress team-codebook sync`.
+- The personal cross-session cache now merges into the dynamic dictionary instead of overwriting it, so it can never clobber team-seeded entries.
+- 17 suites total, all passing.
 
 ## Delivered in v1.17.0
 
