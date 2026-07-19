@@ -213,6 +213,12 @@ export interface WorkspaceCodebookFile {
   symbols: string[];
   imports: string[];
   lines: number;
+  mtimeMs?: number;
+}
+
+export interface WorkspaceFileUsageEntry {
+  count: number;
+  lastUsedAt: string | null;
 }
 
 export interface WorkspaceCodebook {
@@ -225,6 +231,8 @@ export interface WorkspaceCodebook {
   diagnostics: Array<{ file: string; message: string }>;
   owners: Array<{ name: string; files: number }>;
   git: { staged: string[]; unstaged: string[] };
+  usage?: Record<string, WorkspaceFileUsageEntry>;
+  incrementalStats?: { reused: number; rescanned: number; total: number };
 }
 
 export interface WorkspaceIntelligenceOptions {
@@ -236,6 +244,8 @@ export interface WorkspaceIntelligenceOptions {
   limit?: number;
   codebook?: WorkspaceCodebook;
   gitDiffOnly?: boolean;
+  incremental?: boolean;
+  previousCodebook?: WorkspaceCodebook;
 }
 
 export type WorkspaceIntent = 'fix_error' | 'review_diff' | 'implement_feature' | 'explain_architecture' | 'write_tests' | 'optimize_performance' | 'general';
@@ -244,6 +254,7 @@ export function detectIntent(text?: string): WorkspaceIntent[];
 export function buildWorkspaceCodebook(rootDir?: string, options?: WorkspaceIntelligenceOptions): WorkspaceCodebook;
 export function saveWorkspaceCodebook(rootDir: string, codebook: WorkspaceCodebook): string;
 export function loadWorkspaceCodebook(rootDir?: string): WorkspaceCodebook | null;
+export function recordFileUsage(rootDir?: string, filePaths?: string[]): Record<string, WorkspaceFileUsageEntry> | null;
 export function selectRelevantFiles(rootDir?: string, query?: string, options?: WorkspaceIntelligenceOptions): { intents: WorkspaceIntent[]; files: Array<WorkspaceCodebookFile & { score: number }>; codebook: WorkspaceCodebook };
 export function runDoctor(rootDir?: string): { version: string; root: string; checks: Array<{ name: string; ok: boolean; detail: string; optional?: boolean }>; ok: boolean };
 

@@ -14,16 +14,16 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.21.2`, a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.21.2` to both npm and the Marketplace is still pending on maintainer credentials).
+- [x] Current stable release is `v1.23.0`, Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
+- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.23.0` to both npm and the Marketplace is still pending on maintainer credentials).
 - [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
-- [x] Last feature release was `glyph-compress@1.21.0` (Provider Trust and UX).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.21.2`.
-- [x] `npm test` passes 22 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke) for `v1.21.2`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release is a packaging fix, not a compression-behavior change.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.23.0`.
+- [x] `npm test` passes 23 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory) for `v1.23.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release changes workspace-file ranking and caching, not text compression behavior.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.22.0` for real task evaluation (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
+- [ ] Prepared next release is `v1.22.0` for real task evaluation (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first — both remain blocked on maintainer-provided API keys.
 
 ## Release Reality Check
 
@@ -371,11 +371,13 @@ Status: proposed.
 
 ### v1.23.0: Adaptive Workspace Memory
 
-Status: proposed.
+Status: delivered.
 
-- [ ] Add incremental codebook updates instead of full regenerate-on-inspect behavior.
-- [ ] Add decay or weighting from repeated repository usage.
-- [ ] Prepare the workspace-memory layer for future semantic diff features (Team Codebook Registry itself shipped in v1.18.0).
+- [x] **Incremental codebook updates**: `buildWorkspaceCodebook()` reuses a file's previous symbols/imports/diagnostics when its mtime is unchanged since the last build, instead of re-parsing every file on every call. Only changed files are rescanned; the codebook now reports `incrementalStats: { reused, rescanned, total }`. `{ incremental: false }` forces a full rescan.
+- [x] **Decay/weighting from repeated repository usage**: `recordFileUsage(rootDir, filePaths)` records that a file was actually selected and sent for a task; `selectRelevantFiles()` adds a half-life-decayed (14 days), capped usage boost on top of keyword/intent scoring. `GlyphCompressor.routeAndCompress()` calls this automatically for every file it selects, so files proven useful in past sessions can outrank a cold keyword match.
+- [x] **Fixed a real gap found while testing this**: `recordFileUsage()` originally no-opped unless a codebook had already been persisted to disk (only the CLI's `inspect` command did that) — usage tracking would silently do nothing the first time `routeAndCompress()` ran on a fresh workspace. It now builds and saves a codebook on the fly when none exists, which also seeds the incremental cache for the next call.
+- [x] New `test/adaptive-workspace-memory.js` (10 tests): incremental reuse/rescan correctness, usage persistence and decay, and an end-to-end check that `routeAndCompress()` actually records usage for selected files.
+- [x] The workspace-memory layer (usage history, incremental per-file cache) is now in place as a foundation for future semantic diff features; Team Codebook Registry itself shipped separately in v1.18.0.
 
 ## Repository Improvements
 

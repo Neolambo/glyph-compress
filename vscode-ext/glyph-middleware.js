@@ -24,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { estimateProviderTokens, normalizeProvider } from '../src/token-estimator.js';
-import { routeContext } from '../src/workspace-intelligence.js';
+import { routeContext, recordFileUsage } from '../src/workspace-intelligence.js';
 import { loadTeamCodebook } from '../src/team-codebook.js';
 
 // ═══════════════════════════════════════════════════════════
@@ -741,6 +741,16 @@ class GlyphCompressor {
       parts.push(result.compressed);
     }
 
+    // Adaptive workspace memory: record which files actually got sent
+    // (survived the token budget, not just ranked as candidates) so
+    // future routing calls can weight proven-useful files — see
+    // recordFileUsage()/usageBoost() in workspace-intelligence.js. A
+    // fresh workspace with no .glyphcompress/codebook.json yet is a
+    // no-op here, not an error.
+    if (selectedFiles.length) {
+      recordFileUsage(rootDir, selectedFiles.map((f) => f.path));
+    }
+
     return {
       compressed: parts.join('\n'),
       intents,
@@ -1112,7 +1122,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.21.2',
+      version: '1.23.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

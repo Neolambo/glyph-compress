@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.21.2`: VS Code Marketplace Listing Fix.
+`v1.23.0`: Adaptive Workspace Memory.
+
+## Delivered in v1.23.0
+
+- Incremental codebook builds: `buildWorkspaceCodebook()` reuses a file's previous symbols/imports/diagnostics when its mtime is unchanged since the last build instead of re-parsing every file every time. Only changed files are rescanned; `incrementalStats: { reused, rescanned, total }` reports the split.
+- Usage-decay-weighted relevance: `recordFileUsage(rootDir, filePaths)` records that a file was actually selected and sent; `selectRelevantFiles()` adds a half-life-decayed (14 days), capped boost on top of keyword/intent scoring. `GlyphCompressor.routeAndCompress()` calls this automatically for every selected file.
+- Found and fixed a real gap: `recordFileUsage()` originally no-opped unless a codebook had already been persisted to disk (only the CLI's `inspect` command did that), so usage tracking silently did nothing the first time `routeAndCompress()` ran on a fresh workspace. It now builds and saves a codebook on the fly when none exists.
+- 23 suites total, all passing.
 
 ## Delivered in v1.21.2
 
@@ -113,8 +120,7 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.22.0`: real task evaluation.
-- `v1.23.0`: adaptive workspace memory.
+- `v1.22.0`: real task evaluation (blocked on maintainer-provided multi-provider API keys).
 
 ## Longer-Term Ideas
 

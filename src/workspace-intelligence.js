@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 
-const VERSION = '1.21.2';
+const VERSION = '1.23.0';
 const CODEBOOK_DIR = '.glyphcompress';
 const CODEBOOK_FILE = 'codebook.json';
 const SUPPORTED_EXTENSIONS = new Set([
@@ -28,6 +28,17 @@ export function detectIntent(text = '') {
   return matches.length ? matches : ['general'];
 }
 
+/**
+ * Incremental by default: reuses a previous codebook's per-file data
+ * (symbols/imports/diagnostics) for any file whose mtime hasn't changed
+ * since that codebook was built, instead of re-reading and re-parsing
+ * every file in the workspace on every `inspect`/`route` call — the
+ * previous behavior on a large repository. Pass `{ incremental: false }`
+ * to force a full rebuild, or `{ previousCodebook }` to reuse a codebook
+ * already in memory instead of reading `.glyphcompress/codebook.json`
+ * again. `usage` (per-file selection counts, see recordFileUsage/
+ * usageBoost below) is always carried forward across rebuilds.
+ */
 export function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
   const root = path.resolve(rootDir);
   const files = listWorkspaceFiles(root, options);
@@ -37,14 +48,41 @@ export function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
   const owners = new Map();
   const fileSummaries = [];
 
+  const previous = options.incremental === false ? null : (options.previousCodebook || loadWorkspaceCodebook(root));
+  const previousByPath = new Map((previous?.files || []).map((f) => [f.path, f]));
+  const previousDiagnosticsByPath = new Map();
+  for (const diag of previous?.diagnostics || []) {
+    if (!previousDiagnosticsByPath.has(diag.file)) previousDiagnosticsByPath.set(diag.file, []);
+    previousDiagnosticsByPath.get(diag.file).push(diag);
+  }
+
+  let reused = 0;
+  let rescanned = 0;
+
   for (const filePath of files) {
     const rel = normalizePath(path.relative(root, filePath));
+    const mtimeMs = statMtimeMs(filePath);
+    const prevSummary = previousByPath.get(rel);
+
+    if (prevSummary && prevSummary.mtimeMs != null && prevSummary.mtimeMs === mtimeMs) {
+      reused++;
+      fileSummaries.push(prevSummary);
+      for (const symbol of prevSummary.symbols || []) symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
+      for (const target of prevSummary.imports || []) importGraph.push({ from: rel, to: target });
+      for (const diag of previousDiagnosticsByPath.get(rel) || []) diagnostics.push(diag);
+      const owner = prevSummary.owner || inferOwner(rel);
+      owners.set(owner, (owners.get(owner) || 0) + 1);
+      continue;
+    }
+
+    rescanned++;
     const text = readTextFile(filePath, options.maxFileBytes || 120_000);
     const symbols = extractSymbols(text);
+    const imports = extractImports(text);
     for (const symbol of symbols) {
       symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
     }
-    for (const target of extractImports(text)) {
+    for (const target of imports) {
       importGraph.push({ from: rel, to: target });
     }
     for (const diagnostic of extractDiagnostics(text)) {
@@ -57,8 +95,9 @@ export function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
       ext: path.extname(rel).slice(1) || 'text',
       owner,
       symbols: symbols.slice(0, 20),
-      imports: extractImports(text).slice(0, 20),
+      imports: imports.slice(0, 20),
       lines: text ? text.split(/\r?\n/).length : 0,
+      mtimeMs,
     });
   }
 
@@ -75,7 +114,62 @@ export function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
     diagnostics: diagnostics.slice(0, options.maxDiagnostics || 100),
     owners: [...owners.entries()].map(([name, files]) => ({ name, files })).sort((a, b) => b.files - a.files),
     git: getGitContext(root),
+    usage: previous?.usage || {},
+    incrementalStats: { reused, rescanned, total: files.length },
   };
+}
+
+/**
+ * Record that these files were selected/sent for a task, so future
+ * relevance ranking can weight files that have proven useful before —
+ * "decay or weighting from repeated repository usage." Called by
+ * GlyphCompressor.routeAndCompress() after budgeting, so the signal is
+ * "this file actually got sent," not just "this file was a candidate."
+ *
+ * routeAndCompress() never required a pre-built on-disk codebook (only the
+ * CLI's `inspect` command persisted one), so without this fallback usage
+ * would silently go unrecorded on a workspace nobody had inspected yet.
+ * Building one here also seeds the incremental cache, so the next call's
+ * buildWorkspaceCodebook() can start reusing unchanged files immediately.
+ */
+export function recordFileUsage(rootDir = process.cwd(), filePaths = []) {
+  if (!filePaths.length) return null;
+  const root = path.resolve(rootDir);
+  const codebook = loadWorkspaceCodebook(root) || buildWorkspaceCodebook(root);
+  codebook.usage = codebook.usage || {};
+  const now = new Date().toISOString();
+  for (const filePath of filePaths) {
+    const entry = codebook.usage[filePath] || { count: 0, lastUsedAt: null };
+    entry.count += 1;
+    entry.lastUsedAt = now;
+    codebook.usage[filePath] = entry;
+  }
+  saveWorkspaceCodebook(root, codebook);
+  return codebook.usage;
+}
+
+// A file used many times recently is more likely to matter again than one
+// used once months ago. Half-life decay (not a hard cutoff) so the boost
+// fades smoothly rather than a usage record suddenly stops counting at an
+// arbitrary age. Count is capped so a file selected 50 times can't
+// permanently dominate every future ranking regardless of relevance.
+const USAGE_DECAY_HALF_LIFE_DAYS = 14;
+const USAGE_COUNT_CAP = 10;
+
+function usageBoost(usageEntry) {
+  if (!usageEntry || !usageEntry.lastUsedAt) return 0;
+  const ageDays = (Date.now() - new Date(usageEntry.lastUsedAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (!Number.isFinite(ageDays) || ageDays < 0) return 0;
+  const decay = Math.pow(0.5, ageDays / USAGE_DECAY_HALF_LIFE_DAYS);
+  return Math.min(usageEntry.count, USAGE_COUNT_CAP) * decay;
+}
+
+function statMtimeMs(filePath) {
+  try {
+    return Math.floor(fs.statSync(filePath).mtimeMs);
+  } catch {
+    return null;
+  }
 }
 
 export function saveWorkspaceCodebook(rootDir, codebook) {
@@ -109,6 +203,8 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
     ? codebook.files.filter((file) => gitPaths.has(file.path))
     : codebook.files;
 
+  const usage = codebook.usage || {};
+
   const ranked = candidateFiles.map((file) => {
     let score = 0;
     const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(' ')} ${(file.imports || []).join(' ')}`.toLowerCase();
@@ -120,6 +216,12 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
     if (intents.includes('fix_error') && codebook.diagnostics.some((diag) => diag.file === file.path)) score += 8;
     if (intents.includes('explain_architecture') && /(readme|package|index|main|app|route|schema)/i.test(file.path)) score += 4;
     if (intents.includes('optimize_performance') && /(perf|benchmark|cache|query|service|worker)/i.test(file.path)) score += 5;
+    // Adaptive workspace memory: a file selected repeatedly and recently
+    // in past routing calls gets a modest, decaying boost — capped and
+    // half-lifed (see usageBoost) so proven-useful files can surface even
+    // for a generic query, without permanently outranking a real keyword
+    // or intent match.
+    score += usageBoost(usage[file.path]);
     return { ...file, score };
   }).filter((file) => file.score > 0 || options.gitDiffOnly)
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))

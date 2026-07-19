@@ -186,6 +186,13 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.23.0 (Adaptive Workspace Memory)
+
+1. **Incremental codebook builds**: `buildWorkspaceCodebook()` no longer re-parses every workspace file on each call. When a file's mtime is unchanged since the last build, its symbols/imports/diagnostics are reused from the saved codebook instead of being re-extracted; only changed files are rescanned. The returned codebook now reports `incrementalStats: { reused, rescanned, total }`. Pass `{ incremental: false }` to force a full rescan.
+2. **Usage-weighted relevance**: `recordFileUsage(rootDir, filePaths)` records that a file was actually selected and sent for a task; `selectRelevantFiles()`/the Context Router now add a decaying usage boost (14-day half-life, capped so no file can permanently dominate) on top of keyword/intent scoring, so files that have proven useful before can outrank a cold keyword match. `GlyphCompressor.routeAndCompress()` calls this automatically for every file it selects.
+3. **Fixed a real gap found while testing this**: `recordFileUsage()` originally no-opped unless a codebook had already been persisted to disk (only the CLI's `inspect` command did that) — meaning usage tracking silently did nothing the first time `routeAndCompress()` ran on a fresh workspace. It now builds and saves a codebook on the fly when none exists, which also seeds the incremental cache for the next call.
+4. New `test/adaptive-workspace-memory.js` (10 tests) covers incremental reuse/rescan behavior, usage persistence and decay, and `routeAndCompress()` actually recording usage end-to-end.
+
 ### New in v1.21.2 (VS Code Marketplace Listing Fix)
 
 `vscode-ext/` had no `README.md`, so the Marketplace "Overview" tab showed "No overview has been entered by publisher" — `@vscode/vsce package` reads `README.md` from the extension's own root directory to populate that page, and it was simply missing. Also found while investigating: the last version actually published to the Marketplace was `1.12.0`, months and many features behind this repository — the description text visible on the listing page had been edited manually through the Marketplace management portal at some point, independent of publishing a new package version, which made the listing look more current than it was. Added `vscode-ext/README.md` and a `repository` field to `vscode-ext/package.json` (removing the now-unnecessary `--allow-missing-repository` packaging flag).
@@ -391,7 +398,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.21.2)
+### 📏 Benchmark Snapshot (v1.23.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

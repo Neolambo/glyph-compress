@@ -32,6 +32,7 @@ __export(workspace_intelligence_exports, {
   buildWorkspaceCodebook: () => buildWorkspaceCodebook,
   detectIntent: () => detectIntent,
   loadWorkspaceCodebook: () => loadWorkspaceCodebook,
+  recordFileUsage: () => recordFileUsage,
   routeContext: () => routeContext,
   runDoctor: () => runDoctor,
   saveWorkspaceCodebook: () => saveWorkspaceCodebook,
@@ -42,7 +43,7 @@ var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
-var VERSION = "1.21.2";
+var VERSION = "1.23.0";
 var CODEBOOK_DIR = ".glyphcompress";
 var CODEBOOK_FILE = "codebook.json";
 var SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
@@ -87,14 +88,37 @@ function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
   const diagnostics = [];
   const owners = /* @__PURE__ */ new Map();
   const fileSummaries = [];
+  const previous = options.incremental === false ? null : options.previousCodebook || loadWorkspaceCodebook(root);
+  const previousByPath = new Map((previous?.files || []).map((f) => [f.path, f]));
+  const previousDiagnosticsByPath = /* @__PURE__ */ new Map();
+  for (const diag of previous?.diagnostics || []) {
+    if (!previousDiagnosticsByPath.has(diag.file)) previousDiagnosticsByPath.set(diag.file, []);
+    previousDiagnosticsByPath.get(diag.file).push(diag);
+  }
+  let reused = 0;
+  let rescanned = 0;
   for (const filePath of files) {
     const rel = normalizePath(import_path.default.relative(root, filePath));
+    const mtimeMs = statMtimeMs(filePath);
+    const prevSummary = previousByPath.get(rel);
+    if (prevSummary && prevSummary.mtimeMs != null && prevSummary.mtimeMs === mtimeMs) {
+      reused++;
+      fileSummaries.push(prevSummary);
+      for (const symbol of prevSummary.symbols || []) symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
+      for (const target of prevSummary.imports || []) importGraph.push({ from: rel, to: target });
+      for (const diag of previousDiagnosticsByPath.get(rel) || []) diagnostics.push(diag);
+      const owner2 = prevSummary.owner || inferOwner(rel);
+      owners.set(owner2, (owners.get(owner2) || 0) + 1);
+      continue;
+    }
+    rescanned++;
     const text = readTextFile(filePath, options.maxFileBytes || 12e4);
     const symbols = extractSymbols(text);
+    const imports = extractImports(text);
     for (const symbol of symbols) {
       symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
     }
-    for (const target of extractImports(text)) {
+    for (const target of imports) {
       importGraph.push({ from: rel, to: target });
     }
     for (const diagnostic of extractDiagnostics(text)) {
@@ -107,8 +131,9 @@ function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
       ext: import_path.default.extname(rel).slice(1) || "text",
       owner,
       symbols: symbols.slice(0, 20),
-      imports: extractImports(text).slice(0, 20),
-      lines: text ? text.split(/\r?\n/).length : 0
+      imports: imports.slice(0, 20),
+      lines: text ? text.split(/\r?\n/).length : 0,
+      mtimeMs
     });
   }
   return {
@@ -120,8 +145,41 @@ function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
     importGraph: importGraph.slice(0, options.maxImports || 300),
     diagnostics: diagnostics.slice(0, options.maxDiagnostics || 100),
     owners: [...owners.entries()].map(([name, files2]) => ({ name, files: files2 })).sort((a, b) => b.files - a.files),
-    git: getGitContext(root)
+    git: getGitContext(root),
+    usage: previous?.usage || {},
+    incrementalStats: { reused, rescanned, total: files.length }
   };
+}
+function recordFileUsage(rootDir = process.cwd(), filePaths = []) {
+  if (!filePaths.length) return null;
+  const root = import_path.default.resolve(rootDir);
+  const codebook = loadWorkspaceCodebook(root) || buildWorkspaceCodebook(root);
+  codebook.usage = codebook.usage || {};
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  for (const filePath of filePaths) {
+    const entry = codebook.usage[filePath] || { count: 0, lastUsedAt: null };
+    entry.count += 1;
+    entry.lastUsedAt = now;
+    codebook.usage[filePath] = entry;
+  }
+  saveWorkspaceCodebook(root, codebook);
+  return codebook.usage;
+}
+var USAGE_DECAY_HALF_LIFE_DAYS = 14;
+var USAGE_COUNT_CAP = 10;
+function usageBoost(usageEntry) {
+  if (!usageEntry || !usageEntry.lastUsedAt) return 0;
+  const ageDays = (Date.now() - new Date(usageEntry.lastUsedAt).getTime()) / (1e3 * 60 * 60 * 24);
+  if (!Number.isFinite(ageDays) || ageDays < 0) return 0;
+  const decay = Math.pow(0.5, ageDays / USAGE_DECAY_HALF_LIFE_DAYS);
+  return Math.min(usageEntry.count, USAGE_COUNT_CAP) * decay;
+}
+function statMtimeMs(filePath) {
+  try {
+    return Math.floor(import_fs.default.statSync(filePath).mtimeMs);
+  } catch {
+    return null;
+  }
 }
 function saveWorkspaceCodebook(rootDir, codebook) {
   const dir = import_path.default.join(import_path.default.resolve(rootDir), CODEBOOK_DIR);
@@ -142,6 +200,7 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
   const terms = extractQueryTerms(query);
   const gitPaths = /* @__PURE__ */ new Set([...codebook.git?.staged || [], ...codebook.git?.unstaged || []]);
   const candidateFiles = options.gitDiffOnly ? codebook.files.filter((file) => gitPaths.has(file.path)) : codebook.files;
+  const usage = codebook.usage || {};
   const ranked = candidateFiles.map((file) => {
     let score = 0;
     const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(" ")} ${(file.imports || []).join(" ")}`.toLowerCase();
@@ -153,6 +212,7 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
     if (intents.includes("fix_error") && codebook.diagnostics.some((diag) => diag.file === file.path)) score += 8;
     if (intents.includes("explain_architecture") && /(readme|package|index|main|app|route|schema)/i.test(file.path)) score += 4;
     if (intents.includes("optimize_performance") && /(perf|benchmark|cache|query|service|worker)/i.test(file.path)) score += 5;
+    score += usageBoost(usage[file.path]);
     return { ...file, score };
   }).filter((file) => file.score > 0 || options.gitDiffOnly).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, options.limit || 12);
   return { intents, files: ranked, codebook };
@@ -411,6 +471,7 @@ function detectProviderCredentials() {
   buildWorkspaceCodebook,
   detectIntent,
   loadWorkspaceCodebook,
+  recordFileUsage,
   routeContext,
   runDoctor,
   saveWorkspaceCodebook,

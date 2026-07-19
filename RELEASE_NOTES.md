@@ -1,3 +1,26 @@
+## v1.23.0 — Adaptive Workspace Memory
+
+Changes since v1.21.2:
+
+### Incremental Codebook Builds
+- `buildWorkspaceCodebook()` no longer re-parses every workspace file on each call. A file whose mtime is unchanged since the last saved build reuses its previous symbols, imports, and diagnostics instead of being rescanned; only changed files go through extraction again.
+- The returned codebook now reports `incrementalStats: { reused, rescanned, total }` so callers can see the split. Pass `{ incremental: false }` (or omit a previous codebook) to force a full rescan.
+
+### Usage-Decay-Weighted Relevance
+- New `recordFileUsage(rootDir, filePaths)` records that a file was actually selected and sent for a task, with a count and timestamp persisted to the on-disk codebook.
+- `selectRelevantFiles()` now adds a decaying usage boost on top of keyword/intent scoring: 14-day half-life, capped so a file selected many times can't permanently dominate ranking regardless of relevance to the current query.
+- `GlyphCompressor.routeAndCompress()` calls `recordFileUsage()` automatically for every file it actually selects, so the Context Router gets steadily better at surfacing files that have proven useful across a session — without any caller-side wiring.
+
+### Found and Fixed
+- **`recordFileUsage()` was a silent no-op on a fresh workspace.** It originally required a codebook already persisted to disk, but only the CLI's `inspect` command ever wrote one — meaning `routeAndCompress()`'s new usage tracking would do nothing at all the first time it ran on a workspace nobody had run `inspect` on. Fixed by having `recordFileUsage()` build and save a codebook on the fly when none exists, which also seeds the incremental cache for the next call. Caught by an end-to-end test before shipping, not after.
+
+### Tests & Verification
+- **`test/adaptive-workspace-memory.js`** (new, 10 tests): cold-build rescans everything; a second build against a saved codebook reuses unchanged files; touching one file rescans only that file; `{ incremental: false }` forces a full rescan; `recordFileUsage()` persists counts and builds a codebook when none exists; usage boost measurably outranks an equally-matched but unused file; `routeAndCompress()` records usage end-to-end; a year-old usage record decays to a negligible boost.
+- **Complete Suite Validation**: 23 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.21.2 — VS Code Marketplace Listing Fix
 
 - Added `vscode-ext/README.md`: the Marketplace "Overview" tab was showing "No overview has been entered by publisher" because `@vscode/vsce package` reads `README.md` from the extension's own root directory (`vscode-ext/`), and none existed.

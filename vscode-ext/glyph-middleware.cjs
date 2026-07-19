@@ -738,6 +738,9 @@ ${file.content}`, provider);
       selectedFiles.push({ path: file.path, score: file.score, tokens: result.stats.compressedTokens, sourceMap: result.sourceMap });
       parts.push(result.compressed);
     }
+    if (selectedFiles.length) {
+      (0, import_workspace_intelligence.recordFileUsage)(rootDir, selectedFiles.map((f) => f.path));
+    }
     return {
       compressed: parts.join("\n"),
       intents,
@@ -1047,7 +1050,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.21.2",
+      version: "1.23.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
