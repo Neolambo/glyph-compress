@@ -3,7 +3,12 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.21.1`: Critical Packaging Hotfix.
+`v1.21.2`: VS Code Marketplace Listing Fix.
+
+## Delivered in v1.21.2
+
+- Added `vscode-ext/README.md` — the Marketplace Overview tab was blank because none existed. Added a `repository` field too.
+- Discovered the Marketplace had never received anything past `v1.12.0`; publication of everything since is still pending on maintainer credentials.
 
 ## Delivered in v1.21.1
 

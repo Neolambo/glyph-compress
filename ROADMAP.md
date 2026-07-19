@@ -14,10 +14,11 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.21.1`, a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
+- [x] Current stable release is `v1.21.2`, a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.21.2` to both npm and the Marketplace is still pending on maintainer credentials).
+- [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
 - [x] Last feature release was `glyph-compress@1.21.0` (Provider Trust and UX).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.21.1`.
-- [x] `npm test` passes 22 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke) for `v1.21.1`.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.21.2`.
+- [x] `npm test` passes 22 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke) for `v1.21.2`.
 - [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release is a packaging fix, not a compression-behavior change.
 
 ## Prepared Next Release

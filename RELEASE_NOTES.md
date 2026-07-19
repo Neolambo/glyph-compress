@@ -1,3 +1,12 @@
+## v1.21.2 — VS Code Marketplace Listing Fix
+
+- Added `vscode-ext/README.md`: the Marketplace "Overview" tab was showing "No overview has been entered by publisher" because `@vscode/vsce package` reads `README.md` from the extension's own root directory (`vscode-ext/`), and none existed.
+- Added a `repository` field to `vscode-ext/package.json` and removed the now-unnecessary `--allow-missing-repository` packaging flag.
+- Discovered while investigating: the Marketplace had never received a version past `1.12.0` — the listing's description text had been edited manually through the Marketplace management portal independent of publishing, which made it look more current than the actual installable package.
+- `npm run check` green, VSIX repackaged and reinstalled locally to confirm the Overview content is present.
+
+***
+
 ## v1.21.1 — Critical Packaging Hotfix
 
 **The published VS Code extension was broken from v1.17.0 through v1.21.0.**

@@ -186,6 +186,10 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.21.2 (VS Code Marketplace Listing Fix)
+
+`vscode-ext/` had no `README.md`, so the Marketplace "Overview" tab showed "No overview has been entered by publisher" — `@vscode/vsce package` reads `README.md` from the extension's own root directory to populate that page, and it was simply missing. Also found while investigating: the last version actually published to the Marketplace was `1.12.0`, months and many features behind this repository — the description text visible on the listing page had been edited manually through the Marketplace management portal at some point, independent of publishing a new package version, which made the listing look more current than it was. Added `vscode-ext/README.md` and a `repository` field to `vscode-ext/package.json` (removing the now-unnecessary `--allow-missing-repository` packaging flag).
+
 ### New in v1.21.1 (Critical Packaging Hotfix)
 
 **The published VS Code extension was broken since v1.17.0.** `vscode-ext/glyph-middleware.cjs` required `../src/workspace-intelligence.cjs` and `../src/team-codebook.cjs` — paths that resolve fine inside this repo checkout, but `@vscode/vsce package` only includes files physically inside `vscode-ext/`, so every packaged VSIX since Context Router/Team Codebook Registry shipped (v1.17.0-v1.21.0) crashed with `MODULE_NOT_FOUND` the moment any command tried to compress anything. Caught by extracting a real installed VSIX and starting the proxy from it — every prior test required files by repo-relative path, which never exercises the actual packaged layout. **The equivalent npm-package risk was also real** (the local `vscode-ext/` copies this fix introduces were initially missing from `package.json`'s `files` allowlist) and is fixed in the same commit.
@@ -387,7 +391,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.21.1)
+### 📏 Benchmark Snapshot (v1.21.2)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

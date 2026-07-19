@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs — CLI, MCP server, and VS Code extension, with a Context Router, team-shared dictionaries, and compression calibrated against real provider tokenizers.",
   "type": "module",
   "bin": {
@@ -79,7 +79,7 @@
     "demo": "node test/demo.js",
     "build:middleware": "node scripts/build-middleware.js",
     "check": "npm run build:middleware && npm test && npm run benchmark && npm run check:links && npm pack --dry-run",
-    "package:vscode": "cd vscode-ext && npx @vscode/vsce package --allow-missing-repository",
+    "package:vscode": "cd vscode-ext && npx @vscode/vsce package",
     "check:links": "node scripts/check-links.js",
     "release:prepare": "node scripts/release-helper.js"
   },
