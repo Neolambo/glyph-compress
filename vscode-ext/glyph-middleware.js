@@ -662,6 +662,8 @@ class GlyphCompressor {
    * @param {number} [options.tokenBudget] - max tokens to spend on routed file context (default 2000)
    * @param {number} [options.maxFiles] - max candidate files to rank before budgeting (default 8)
    * @param {string} [options.provider] - provider for token estimation, defaults to this.provider
+   * @param {boolean} [options.gitDiffOnly] - restrict candidates to git staged/unstaged files
+   *   (e.g. "review what I changed"), instead of ranking the whole workspace
    */
   routeAndCompress(query, options = {}) {
     const rootDir = options.rootDir || process.cwd();
@@ -669,7 +671,7 @@ class GlyphCompressor {
     const maxFiles = options.maxFiles || 8;
     const provider = options.provider || this.provider;
 
-    const { intents, files } = routeContext(rootDir, query, { limit: maxFiles });
+    const { intents, files } = routeContext(rootDir, query, { limit: maxFiles, gitDiffOnly: options.gitDiffOnly === true });
 
     const selectedFiles = [];
     const excludedFiles = [];

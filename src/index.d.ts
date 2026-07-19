@@ -133,6 +133,7 @@ export interface RouteAndCompressOptions {
   tokenBudget?: number;
   maxFiles?: number;
   provider?: Provider | string;
+  gitDiffOnly?: boolean;
 }
 
 export interface RoutedFile {
@@ -232,6 +233,7 @@ export interface WorkspaceIntelligenceOptions {
   maxDiagnostics?: number;
   limit?: number;
   codebook?: WorkspaceCodebook;
+  gitDiffOnly?: boolean;
 }
 
 export type WorkspaceIntent = 'fix_error' | 'review_diff' | 'implement_feature' | 'explain_architecture' | 'write_tests' | 'optimize_performance' | 'general';

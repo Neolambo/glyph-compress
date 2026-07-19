@@ -99,7 +99,17 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
   const terms = extractQueryTerms(query);
   const gitPaths = new Set([...(codebook.git?.staged || []), ...(codebook.git?.unstaged || [])]);
 
-  const ranked = codebook.files.map((file) => {
+  // gitDiffOnly restricts candidates to files git already reports as
+  // staged/unstaged — for "review what I changed" / "explain this diff"
+  // workflows where relevance comes from being part of the change, not
+  // from matching query keywords. A changed file is kept even if it
+  // scores 0 against the query terms below, since the diff membership
+  // itself is what makes it relevant here.
+  const candidateFiles = options.gitDiffOnly
+    ? codebook.files.filter((file) => gitPaths.has(file.path))
+    : codebook.files;
+
+  const ranked = candidateFiles.map((file) => {
     let score = 0;
     const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(' ')} ${(file.imports || []).join(' ')}`.toLowerCase();
     for (const term of terms) {
@@ -111,7 +121,7 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
     if (intents.includes('explain_architecture') && /(readme|package|index|main|app|route|schema)/i.test(file.path)) score += 4;
     if (intents.includes('optimize_performance') && /(perf|benchmark|cache|query|service|worker)/i.test(file.path)) score += 5;
     return { ...file, score };
-  }).filter((file) => file.score > 0)
+  }).filter((file) => file.score > 0 || options.gitDiffOnly)
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
     .slice(0, options.limit || 12);
 

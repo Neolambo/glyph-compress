@@ -41,6 +41,7 @@ let holographicFolding = false;
 let intentDiffs = false;
 let tokenBudget = 2000;
 let maxFiles = 8;
+let gitDiffOnly = false;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -57,6 +58,8 @@ for (let i = 0; i < args.length; i++) {
     tokenBudget = parseInt(args[++i], 10) || tokenBudget;
   } else if (arg === '--max-files') {
     maxFiles = parseInt(args[++i], 10) || maxFiles;
+  } else if (arg === '--git-diff-only') {
+    gitDiffOnly = true;
   } else if (arg === '--source-map') {
     printSourceMap = true;
   } else if (arg === '--privacy') {
@@ -103,6 +106,7 @@ Options:
   -x, --explain         Explain what changed during compression
   --budget <tokens>     Token budget for the 'route' command (default: 2000)
   --max-files <n>       Max candidate files to rank for the 'route' command (default: 8)
+  --git-diff-only       Restrict 'route' to git staged/unstaged files ("review what I changed")
   --source-map          Print the reversible source map JSON
   --privacy             Redact secrets and sensitive identifiers before compression
   --decay               Enable experimental attentional decay compaction for history
@@ -122,7 +126,7 @@ Options:
 }
 
 if (command) {
-  runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles });
+  runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles, gitDiffOnly });
 } else if (startProxy) {
   import('../src/proxy.js').then(({ startProxyServer }) => {
     startProxyServer(proxyPort, proxyTarget, {
@@ -209,7 +213,7 @@ if (copyToClipboard) {
 }
 }
 
-function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles }) {
+function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles, gitDiffOnly }) {
   if (command === 'team-codebook') {
     const action = args.find((arg) => arg !== 'team-codebook' && !arg.startsWith('-')) || 'show';
     const root = process.cwd();
@@ -259,13 +263,14 @@ function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, t
   if (command === 'route') {
     const query = args.filter((arg) => !['route', '--json'].includes(arg) && !arg.startsWith('-') && arg !== String(tokenBudget) && arg !== String(maxFiles)).join(' ');
     const gc = new GlyphCompressor({ level, provider, trustPolicy, workspacePath: process.cwd() });
-    const result = gc.routeAndCompress(query, { rootDir: process.cwd(), tokenBudget, maxFiles, provider });
+    const result = gc.routeAndCompress(query, { rootDir: process.cwd(), tokenBudget, maxFiles, provider, gitDiffOnly });
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2));
     } else {
       console.log('\nContext Router');
       console.log('----------------------------------------------------');
       console.log(`Query:             ${query}`);
+      if (gitDiffOnly) console.log('Scope:             git staged/unstaged files only');
       console.log(`Intent:            ${result.intents.join(', ')}`);
       console.log(`Token budget:      ${result.tokensUsed} / ${result.tokenBudget}`);
       console.log('Selected files:');

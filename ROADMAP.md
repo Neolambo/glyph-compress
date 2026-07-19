@@ -22,7 +22,7 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.18.0` for structured diagnostics and payload snapshots (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
+- [ ] Prepared next release is `v1.19.0` for structured diagnostics and payload snapshots (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
 
 ## Release Reality Check
 
@@ -323,16 +323,16 @@ Status: delivered.
 - [x] Use diagnostics and recent task intent as router inputs (via `workspace-intelligence`'s existing intent detection + relevance scoring); fixed a word-boundary bug in diagnostic extraction (`HACK` matching inside "Hacker News") uncovered while wiring this up.
 - [x] Keep provider-aware routing behavior auditable through source-map metadata: `selectedFiles`/`excludedFiles` report score, token cost, and exclusion reason, with a per-file `sourceMap` for reversibility.
 - [x] Extend tokenizer calibration with apples-to-apples word-vs-glyph and phrase-level before/after comparison; found all 28 `TECH_GLYPHS` are a net token loss on OpenAI and wired a measured cost table into the breakeven check so tech-name substitution never fires there when it would lose tokens.
-- [ ] Partial: git-diff-aware routing (staged/unstaged files as a router signal) is available in `selectRelevantFiles` but not yet surfaced as a dedicated `routeAndCompress` option.
+- [x] Git-diff-aware routing: `routeAndCompress(query, { gitDiffOnly: true })` and CLI `glyph-compress route <query> --git-diff-only` restrict candidates to git staged/unstaged files for "review what I changed" workflows, instead of only nudging their score among the whole workspace.
 
-### v1.18.0: Structured Diagnostics and Snapshots
+### v1.19.0: Structured Diagnostics and Snapshots
 
 Status: proposed.
 
 - [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
 - [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
 
-### v1.19.0: Expression-Level Source Maps
+### v1.20.0: Expression-Level Source Maps
 
 Status: proposed.
 
@@ -340,7 +340,7 @@ Status: proposed.
 - [ ] Expand language coverage for structural spans and reversible debug metadata.
 - [ ] Add targeted validation for source-map fidelity at the expression level.
 
-### v1.20.0: Provider Trust and UX
+### v1.21.0: Provider Trust and UX
 
 Status: proposed.
 
@@ -348,7 +348,7 @@ Status: proposed.
 - [ ] Add per-provider trust warnings or risk scoring for risky transformations.
 - [ ] Improve VS Code UX surfacing for provider choice, trust policy, and diagnostic output.
 
-### v1.21.0: Real Task Evaluation
+### v1.22.0: Real Task Evaluation
 
 Status: proposed.
 
@@ -356,13 +356,13 @@ Status: proposed.
 - [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
 - [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
 
-### v1.22.0: Adaptive Workspace Memory
+### v1.23.0: Adaptive Workspace Memory
 
 Status: proposed.
 
 - [ ] Add incremental codebook updates instead of full regenerate-on-inspect behavior.
 - [ ] Add decay or weighting from repeated repository usage.
-- [ ] Prepare the workspace-memory layer for future semantic diff and team codebook features.
+- [ ] Prepare the workspace-memory layer for future semantic diff features (Team Codebook Registry itself shipped in v1.18.0).
 
 ## Repository Improvements
 

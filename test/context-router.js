@@ -24,6 +24,7 @@ import assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 
 let passed = 0;
@@ -83,6 +84,32 @@ try {
     const authFile = result.selectedFiles.find((f) => f.path === 'src/services/auth.ts');
     assert(authFile, 'auth.ts should be selected');
     assert(authFile.sourceMap && Array.isArray(authFile.sourceMap.files), 'selected file should carry its own sourceMap');
+  });
+
+  test('routeAndCompress with gitDiffOnly restricts to staged/unstaged files, ignoring query relevance', () => {
+    const gitDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-router-git-'));
+    try {
+      const git = (...cmdArgs) => execFileSync('git', cmdArgs, { cwd: gitDir, encoding: 'utf8' });
+      git('init', '-q');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'Test');
+      fs.writeFileSync(path.join(gitDir, 'committed.ts'), 'export const committed = 1;\n', 'utf8');
+      fs.writeFileSync(path.join(gitDir, 'changed.ts'), 'export const original = 1;\n', 'utf8');
+      git('add', '.');
+      git('commit', '-q', '-m', 'initial');
+      // Modify one tracked file (unstaged) and add a brand-new one (staged) —
+      // neither mentions the query terms at all, so only gitDiffOnly can surface them.
+      fs.writeFileSync(path.join(gitDir, 'changed.ts'), 'export const updated = 2;\n', 'utf8');
+      fs.writeFileSync(path.join(gitDir, 'new-staged.ts'), 'export const brandNew = 3;\n', 'utf8');
+      git('add', 'new-staged.ts');
+
+      const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
+      const result = gc.routeAndCompress('review my changes please', { rootDir: gitDir, tokenBudget: 5000, maxFiles: 10, gitDiffOnly: true });
+      const paths = result.selectedFiles.map((f) => f.path).sort();
+      assert.deepStrictEqual(paths, ['changed.ts', 'new-staged.ts'], `gitDiffOnly should only include changed files, got: ${JSON.stringify(paths)}`);
+    } finally {
+      fs.rmSync(gitDir, { recursive: true, force: true });
+    }
   });
 
   test('extractDiagnostics regression: "Hacker" prose is not treated as a HACK marker', async () => {

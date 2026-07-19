@@ -81,11 +81,11 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.18.0`: structured diagnostics and payload snapshots.
-- `v1.19.0`: expression-level source maps.
-- `v1.20.0`: provider trust and UX.
-- `v1.21.0`: real task evaluation.
-- `v1.22.0`: adaptive workspace memory.
+- `v1.19.0`: structured diagnostics and payload snapshots.
+- `v1.20.0`: expression-level source maps.
+- `v1.21.0`: provider trust and UX.
+- `v1.22.0`: real task evaluation.
+- `v1.23.0`: adaptive workspace memory.
 
 ## Longer-Term Ideas
 

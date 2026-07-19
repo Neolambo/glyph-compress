@@ -141,7 +141,8 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
   const intents = detectIntent(query);
   const terms = extractQueryTerms(query);
   const gitPaths = /* @__PURE__ */ new Set([...codebook.git?.staged || [], ...codebook.git?.unstaged || []]);
-  const ranked = codebook.files.map((file) => {
+  const candidateFiles = options.gitDiffOnly ? codebook.files.filter((file) => gitPaths.has(file.path)) : codebook.files;
+  const ranked = candidateFiles.map((file) => {
     let score = 0;
     const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(" ")} ${(file.imports || []).join(" ")}`.toLowerCase();
     for (const term of terms) {
@@ -153,7 +154,7 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
     if (intents.includes("explain_architecture") && /(readme|package|index|main|app|route|schema)/i.test(file.path)) score += 4;
     if (intents.includes("optimize_performance") && /(perf|benchmark|cache|query|service|worker)/i.test(file.path)) score += 5;
     return { ...file, score };
-  }).filter((file) => file.score > 0).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, options.limit || 12);
+  }).filter((file) => file.score > 0 || options.gitDiffOnly).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, options.limit || 12);
   return { intents, files: ranked, codebook };
 }
 function routeContext(rootDir = process.cwd(), query = "", options = {}) {
