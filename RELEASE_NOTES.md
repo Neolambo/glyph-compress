@@ -1,3 +1,28 @@
+## v1.19.0 — Structured Diagnostics & Git-Diff-Aware Routing
+
+Changes since v1.18.0:
+
+### Structured Diagnostics
+- **`src/logger.js`**: a shared structured logger used by the proxy (and reusable elsewhere) — every entry gets an ISO timestamp, a level, and consistent redaction of bearer tokens/API keys/GitHub tokens/AWS keys/JWTs across every field, applied before it reaches any sink. Previously redaction only ran at one call site (the upstream error response body); every other log line — including one that echoes the intercepted request URL, or a forwarding-error message — went out unredacted.
+- **New sinks**: console (human-readable), VS Code `outputChannel` (unchanged behavior, now consistently redacted), and a new optional JSONL file sink via CLI `--log-file <path>`.
+- **Richer per-request diagnostics**: each compressed request now logs privacy firewall state, attentional decay/holographic folding/intent diffs flags, dynamic dictionary and file index size, whether a team codebook was loaded, and whether the net-negative fallback fired — not just the resulting compression ratio.
+
+### Context Router
+- **`routeAndCompress(query, { gitDiffOnly: true })`**: restricts candidates to git staged/unstaged files, for "review what I changed" / "explain this diff" workflows where relevance comes from being part of the change, not from matching query keywords. CLI: `glyph-compress route <query> --git-diff-only`.
+
+### Build Hygiene
+- **Fixed a real, pre-existing drift bug**: `vscode-ext/proxy.js` was a hand-maintained CommonJS duplicate of `src/proxy.js` that had fallen out of sync — missing `attentionalDecay`/`holographicFolding`/`intentDiffs` options, the dashboard/stats endpoints, and (until now) structured logging. It is now esbuild-generated from `src/proxy.js`, matching how `workspace-intelligence.cjs` and `team-codebook.cjs` are already built, eliminating the duplicate maintenance burden entirely.
+- **Fixed a version-numbering collision** in `ROADMAP.md`/`docs/wiki/Roadmap.md`: both "Team Codebook Registry" (shipped) and "Structured Diagnostics and Snapshots" (proposed) claimed `v1.18.0`. Renumbered the proposed sequence to `v1.20.0`-`v1.23.0`.
+
+### Tests & Verification
+- **New Test Suites**: `test/logger.js` (6 assertions — redaction, timestamps, JSONL file sink, no-sink safety), extended `test/context-router.js` with a real git-repo-backed `gitDiffOnly` test, extended `test/proxy.js` with a CJS-build smoke test that had zero coverage before this release.
+- **Fixed a real bug found while writing the file-sink test**: the initial file sink implementation used a buffered `WriteStream`, which opens its file descriptor asynchronously — a caller that logs and immediately reads the file back (or exits right after logging) could race an unopened stream, and an unhandled `'error'` event could crash the process. Switched to synchronous `fs.appendFileSync`, which is more appropriate for a diagnostic logger's volume and durability needs anyway.
+- **Complete Suite Validation**: 18 suites, all passing.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.18.0 — Team Codebook Registry
 
 Changes since v1.17.0:

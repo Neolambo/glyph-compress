@@ -66,6 +66,43 @@ try {
   if (server) server.close();
 }
 
+// vscode-ext/proxy.js used to be a hand-maintained CJS duplicate of this
+// file that had visibly drifted (missing attentionalDecay/holographicFolding/
+// intentDiffs options, no dashboard/stats endpoints, no structured logging).
+// It's now esbuild-generated from this same source (scripts/build-middleware.js)
+// instead, but had zero test coverage before or after that change — nothing
+// exercised the require("./glyph-middleware.cjs") rewrite the build performs.
+// This closes that gap by actually starting the CJS build and hitting it.
+let cjsServer;
+https.request = (url, options, callback) => {
+  forwardedUrl = url.toString();
+  const request = new EventEmitter();
+  request.write = () => {};
+  request.end = () => {
+    const proxyResponse = Readable.from(['{"ok":true}']);
+    proxyResponse.statusCode = 200;
+    proxyResponse.headers = { 'content-type': 'application/json' };
+    queueMicrotask(() => callback(proxyResponse));
+  };
+  return request;
+};
+
+try {
+  const { createRequire } = await import('module');
+  const require = createRequire(import.meta.url);
+  const { startProxyServer: startProxyServerCjs } = require('../vscode-ext/proxy.js');
+  cjsServer = startProxyServerCjs(0, 'https://api.anthropic.com', { level: 'standard', provider: 'auto' });
+  await once(cjsServer, 'listening');
+  const response = await postJson(cjsServer.address().port, '/v1/messages', {
+    messages: [{ role: 'user', content: 'explain how the compressor works' }],
+  });
+  assert(response.statusCode === 200, 'vscode-ext CJS proxy build should relay upstream status code');
+  assert(forwardedUrl.includes('api.anthropic.com'), 'vscode-ext CJS proxy build should forward to the target API');
+} finally {
+  https.request = originalRequest;
+  if (cjsServer) cjsServer.close();
+}
+
 console.log('proxy smoke suite ok');
 
 function postJson(port, path, payload) {

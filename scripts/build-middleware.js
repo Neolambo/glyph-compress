@@ -21,6 +21,8 @@ const workspaceJs = path.join(rootDir, 'src', 'workspace-intelligence.js');
 const workspaceCjs = path.join(rootDir, 'src', 'workspace-intelligence.cjs');
 const teamCodebookJs = path.join(rootDir, 'src', 'team-codebook.js');
 const teamCodebookCjs = path.join(rootDir, 'src', 'team-codebook.cjs');
+const proxyJs = path.join(rootDir, 'src', 'proxy.js');
+const proxyCjs = path.join(rootDir, 'vscode-ext', 'proxy.js');
 
 console.log('Building middleware & core (CJS & ESM)...');
 
@@ -44,6 +46,17 @@ try {
   content = content.replace('require("../src/workspace-intelligence.js")', 'require("../src/workspace-intelligence.cjs")');
   content = content.replace('require("../src/team-codebook.js")', 'require("../src/team-codebook.cjs")');
   fs.writeFileSync(middlewareCjs, content, 'utf8');
+
+  // 5. Build vscode-ext/proxy.js from src/proxy.js (was a hand-maintained
+  // duplicate that had drifted — missing attentionalDecay/holographicFolding/
+  // intentDiffs options and structured logging the ESM version already had).
+  // dashboard.js and logger.js are small/self-contained so they're bundled
+  // in directly; only glyph-middleware stays external, rewritten to the
+  // sibling .cjs file already in vscode-ext/.
+  execSync(`npx esbuild "${proxyJs}" --bundle --external:./glyph-middleware.js --platform=node --format=cjs --outfile="${proxyCjs}"`, { stdio: 'inherit' });
+  let proxyContent = fs.readFileSync(proxyCjs, 'utf8');
+  proxyContent = proxyContent.replace('require("./glyph-middleware.js")', 'require("./glyph-middleware.cjs")');
+  fs.writeFileSync(proxyCjs, proxyContent, 'utf8');
 
   console.log('Middleware build successful!');
 } catch (e) {

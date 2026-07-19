@@ -42,6 +42,7 @@ let intentDiffs = false;
 let tokenBudget = 2000;
 let maxFiles = 8;
 let gitDiffOnly = false;
+let logFile = null;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
@@ -77,6 +78,8 @@ for (let i = 0; i < args.length; i++) {
     trustPolicy = args[++i] || trustPolicy;
   } else if (arg === '--target' || arg === '--target-api-url') {
     proxyTarget = args[++i] || proxyTarget;
+  } else if (arg === '--log-file') {
+    logFile = args[++i] || logFile;
   } else if (arg === '--json') {
     jsonOutput = true;
   } else if (arg === '--proxy' || arg === '-p') {
@@ -115,6 +118,7 @@ Options:
   --provider <provider> Provider profile: raw, openai, anthropic, gemini, local (default: raw)
   --trust <policy>      Trust policy: lossless, reversible, privacy, lossy (default: auto)
   --target <url>        Proxy upstream base URL (default: https://api.openai.com)
+  --log-file <path>     Append structured, redacted JSONL diagnostics from the proxy to this file
   --json                Print command output as JSON
   -p, --proxy [port]    Start the Zero-Command Transparent Proxy server (default port: 8080)
   -h, --help            Show this help message
@@ -137,6 +141,7 @@ if (command) {
       attentionalDecay,
       holographicFolding,
       intentDiffs,
+      logFile,
     });
   }).catch(err => {
     console.error('Failed to start proxy:', err);

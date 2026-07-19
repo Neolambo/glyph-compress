@@ -186,6 +186,12 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.19.0 (Structured Diagnostics & Git-Diff-Aware Routing)
+
+1. **Structured diagnostics**: every proxy/CLI log entry now carries an ISO timestamp and consistent redaction across every sink (console, VS Code `outputChannel`, and a new optional JSONL file sink via `--log-file`) — previously redaction only ran at one call site (the upstream error body), so other log lines could leak a secret unredacted. Each request now also logs richer trust/routing diagnostics: privacy firewall, decay/folding/intent-diff flags, dynamic dictionary and file index size, whether a team codebook was loaded, and whether the net-negative fallback fired.
+2. **`routeAndCompress(query, { gitDiffOnly: true })`**: restricts the Context Router to git staged/unstaged files only, for "review what I changed" workflows — CLI: `glyph-compress route <query> --git-diff-only`.
+3. **Fixed a real build-drift bug found while doing this work**: `vscode-ext/proxy.js` was a hand-maintained CommonJS duplicate of `src/proxy.js` that had fallen out of sync (missing several options and the dashboard/stats endpoints). It's now generated from the same source as the rest of the CJS build, so it can't drift again — and had zero test coverage before or after, now covered by a CJS-build smoke test.
+
 ### New in v1.18.0 (Team Codebook Registry)
 
 1. **Team Codebook Registry**: `glyphcompress.team.json` (git-committable, at the workspace root) lets a team share a priority-ordered dynamic dictionary, so every teammate's `GlyphCompressor` — through the CLI, MCP server, VS Code extension, or proxy — assigns the exact same `§N` glyph to the same repeated identifier, instead of each machine learning its own independent, incompatible assignment. New CLI: `glyph-compress team-codebook show|sync`. See [Team Codebook Registry](#4-team-codebook-registry-v1180) above.
@@ -363,7 +369,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.18.0)
+### 📏 Benchmark Snapshot (v1.19.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -485,6 +491,7 @@ npx glyph-compress [file|command] [options]
 | `--git-diff-only` | flag | Restrict `route` to git staged/unstaged files only, for "review what I changed" workflows. | `npx glyph-compress route "review my changes" --git-diff-only` |
 | `--json` | flag | Print machine-readable JSON for supported commands such as `inspect`, `doctor`, and `route`. | `npx glyph-compress inspect "review diff" --json` |
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. Default port: `8080`. | `npx glyph-compress --proxy 8080` |
+| `--log-file <path>` | file path | Append structured, redacted JSONL diagnostics from the proxy (timestamps, trust/routing metadata) to this file. | `npx glyph-compress --proxy --log-file ~/.glyphcompress/proxy.log` |
 | `-h, --help` | flag | Show built-in CLI help. | `npx glyph-compress --help` |
 
 ### Command Line (CLI): Practical Examples

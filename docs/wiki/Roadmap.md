@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.18.0`: Team Codebook Registry.
+`v1.19.0`: Structured Diagnostics & Git-Diff-Aware Routing.
+
+## Delivered in v1.19.0
+
+- Structured, redaction-aware logging (`src/logger.js`): ISO timestamps and consistent secret redaction across every sink (console, VS Code output channel, and a new `--log-file` JSONL sink), plus richer per-request trust/routing diagnostics.
+- `routeAndCompress(query, { gitDiffOnly: true })` / CLI `route <query> --git-diff-only` restricts the Context Router to git staged/unstaged files.
+- Fixed real drift: `vscode-ext/proxy.js` was a hand-maintained CJS duplicate of `src/proxy.js` that had fallen out of sync; now generated from the same source, with new CJS-build test coverage.
+- 18 suites total, all passing.
 
 ## Delivered in v1.18.0
 
@@ -81,7 +88,6 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.19.0`: structured diagnostics and payload snapshots.
 - `v1.20.0`: expression-level source maps.
 - `v1.21.0`: provider trust and UX.
 - `v1.22.0`: real task evaluation.

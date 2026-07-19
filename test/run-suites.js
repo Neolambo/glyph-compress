@@ -20,6 +20,7 @@ const suites = [
   ['context-router', 'test/context-router.js'],
   ['mcp-server', 'test/mcp-server.js'],
   ['team-codebook', 'test/team-codebook.js'],
+  ['logger', 'test/logger.js'],
 ];
 
 for (const [name, file] of suites) {

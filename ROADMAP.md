@@ -14,15 +14,15 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.18.0` for the Team Codebook Registry.
-- [x] Last stable release was `glyph-compress@1.17.0` (MCP Server, Context Router & Real-Tokenizer Economics).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.18.0`.
-- [x] `npm test` passes 17 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook) for `v1.18.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged from v1.17.0; the Team Codebook Registry affects cross-machine glyph consistency, not this single-session benchmark's numbers.
+- [x] Current stable release is `v1.19.0` for structured diagnostics, git-diff-aware Context Router routing, and the `vscode-ext/proxy.js` build-drift fix.
+- [x] Last stable release was `glyph-compress@1.18.0` (Team Codebook Registry).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.19.0`.
+- [x] `npm test` passes 18 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger) for `v1.19.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release is diagnostics/routing/build-hygiene, not a compression-ratio change.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.19.0` for structured diagnostics and payload snapshots (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
+- [ ] Prepared next release is `v1.20.0` for expression-level source maps (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
 
 ## Release Reality Check
 
@@ -325,12 +325,13 @@ Status: delivered.
 - [x] Extend tokenizer calibration with apples-to-apples word-vs-glyph and phrase-level before/after comparison; found all 28 `TECH_GLYPHS` are a net token loss on OpenAI and wired a measured cost table into the breakeven check so tech-name substitution never fires there when it would lose tokens.
 - [x] Git-diff-aware routing: `routeAndCompress(query, { gitDiffOnly: true })` and CLI `glyph-compress route <query> --git-diff-only` restrict candidates to git staged/unstaged files for "review what I changed" workflows, instead of only nudging their score among the whole workspace.
 
-### v1.19.0: Structured Diagnostics and Snapshots
+### v1.19.0: Structured Diagnostics
 
-Status: proposed.
+Status: delivered.
 
-- [ ] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics.
-- [ ] Surface richer trust and routing diagnostics in the extension output and proxy logs.
+- [x] Add structured redaction-aware log sinks with timestamps for CLI, proxy, and VS Code extension diagnostics (`src/logger.js`, `createStructuredLogger`). Every log entry now gets an ISO timestamp and consistent redaction across ALL sinks (console, VS Code `outputChannel`, and a new optional JSONL file sink via CLI `--log-file`) — previously redaction was only ever applied at one call site (the upstream error body), so a forwarding-error message or an echoed request URL could leak a secret unredacted.
+- [x] Surface richer trust and routing diagnostics in the extension output and proxy logs: each request now logs privacy firewall / attentional decay / holographic folding / intent diffs state, dynamic dictionary and file index size, whether a team codebook was loaded, and whether the net-negative fallback fired.
+- [x] Fixed a real, pre-existing drift bug found while doing this: `vscode-ext/proxy.js` was a hand-maintained CommonJS duplicate of `src/proxy.js` that had fallen out of sync (missing `attentionalDecay`/`holographicFolding`/`intentDiffs` options, the dashboard/stats endpoints, and now structured logging). It is now esbuild-generated from `src/proxy.js` like the rest of the CJS build, eliminating the duplicate entirely. Had zero test coverage before or after; added a CJS-build smoke test.
 
 ### v1.20.0: Expression-Level Source Maps
 

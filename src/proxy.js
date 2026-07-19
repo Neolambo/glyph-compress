@@ -2,6 +2,7 @@ import http from 'http';
 import https from 'https';
 import { GlyphCompressor } from './glyph-middleware.js';
 import { getDashboardHTML } from './dashboard.js';
+import { createStructuredLogger, redactForLog } from './logger.js';
 
 export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai.com', levelOrOptions = 'aggressive', sharedCompressor = null, outputChannel = null) {
   const options = normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, targetApiUrl);
@@ -21,15 +22,23 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
   let totalCompressedTokens = 0;
   let messagesProcessed = 0;
 
-  const rawLog = createLogger(options.outputChannel);
-  const log = (message) => {
-    rawLog(message);
-    logHistory.push({
-      timestamp: new Date().toLocaleTimeString(),
-      text: message
-    });
-    if (logHistory.length > 50) logHistory.shift();
-  };
+  const structuredLogger = createStructuredLogger({
+    logFile: options.logFile,
+    outputChannel: options.outputChannel,
+    onEntry: (entry) => {
+      logHistory.push({
+        // Kept for the existing dashboard UI (src/dashboard.js reads
+        // log.timestamp/log.text directly) — isoTimestamp/level are the
+        // new structured fields for programmatic consumers.
+        timestamp: new Date(entry.timestamp).toLocaleTimeString(),
+        text: entry.message,
+        isoTimestamp: entry.timestamp,
+        level: entry.level,
+      });
+      if (logHistory.length > 50) logHistory.shift();
+    },
+  });
+  const log = (message, meta) => structuredLogger.info(message, meta);
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost:' + port}`);
@@ -79,13 +88,24 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
           const payload = JSON.parse(body);
           
           if (payload.messages && Array.isArray(payload.messages)) {
-            log(`[Proxy] Intercepted ${req.method} ${req.url}`);
-            
+            log(`[Proxy] Intercepted ${req.method} ${req.url}`, { requestId: messagesProcessed + 1 });
+
             const { messages: compressedMessages, stats } = compressor.compressMessages(payload.messages, options.compressionProvider);
             payload.messages = compressedMessages;
-            
-            log(`[Proxy] Provider=${options.compressionProvider} level=${compressor.level} trust=${compressor.trustPolicy}`);
-            
+
+            // Richer routing/trust diagnostics: which knobs actually shaped
+            // this request, not just the ratio it produced.
+            log(`[Proxy] Provider=${options.compressionProvider} level=${compressor.level} trust=${compressor.trustPolicy}`, {
+              privacyFirewall: compressor.privacyFirewall,
+              attentionalDecay: compressor.attentionalDecay,
+              holographicFolding: compressor.holographicFolding,
+              intentDiffs: compressor.intentDiffs,
+              dynamicDictSize: compressor.dynamicDict.size,
+              fileIndexSize: compressor.fileIndex.size,
+              teamCodebookLoaded: compressor.getTeamCodebookInfo().loaded,
+              fallback: stats.thisMessage?.fallback === true,
+            });
+
             const thisMsg = stats.thisMessage;
             if (thisMsg) {
               log(`[Proxy] Compression ratio: ${thisMsg.ratio || '1.0x'} (Saved: ${thisMsg.savedPct || '0%'})`);
@@ -110,19 +130,19 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
           }
           
           // Forward the modified request to the actual LLM API
-          forwardRequest(req, res, targetApiUrl, JSON.stringify(payload));
+          forwardRequest(req, res, targetApiUrl, JSON.stringify(payload), structuredLogger);
           
         } catch (e) {
           log('[Proxy] Error parsing/compressing JSON: ' + e.message);
           // Fallback to forwarding the raw body if it's not JSON or fails
-          forwardRequest(req, res, targetApiUrl, body);
+          forwardRequest(req, res, targetApiUrl, body, structuredLogger);
         }
       });
     } else {
       // Forward GET/OPTIONS and other requests directly
       let body = '';
       req.on('data', chunk => { body += chunk.toString(); });
-      req.on('end', () => forwardRequest(req, res, targetApiUrl, body));
+      req.on('end', () => forwardRequest(req, res, targetApiUrl, body, structuredLogger));
     }
   });
 
@@ -164,31 +184,20 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
     intentDiffs: Boolean(raw.intentDiffs || raw.intents || raw.compressor?.intentDiffs),
     compressor: raw.compressor || sharedCompressor || null,
     outputChannel: raw.outputChannel || outputChannel || null,
+    logFile: raw.logFile || null,
   };
 }
 
-function createLogger(outputChannel) {
-  return (message) => {
-    if (outputChannel) outputChannel.appendLine(message);
-    console.log(message);
-  };
-}
+const fallbackLogger = createStructuredLogger();
 
-function redactForLog(value = '') {
-  return String(value)
-    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [REDACTED]')
-    .replace(/"api[_-]?key"\s*:\s*"[^"]+"/gi, '"apiKey":"[REDACTED]"')
-    .slice(0, 1200);
-}
-
-function forwardRequest(clientReq, clientRes, targetApiUrl, body) {
+function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallbackLogger) {
   try {
     let requestPath = clientReq.url;
     if (targetApiUrl.includes('generativelanguage.googleapis.com') && requestPath.startsWith('/v1/')) {
       requestPath = requestPath.replace('/v1/', '/v1beta/openai/');
     }
     const url = new URL(requestPath, targetApiUrl);
-    
+
     const options = {
       method: clientReq.method,
       headers: { ...clientReq.headers },
@@ -203,14 +212,14 @@ function forwardRequest(clientReq, clientRes, targetApiUrl, body) {
 
     const requestClient = url.protocol === 'http:' ? http : https;
     const proxyReq = requestClient.request(url, options, (proxyRes) => {
-      console.log(`[Proxy] Upstream ${proxyRes.statusCode} ${proxyRes.statusMessage || ''}`.trim());
+      logger.info(`[Proxy] Upstream ${proxyRes.statusCode} ${proxyRes.statusMessage || ''}`.trim());
 
       if (proxyRes.statusCode >= 400) {
         const chunks = [];
         proxyRes.on('data', chunk => chunks.push(chunk));
         proxyRes.on('end', () => {
           const responseBody = Buffer.concat(chunks);
-          console.error('[Proxy] Upstream error body:', redactForLog(responseBody.toString('utf8')));
+          logger.error('[Proxy] Upstream error body: ' + redactForLog(responseBody.toString('utf8'), 1200));
           clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
           clientRes.end(responseBody);
         });
@@ -221,18 +230,18 @@ function forwardRequest(clientReq, clientRes, targetApiUrl, body) {
       let responseBytes = 0;
       proxyRes.on('data', chunk => { responseBytes += chunk.length; });
       proxyRes.on('end', () => {
-        console.log(`[Proxy] Upstream response completed (${responseBytes} bytes)`);
+        logger.info(`[Proxy] Upstream response completed (${responseBytes} bytes)`);
       });
       clientRes.on('close', () => {
         if (!clientRes.writableEnded) {
-          console.warn('[Proxy] Client closed response before stream completed');
+          logger.warn('[Proxy] Client closed response before stream completed');
         }
       });
       proxyRes.pipe(clientRes, { end: true });
     });
 
     proxyReq.on('error', (err) => {
-      console.error('[Proxy] Forwarding error:', err.message);
+      logger.error('[Proxy] Forwarding error: ' + err.message);
       clientRes.writeHead(500);
       clientRes.end('Proxy Error: ' + err.message);
     });
@@ -242,7 +251,7 @@ function forwardRequest(clientReq, clientRes, targetApiUrl, body) {
     }
     proxyReq.end();
   } catch (err) {
-    console.error('[Proxy] Request setup error:', err.message);
+    logger.error('[Proxy] Request setup error: ' + err.message);
     clientRes.writeHead(500);
     clientRes.end('Proxy Setup Error: ' + err.message);
   }
