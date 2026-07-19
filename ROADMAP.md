@@ -14,15 +14,15 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.20.0` for expression-level AST source-map spans and a fix for two real bugs that silently flattened code-block indentation.
-- [x] Last stable release was `glyph-compress@1.19.0` (Structured Diagnostics & Git-Diff-Aware Routing).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.20.0`.
-- [x] `npm test` passes 19 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans) for `v1.20.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged on these fixtures; realistic-benchmark numbers on code-heavy files shifted by roughly a percentage point in either direction since the whitespace-collapse fix stopped inflating savings by mangling indentation.
+- [x] Current stable release is `v1.21.0` for provider-aware code-block minification economics and trust warnings.
+- [x] Last stable release was `glyph-compress@1.20.0` (Expression-Level Source Maps).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.21.0`.
+- [x] `npm test` passes 21 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings) for `v1.21.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; disabling measurably-losing code-keyword substitution on OpenAI removed hidden waste with no observed downside, same pattern as the v1.17.0 TECH_GLYPHS fix.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.21.0` for provider trust and UX (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
+- [ ] Prepared next release is `v1.22.0` for real task evaluation (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
 
 ## Release Reality Check
 
@@ -344,11 +344,12 @@ Status: delivered.
 
 ### v1.21.0: Provider Trust and UX
 
-Status: proposed.
+Status: delivered.
 
-- [ ] Extend provider profiles to choose code block and context-router strategies automatically.
-- [ ] Add per-provider trust warnings or risk scoring for risky transformations.
-- [ ] Improve VS Code UX surfacing for provider choice, trust policy, and diagnostic output.
+- [x] Extend provider profiles to choose code block strategy automatically: applied the same real-tokenizer measurement that found all 28 `TECH_GLYPHS` losing on OpenAI (v1.17.0) to `_minifySyntax()`'s code-block keyword substitutions — all 33 keyword/glyph pairs tested (`return`→`→`, `function`→`ƒ`, `const`→`◇`, `public`→`+`, ...) are also net token losses on OpenAI. Both now skip measured-loss substitutions on the `openai` provider via the same breakeven pattern; comment/blank-line removal and indent-to-tab compaction are untouched since they are not glyph substitutions and still save real tokens. Context-router strategy selection by provider remains open — no evidence yet that it should differ by provider.
+- [x] Add per-provider trust warnings for risky transformations: `buildTrustWarnings(trustProfile, level)` and `sourceMap.trustWarnings` — every warning is derived strictly from the trust profile's own existing `reversible`/`redacts`/`lossy`/`allows.*` flags (no new, unverifiable claims about model behavior). Surfaced in CLI `--explain`.
+- [x] Improve VS Code UX surfacing for trust policy and diagnostic output: trust warnings now appear in the extension's output channel both at startup (for the configured level/policy) and after each manual compression.
+- [x] **Found and fixed a real export bug while adding this**: `vscode-ext/glyph-middleware.js` hand-maintains a second, manual `module.exports = {...}` block for CJS consumers alongside its `export {...}` statement (esbuild's own auto-generated CJS export is dead code there — `0 && (module.exports = {...})`). A symbol exported from one list but not the other silently produces `undefined` for `require()` consumers; `buildTrustWarnings` shipped with exactly this bug initially, caught immediately by a new regression test (`test/extension.js`) that now compares both lists and fails loudly if they diverge.
 
 ### v1.22.0: Real Task Evaluation
 

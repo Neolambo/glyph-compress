@@ -186,6 +186,12 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.21.0 (Provider Trust & UX)
+
+1. **Code-block minification is now real-tokenizer-aware too**: the same measurement that found all 28 `TECH_GLYPHS` losing on OpenAI (v1.17.0) was applied to `_minifySyntax()`'s keyword-to-glyph substitutions inside code blocks (`return` → `→`, `function` → `ƒ`, `const` → `◇`, `public` → `+`, ...). Result: **all 33 keyword/glyph pairs tested are also net token losses on OpenAI** — common code keywords are already single BPE tokens (code is a huge fraction of pretraining data), so replacing them with a 1-4 token Unicode glyph never wins. Tech-name and code-keyword minification now both skip measured-loss substitutions on the `openai` provider; comment removal, blank-line removal, and indent-to-tab compaction (not glyph substitutions) still apply and still save real tokens.
+2. **Trust warnings** (`buildTrustWarnings()`, `sourceMap.trustWarnings`): plain-language, fact-derived warnings about what the current level/trust-policy combination actually permits — e.g. "lossy trust policy: code summaries and redundancy stripping are irreversible." Every warning is derived strictly from the trust profile's own existing `reversible`/`redacts`/`lossy`/`allows.*` flags, not new claims about model behavior. Surfaced in CLI `--explain`, the VS Code extension's output channel (both at startup and after each compression), and `sourceMap.trustWarnings` for any consumer.
+3. **Fixed a real export bug found while adding the trust-warnings API**: `vscode-ext/glyph-middleware.js` hand-maintains a second, manual `module.exports = {...}` block for CJS consumers alongside its `export {...}` statement (esbuild's own auto-generated CJS export is dead code there). A new export added to one list without the other silently produces `undefined` for `require()` consumers — which is exactly what shipped initially with `buildTrustWarnings` in this same release, caught immediately by a new regression test that now compares both lists.
+
 ### New in v1.20.0 (Expression-Level Source Maps & a Real Indentation Bug Fix)
 
 1. **Expression-level AST spans**: `sourceMap.ast` now tracks arrow functions, function calls (with a span distinct from the declaration), destructuring, async/await, and exception handling (try/catch/throw/finally) inside minified/summarized code blocks — not just top-level import/export/function/class declarations. New language coverage: Ruby, Swift, Kotlin, and PHP, which already had `TECH_GLYPHS` entries but no token extraction at all.
@@ -375,7 +381,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.20.0)
+### 📏 Benchmark Snapshot (v1.21.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

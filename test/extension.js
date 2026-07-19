@@ -150,6 +150,26 @@ try {
   assert(fs.existsSync(path.join(root, 'vscode-ext', 'token-estimator.cjs')), 'VSIX should include local token estimator dependency');
   assert(!middlewareSource.includes('../src/token-estimator.cjs'), 'VSIX middleware should not require files outside the extension bundle');
 
+  // Regression guard: vscode-ext/glyph-middleware.js hand-maintains a
+  // second, manual `module.exports = {...}` block (a UMD-style dual
+  // ESM/CJS shim) alongside its `export { ... }` statement — esbuild's
+  // own auto-generated CJS export is dead code (`0 && (module.exports =
+  // {...})`), so the manual block is the one that actually runs. Adding
+  // a new export to the `export {...}` list without also adding it here
+  // silently produces `undefined` for CJS consumers (require()), which
+  // is exactly the failure mode that shipped once already (buildTrustWarnings
+  // in v1.21.0) before this check existed. Compare both lists directly.
+  const middlewareEsmSource = fs.readFileSync(path.join(root, 'vscode-ext', 'glyph-middleware.js'), 'utf8');
+  const esmExportMatch = middlewareEsmSource.match(/^export \{([^}]+)\};/m);
+  const cjsExportMatch = middlewareEsmSource.match(/\n {2}module\.exports = \{([^}]+)\};/);
+  assert(esmExportMatch && cjsExportMatch, 'expected to find both the ESM export list and the manual CJS module.exports shim');
+  const esmNames = new Set(esmExportMatch[1].split(',').map((s) => s.trim()).filter(Boolean));
+  const cjsNames = new Set(cjsExportMatch[1].split(',').map((s) => s.trim()).filter(Boolean));
+  const missingFromCjs = [...esmNames].filter((name) => !cjsNames.has(name));
+  const missingFromEsm = [...cjsNames].filter((name) => !esmNames.has(name));
+  assert.strictEqual(missingFromCjs.length, 0, `exported from ESM but missing from the manual CJS module.exports shim: ${missingFromCjs.join(', ')}`);
+  assert.strictEqual(missingFromEsm.length, 0, `present in the manual CJS module.exports shim but not exported from ESM: ${missingFromEsm.join(', ')}`);
+
   extension.deactivate();
 } finally {
   Module._load = originalLoad;

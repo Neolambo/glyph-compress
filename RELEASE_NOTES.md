@@ -1,3 +1,26 @@
+## v1.21.0 — Provider Trust & UX
+
+Changes since v1.20.0:
+
+### Code-Block Minification Economics
+- Applied the same real-tokenizer measurement that found all 28 `TECH_GLYPHS` losing on OpenAI (v1.17.0) to `_minifySyntax()`'s code-block keyword-to-glyph substitutions (`return`→`→`, `function`→`ƒ`, `const`→`◇`, `public`→`+`, `class`→`𝒞`, ...). Result: **all 33 keyword/glyph pairs tested are also net token losses on OpenAI** — common code keywords are already single BPE tokens (code is a large fraction of pretraining data), so replacing them with a 1-4 token Unicode glyph never wins.
+- Both tech-name and code-keyword minification now skip measured-loss substitutions on the `openai` provider via the same breakeven pattern. Comment removal, blank-line removal, and indent-to-tab compaction are **not** glyph substitutions and are untouched — they still produce real savings, confirmed by a dedicated test that OpenAI code blocks still get genuine net-positive compression after this change, not just fallback to the original text.
+
+### Trust Warnings
+- `buildTrustWarnings(trustProfile, level)` and `sourceMap.trustWarnings`: plain-language warnings about what the current level/trust-policy combination actually permits (e.g. "lossy trust policy: code summaries and redundancy stripping are irreversible"). Every warning is derived strictly from the trust profile's own existing `reversible`/`redacts`/`lossy`/`allows.*` flags — no new, unverifiable claims about provider comprehension or model behavior.
+- Surfaced in CLI `--explain`, the VS Code extension's output channel (at startup for the configured level/policy, and after each manual compression), and `sourceMap.trustWarnings` for any other consumer.
+
+### Bug Found and Fixed
+- `vscode-ext/glyph-middleware.js` hand-maintains a second, manual `module.exports = {...}` block for CJS consumers alongside its `export {...}` statement — esbuild's own auto-generated CJS export is dead code there (`0 && (module.exports = {...})`). Adding a new export to one list without the other silently produces `undefined` for `require()` consumers. `buildTrustWarnings` shipped with exactly this bug during development, caught immediately by a new regression test in `test/extension.js` that parses and compares both lists — reproduced the failure on purpose to confirm the test actually catches it before trusting it.
+
+### Tests & Verification
+- **New Test Suites**: `test/code-minify-economics.js` (8 assertions), `test/trust-warnings.js` (9 assertions, including CLI `--explain` checks).
+- **Complete Suite Validation**: 21 suites, all passing.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.20.0 — Expression-Level Source Maps
 
 Changes since v1.19.0:

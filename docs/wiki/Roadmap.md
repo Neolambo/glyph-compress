@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.20.0`: Expression-Level Source Maps.
+`v1.21.0`: Provider Trust & UX.
+
+## Delivered in v1.21.0
+
+- Code-block keyword minification (`return`→`→`, `function`→`ƒ`, etc.) is now skipped on OpenAI when measured as a real token loss — same pattern and same finding as the v1.17.0 TECH_GLYPHS fix, applied to all 33 keyword/glyph pairs used in code-block minification.
+- `buildTrustWarnings()` / `sourceMap.trustWarnings`: plain-language warnings derived strictly from existing trust-profile flags, surfaced in CLI `--explain` and the VS Code output channel.
+- Found and fixed a real export bug: a hand-maintained CJS `module.exports` shim can silently drop new exports; added a regression test that compares it against the ESM export list.
+- 21 suites total, all passing.
 
 ## Delivered in v1.20.0
 
@@ -94,7 +101,6 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.21.0`: provider trust and UX.
 - `v1.22.0`: real task evaluation.
 - `v1.23.0`: adaptive workspace memory.
 

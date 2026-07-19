@@ -95,6 +95,7 @@ export interface GlyphSourceMap {
   profile: ProviderCompressionProfile;
   trustPolicy: string;
   trust: TrustPolicyProfile;
+  trustWarnings: string[];
   files: Array<{ ref: string; path: string; domain: string; span?: GlyphSourceSpan }>;
   dynamic: Array<{ glyph: string; original: string; frequency?: number; estimatedSavedChars?: number; provider?: string; profile?: string }>;
   diagnostics: Array<{ original: string; compressed: string; pattern?: string; span?: GlyphSourceSpan }>;
@@ -201,6 +202,7 @@ export interface ProviderTokenProfile {
 
 export const PROVIDER_TOKEN_PROFILES: Record<string, ProviderTokenProfile>;
 export function selectCompressionLevel(text: string): CompressionLevel;
+export function buildTrustWarnings(trustProfile: TrustPolicyProfile | undefined, level: CompressionLevel | string): string[];
 export function normalizeProvider(provider?: string): string;
 export function estimateProviderTokens(value: unknown, provider?: Provider | string): number;
 export function compareTokenEstimates(original: unknown, compressed: unknown, provider?: Provider | string): CompressionStats & { provider: string };

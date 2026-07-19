@@ -22,6 +22,8 @@ const suites = [
   ['team-codebook', 'test/team-codebook.js'],
   ['logger', 'test/logger.js'],
   ['ast-spans', 'test/ast-spans.js'],
+  ['code-minify-economics', 'test/code-minify-economics.js'],
+  ['trust-warnings', 'test/trust-warnings.js'],
 ];
 
 for (const [name, file] of suites) {

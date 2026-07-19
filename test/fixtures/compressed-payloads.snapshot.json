@@ -6,7 +6,7 @@
     "result": {
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
-        "version": "1.20.0",
+        "version": "1.21.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -17,6 +17,7 @@
           "codebookHint": "Generic text profile with balanced dynamic dictionary compression."
         },
         "trustPolicy": "reversible",
+        "trustWarnings": [],
         "files": [
           {
             "ref": "⊝₍1₎",
@@ -83,7 +84,7 @@
     "result": {
       "compressed": "Use API_KEY=⟦SECRET_ASSIGNMENT_2⟧ and contact ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
       "sourceMap": {
-        "version": "1.20.0",
+        "version": "1.21.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -94,6 +95,9 @@
           "codebookHint": "Generic text profile with balanced dynamic dictionary compression."
         },
         "trustPolicy": "privacy",
+        "trustWarnings": [
+          "Privacy firewall active: values matching secret/PII patterns are redacted before compression — verify no legitimate (non-secret) value was caught by those patterns."
+        ],
         "files": [],
         "dynamic": [],
         "diagnostics": [],
@@ -220,7 +224,7 @@
         }
       ],
       "sourceMap": {
-        "version": "1.20.0",
+        "version": "1.21.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
@@ -231,6 +235,7 @@
           "codebookHint": "OpenAI chat profile favors compact repeated identifiers and low message overhead."
         },
         "trustPolicy": "reversible",
+        "trustWarnings": [],
         "files": [],
         "dynamic": [],
         "diagnostics": [],
@@ -283,7 +288,7 @@
         }
       ],
       "sourceMap": {
-        "version": "1.20.0",
+        "version": "1.21.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {
@@ -294,6 +299,7 @@
           "codebookHint": "Anthropic profile keeps the codebook stable for cache-friendly system prompts."
         },
         "trustPolicy": "reversible",
+        "trustWarnings": [],
         "files": [],
         "dynamic": [],
         "diagnostics": [],

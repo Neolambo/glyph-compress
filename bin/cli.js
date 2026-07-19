@@ -177,6 +177,7 @@ const explanation = explain ? buildExplanation({
   compressed,
   stats,
   compressor: gc,
+  trustWarnings: sourceMap.trustWarnings,
 }) : '';
 
 console.log('\n⚡ GlyphCompress Results:');
@@ -354,7 +355,7 @@ function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, t
   }
 }
 
-function buildExplanation({ level, provider, trustPolicy, fileToCompress, ext, original, compressed, stats, compressor }) {
+function buildExplanation({ level, provider, trustPolicy, fileToCompress, ext, original, compressed, stats, compressor, trustWarnings = [] }) {
   const originalLines = original.split(/\r?\n/).length;
   const compressedLines = compressed.split(/\r?\n/).length;
   const fileRefs = compressor.fileIndex ? compressor.fileIndex.size : 0;
@@ -376,7 +377,7 @@ function buildExplanation({ level, provider, trustPolicy, fileToCompress, ext, o
     ultra: 'Aggressive compression plus structural summaries and redundancy stripping.',
   }[level] || 'Custom compression level.';
 
-  return [
+  const lines = [
     'Compression explanation',
     '----------------------------------------------------',
     `File:              ${fileToCompress}`,
@@ -395,6 +396,11 @@ function buildExplanation({ level, provider, trustPolicy, fileToCompress, ext, o
     `File refs indexed: ${fileRefs}`,
     `Dynamic entries:   ${dynamicEntries}`,
     `Detected changes:  ${detected.length ? detected.join(', ') : 'none detected'}`,
-    '----------------------------------------------------\n',
-  ].join('\n');
+  ];
+  if (trustWarnings.length) {
+    lines.push('Trust warnings:');
+    for (const warning of trustWarnings) lines.push(`  - ${warning}`);
+  }
+  lines.push('----------------------------------------------------\n');
+  return lines.join('\n');
 }

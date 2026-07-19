@@ -12,3 +12,4 @@ export const TECH_GLYPHS = middleware.TECH_GLYPHS;
 export const PROVIDER_COMPRESSION_PROFILES = middleware.PROVIDER_COMPRESSION_PROFILES;
 export const TRUST_POLICY_PROFILES = middleware.TRUST_POLICY_PROFILES;
 export const selectCompressionLevel = middleware.selectCompressionLevel;
+export const buildTrustWarnings = middleware.buildTrustWarnings;

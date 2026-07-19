@@ -72,6 +72,26 @@ const MEASURED_TECH_GLYPH_TOKENS_OPENAI = {
   mongodb: [1, 1, 2, 2], redis: [1, 1, 3, 3], llm: [2, 2, 2, 2], agent: [1, 1, 1, 1], prompt: [1, 1, 1, 1],
 };
 
+// Same measurement, same finding, applied to _minifySyntax()'s keyword-to-
+// glyph substitutions (return -> "→", function -> "ƒ", const -> "◇", ...):
+// every single one of these 33 is ALSO a net token loss on real OpenAI
+// tokenizers — common code keywords are, unsurprisingly, already 1 BPE
+// token each (code is a huge fraction of pretraining data), so replacing
+// them with a 2-4 token Unicode glyph is never a real win. Regenerate by
+// rerunning the measurement in test/tokenizer-calibration.js's "code
+// keyword" section if _minifySyntax's glyph choices ever change.
+const MEASURED_CODE_KEYWORD_TOKENS_OPENAI = {
+  return: [1, 1, 1, 1], function: [1, 1, 2, 1], const: [1, 1, 2, 1], let: [1, 1, 2, 1],
+  import: [1, 1, 1, 1], export: [1, 1, 1, 1], def: [1, 1, 2, 1], class: [1, 1, 3, 3],
+  from: [1, 1, 1, 1], yield: [1, 1, 1, 1], 'self.': [2, 2, 2, 2],
+  int: [1, 1, 3, 2], void: [1, 1, 3, 2], char: [1, 1, 3, 2], float: [1, 1, 3, 2],
+  double: [1, 1, 3, 2], long: [1, 1, 3, 2], short: [1, 1, 3, 2],
+  fn: [1, 1, 2, 1], pub: [1, 1, 1, 1], mut: [1, 1, 1, 1], impl: [1, 1, 1, 1],
+  struct: [1, 1, 3, 3], use: [1, 1, 1, 1], match: [1, 1, 1, 1], func: [1, 1, 2, 1],
+  package: [1, 1, 1, 1], type: [1, 1, 3, 2], public: [1, 1, 1, 1], private: [1, 1, 1, 1],
+  protected: [1, 1, 1, 1], using: [1, 1, 1, 1], '#include': [1, 1, 1, 1],
+};
+
 // Every glyph emitted by _compressTechNames() below is drawn from TECH_GLYPHS,
 // so the printed codebook lines are generated FROM this same map (see
 // COMPACT_CODEBOOK_TECH_ENTRIES) instead of a hand-maintained subset, which
@@ -287,6 +307,34 @@ const TRUST_POLICY_PROFILES = {
     },
   },
 };
+
+// Every warning here is derived strictly from the trust profile's own
+// existing, already-true flags (reversible/redacts/lossy/allows.*) — no
+// new claims about provider comprehension or model behavior, which
+// would be unverifiable. This is "risk scoring for risky
+// transformations": telling a caller in plain language what a
+// level/trustPolicy combination actually permits, since `allows: {...}`
+// alone requires reading source to interpret.
+function buildTrustWarnings(trustProfile, level) {
+  const warnings = [];
+  if (!trustProfile) return warnings;
+  if (trustProfile.lossy) {
+    warnings.push('Lossy trust policy: code summaries and redundancy stripping are irreversible — the compressed output cannot be used to reconstruct the original text.');
+  }
+  if (!trustProfile.reversible) {
+    warnings.push('Non-reversible trust policy: no dictionaries are exposed for mapping compressed glyphs back to their original text.');
+  }
+  if (level === 'ultra' && trustProfile.allows?.codeSummary) {
+    warnings.push('Ultra level replaces code blocks with structural summaries — the model reasons from a description of the code, not the code itself.');
+  }
+  if ((level === 'aggressive' || level === 'ultra') && trustProfile.allows?.codeMinify) {
+    warnings.push('Code blocks are syntactically minified — comments and some structure are removed; verify no comment contained information the model still needs.');
+  }
+  if (trustProfile.redacts) {
+    warnings.push('Privacy firewall active: values matching secret/PII patterns are redacted before compression — verify no legitimate (non-secret) value was caught by those patterns.');
+  }
+  return warnings;
+}
 
 // ═══════════════════════════════════════════════════════════
 // CODEBOOK SYSTEM PROMPT
@@ -1064,12 +1112,13 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.20.0',
+      version: '1.21.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
       trustPolicy: this.trustPolicy,
       trust: this.trustProfile,
+      trustWarnings: buildTrustWarnings(this.trustProfile, this.level),
       files: [],
       dynamic: [],
       diagnostics: [],
@@ -1794,6 +1843,21 @@ class GlyphCompressor {
     return result;
   }
 
+  // Skips a keyword->glyph minification when MEASURED_CODE_KEYWORD_TOKENS_OPENAI
+  // shows it is a net token loss for the current (openai) provider;
+  // applies unconditionally for every other provider, matching
+  // _compressTechNames()'s established breakeven pattern.
+  _minifyReplace(text, key, glyph, pattern) {
+    if (this.provider === 'openai') {
+      const measured = MEASURED_CODE_KEYWORD_TOKENS_OPENAI[key];
+      if (measured) {
+        const [wordCl, wordO2, glyphCl, glyphO2] = measured;
+        if (glyphCl >= wordCl || glyphO2 >= wordO2) return text;
+      }
+    }
+    return text.replace(pattern, glyph);
+  }
+
   _minifySyntax(code, lang) {
     if (!code) return code;
     let c = code;
@@ -1818,58 +1882,67 @@ class GlyphCompressor {
     }
 
     // 2. Cross-language common minifications
-    c = c.replace(/\breturn\b/g, '→');
+    c = this._minifyReplace(c, 'return', '→', /\breturn\b/g);
     c = c.replace(/^\s*[\r\n]/gm, ''); // Remove empty lines for ALL languages
 
-    // 3. Keyword semantic minification
+    // 3. Keyword semantic minification — each substitution is skipped for
+    // the openai provider when MEASURED_CODE_KEYWORD_TOKENS_OPENAI shows
+    // it is a real token loss (see that table's comment: all 33 keyword/
+    // glyph pairs tested here measured as losses on real OpenAI
+    // tokenizers, since common code keywords are already single BPE
+    // tokens). Other providers keep the historical character-savings
+    // behavior until they have their own calibration (tracked in
+    // ROADMAP.md).
     if (['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript'].includes(l) || !l) {
-      c = c.replace(/\bfunction\b/g, 'ƒ');
-      c = c.replace(/\bconst\b/g, '◇');
-      c = c.replace(/\blet\b/g, '◇');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\bexport\b/g, 'exp');
+      c = this._minifyReplace(c, 'function', 'ƒ', /\bfunction\b/g);
+      c = this._minifyReplace(c, 'const', '◇', /\bconst\b/g);
+      c = this._minifyReplace(c, 'let', '◇', /\blet\b/g);
+      c = this._minifyReplace(c, 'import', 'imp', /\bimport\b/g);
+      c = this._minifyReplace(c, 'export', 'exp', /\bexport\b/g);
     }
-    
+
     if (['py', 'python'].includes(l) || !l) {
-      c = c.replace(/\bdef\b/g, 'ƒ');
-      c = c.replace(/\bclass\b/g, '𝒞');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\bfrom\b/g, 'imp');
-      c = c.replace(/\byield\b/g, '→');
-      c = c.replace(/\bself\.\b/g, 's.');
+      c = this._minifyReplace(c, 'def', 'ƒ', /\bdef\b/g);
+      c = this._minifyReplace(c, 'class', '𝒞', /\bclass\b/g);
+      c = this._minifyReplace(c, 'import', 'imp', /\bimport\b/g);
+      c = this._minifyReplace(c, 'from', 'imp', /\bfrom\b/g);
+      c = this._minifyReplace(c, 'yield', '→', /\byield\b/g);
+      c = this._minifyReplace(c, 'self.', 's.', /\bself\.\b/g);
     }
 
     if (['c', 'cpp', 'c++', 'h', 'hpp'].includes(l) || !l) {
-      c = c.replace(/#include/g, 'imp');
-      c = c.replace(/\b(?:int|void|char|float|double|long|short)\b/g, '◇t');
+      c = this._minifyReplace(c, '#include', 'imp', /#include/g);
+      // int/void/char/float/double/long/short all measured as uniform
+      // losses; 'void' is representative of the whole group.
+      c = this._minifyReplace(c, 'void', '◇t', /\b(?:int|void|char|float|double|long|short)\b/g);
     }
 
     if (['rs', 'rust'].includes(l) || !l) {
-      c = c.replace(/\bfn\b/g, 'ƒ');
-      c = c.replace(/\bpub\b/g, '+');
-      c = c.replace(/\bmut\b/g, 'm');
-      c = c.replace(/\bimpl\b/g, 'I');
-      c = c.replace(/\bstruct\b/g, '𝒞');
-      c = c.replace(/\buse\b/g, 'imp');
-      c = c.replace(/\bmatch\b/g, '?');
+      c = this._minifyReplace(c, 'fn', 'ƒ', /\bfn\b/g);
+      c = this._minifyReplace(c, 'pub', '+', /\bpub\b/g);
+      c = this._minifyReplace(c, 'mut', 'm', /\bmut\b/g);
+      c = this._minifyReplace(c, 'impl', 'I', /\bimpl\b/g);
+      c = this._minifyReplace(c, 'struct', '𝒞', /\bstruct\b/g);
+      c = this._minifyReplace(c, 'use', 'imp', /\buse\b/g);
+      c = this._minifyReplace(c, 'match', '?', /\bmatch\b/g);
     }
 
     if (['go', 'golang'].includes(l) || !l) {
-      c = c.replace(/\bfunc\b/g, 'ƒ');
-      c = c.replace(/\bpackage\b/g, 'pkg');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\btype\b/g, '◇t');
-      c = c.replace(/\bstruct\b/g, '𝒞');
+      c = this._minifyReplace(c, 'func', 'ƒ', /\bfunc\b/g);
+      c = this._minifyReplace(c, 'package', 'pkg', /\bpackage\b/g);
+      c = this._minifyReplace(c, 'import', 'imp', /\bimport\b/g);
+      c = this._minifyReplace(c, 'type', '◇t', /\btype\b/g);
+      c = this._minifyReplace(c, 'struct', '𝒞', /\bstruct\b/g);
     }
 
     if (['java', 'cs', 'csharp'].includes(l) || !l) {
-      c = c.replace(/\bpublic\b/g, '+');
-      c = c.replace(/\bprivate\b/g, '-');
-      c = c.replace(/\bprotected\b/g, '#');
-      c = c.replace(/\bclass\b/g, '𝒞');
-      c = c.replace(/\bimport\b/g, 'imp');
-      c = c.replace(/\busing\b/g, 'imp');
-      c = c.replace(/\bvoid\b/g, '◇t');
+      c = this._minifyReplace(c, 'public', '+', /\bpublic\b/g);
+      c = this._minifyReplace(c, 'private', '-', /\bprivate\b/g);
+      c = this._minifyReplace(c, 'protected', '#', /\bprotected\b/g);
+      c = this._minifyReplace(c, 'class', '𝒞', /\bclass\b/g);
+      c = this._minifyReplace(c, 'import', 'imp', /\bimport\b/g);
+      c = this._minifyReplace(c, 'using', 'imp', /\busing\b/g);
+      c = this._minifyReplace(c, 'void', '◇t', /\bvoid\b/g);
     }
 
     // 4. Indentation minification (replace spaces with tabs)
@@ -2351,8 +2424,9 @@ if (typeof module !== 'undefined' && module.exports) {
     PROVIDER_COMPRESSION_PROFILES,
     TRUST_POLICY_PROFILES,
     selectCompressionLevel,
+    buildTrustWarnings,
   };
 }
 
 // ESM export for modern usage
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel };
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel, buildTrustWarnings };

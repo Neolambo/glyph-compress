@@ -35,6 +35,7 @@ __export(glyph_middleware_exports, {
   PROVIDER_COMPRESSION_PROFILES: () => PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS: () => TECH_GLYPHS,
   TRUST_POLICY_PROFILES: () => TRUST_POLICY_PROFILES,
+  buildTrustWarnings: () => buildTrustWarnings,
   selectCompressionLevel: () => selectCompressionLevel,
   wrapAnthropic: () => wrapAnthropic,
   wrapOpenAI: () => wrapOpenAI
@@ -124,6 +125,41 @@ var MEASURED_TECH_GLYPH_TOKENS_OPENAI = {
   llm: [2, 2, 2, 2],
   agent: [1, 1, 1, 1],
   prompt: [1, 1, 1, 1]
+};
+var MEASURED_CODE_KEYWORD_TOKENS_OPENAI = {
+  return: [1, 1, 1, 1],
+  function: [1, 1, 2, 1],
+  const: [1, 1, 2, 1],
+  let: [1, 1, 2, 1],
+  import: [1, 1, 1, 1],
+  export: [1, 1, 1, 1],
+  def: [1, 1, 2, 1],
+  class: [1, 1, 3, 3],
+  from: [1, 1, 1, 1],
+  yield: [1, 1, 1, 1],
+  "self.": [2, 2, 2, 2],
+  int: [1, 1, 3, 2],
+  void: [1, 1, 3, 2],
+  char: [1, 1, 3, 2],
+  float: [1, 1, 3, 2],
+  double: [1, 1, 3, 2],
+  long: [1, 1, 3, 2],
+  short: [1, 1, 3, 2],
+  fn: [1, 1, 2, 1],
+  pub: [1, 1, 1, 1],
+  mut: [1, 1, 1, 1],
+  impl: [1, 1, 1, 1],
+  struct: [1, 1, 3, 3],
+  use: [1, 1, 1, 1],
+  match: [1, 1, 1, 1],
+  func: [1, 1, 2, 1],
+  package: [1, 1, 1, 1],
+  type: [1, 1, 3, 2],
+  public: [1, 1, 1, 1],
+  private: [1, 1, 1, 1],
+  protected: [1, 1, 1, 1],
+  using: [1, 1, 1, 1],
+  "#include": [1, 1, 1, 1]
 };
 var TECH_LABEL_OVERRIDES = {
   typescript: "TS",
@@ -310,6 +346,26 @@ var TRUST_POLICY_PROFILES = {
     }
   }
 };
+function buildTrustWarnings(trustProfile, level) {
+  const warnings = [];
+  if (!trustProfile) return warnings;
+  if (trustProfile.lossy) {
+    warnings.push("Lossy trust policy: code summaries and redundancy stripping are irreversible \u2014 the compressed output cannot be used to reconstruct the original text.");
+  }
+  if (!trustProfile.reversible) {
+    warnings.push("Non-reversible trust policy: no dictionaries are exposed for mapping compressed glyphs back to their original text.");
+  }
+  if (level === "ultra" && trustProfile.allows?.codeSummary) {
+    warnings.push("Ultra level replaces code blocks with structural summaries \u2014 the model reasons from a description of the code, not the code itself.");
+  }
+  if ((level === "aggressive" || level === "ultra") && trustProfile.allows?.codeMinify) {
+    warnings.push("Code blocks are syntactically minified \u2014 comments and some structure are removed; verify no comment contained information the model still needs.");
+  }
+  if (trustProfile.redacts) {
+    warnings.push("Privacy firewall active: values matching secret/PII patterns are redacted before compression \u2014 verify no legitimate (non-secret) value was caught by those patterns.");
+  }
+  return warnings;
+}
 var COMPACT_CODEBOOK_DOM_ENTRIES = [
   ["\u25C8", "frontend"],
   ["\u25C9", "ai_ml"],
@@ -991,12 +1047,13 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.20.0",
+      version: "1.21.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
       trustPolicy: this.trustPolicy,
       trust: this.trustProfile,
+      trustWarnings: buildTrustWarnings(this.trustProfile, this.level),
       files: [],
       dynamic: [],
       diagnostics: [],
@@ -1552,6 +1609,20 @@ ${parsed.dynamicLine}`
     });
     return result;
   }
+  // Skips a keyword->glyph minification when MEASURED_CODE_KEYWORD_TOKENS_OPENAI
+  // shows it is a net token loss for the current (openai) provider;
+  // applies unconditionally for every other provider, matching
+  // _compressTechNames()'s established breakeven pattern.
+  _minifyReplace(text, key, glyph, pattern) {
+    if (this.provider === "openai") {
+      const measured = MEASURED_CODE_KEYWORD_TOKENS_OPENAI[key];
+      if (measured) {
+        const [wordCl, wordO2, glyphCl, glyphO2] = measured;
+        if (glyphCl >= wordCl || glyphO2 >= wordO2) return text;
+      }
+    }
+    return text.replace(pattern, glyph);
+  }
   _minifySyntax(code, lang) {
     if (!code) return code;
     let c = code;
@@ -1569,51 +1640,51 @@ ${parsed.dynamicLine}`
     if (["css", "scss", "less"].includes(l) || !l) {
       c = c.replace(/\/\*[\s\S]*?\*\//g, "");
     }
-    c = c.replace(/\breturn\b/g, "\u2192");
+    c = this._minifyReplace(c, "return", "\u2192", /\breturn\b/g);
     c = c.replace(/^\s*[\r\n]/gm, "");
     if (["js", "jsx", "ts", "tsx", "javascript", "typescript"].includes(l) || !l) {
-      c = c.replace(/\bfunction\b/g, "\u0192");
-      c = c.replace(/\bconst\b/g, "\u25C7");
-      c = c.replace(/\blet\b/g, "\u25C7");
-      c = c.replace(/\bimport\b/g, "imp");
-      c = c.replace(/\bexport\b/g, "exp");
+      c = this._minifyReplace(c, "function", "\u0192", /\bfunction\b/g);
+      c = this._minifyReplace(c, "const", "\u25C7", /\bconst\b/g);
+      c = this._minifyReplace(c, "let", "\u25C7", /\blet\b/g);
+      c = this._minifyReplace(c, "import", "imp", /\bimport\b/g);
+      c = this._minifyReplace(c, "export", "exp", /\bexport\b/g);
     }
     if (["py", "python"].includes(l) || !l) {
-      c = c.replace(/\bdef\b/g, "\u0192");
-      c = c.replace(/\bclass\b/g, "\u{1D49E}");
-      c = c.replace(/\bimport\b/g, "imp");
-      c = c.replace(/\bfrom\b/g, "imp");
-      c = c.replace(/\byield\b/g, "\u2192");
-      c = c.replace(/\bself\.\b/g, "s.");
+      c = this._minifyReplace(c, "def", "\u0192", /\bdef\b/g);
+      c = this._minifyReplace(c, "class", "\u{1D49E}", /\bclass\b/g);
+      c = this._minifyReplace(c, "import", "imp", /\bimport\b/g);
+      c = this._minifyReplace(c, "from", "imp", /\bfrom\b/g);
+      c = this._minifyReplace(c, "yield", "\u2192", /\byield\b/g);
+      c = this._minifyReplace(c, "self.", "s.", /\bself\.\b/g);
     }
     if (["c", "cpp", "c++", "h", "hpp"].includes(l) || !l) {
-      c = c.replace(/#include/g, "imp");
-      c = c.replace(/\b(?:int|void|char|float|double|long|short)\b/g, "\u25C7t");
+      c = this._minifyReplace(c, "#include", "imp", /#include/g);
+      c = this._minifyReplace(c, "void", "\u25C7t", /\b(?:int|void|char|float|double|long|short)\b/g);
     }
     if (["rs", "rust"].includes(l) || !l) {
-      c = c.replace(/\bfn\b/g, "\u0192");
-      c = c.replace(/\bpub\b/g, "+");
-      c = c.replace(/\bmut\b/g, "m");
-      c = c.replace(/\bimpl\b/g, "I");
-      c = c.replace(/\bstruct\b/g, "\u{1D49E}");
-      c = c.replace(/\buse\b/g, "imp");
-      c = c.replace(/\bmatch\b/g, "?");
+      c = this._minifyReplace(c, "fn", "\u0192", /\bfn\b/g);
+      c = this._minifyReplace(c, "pub", "+", /\bpub\b/g);
+      c = this._minifyReplace(c, "mut", "m", /\bmut\b/g);
+      c = this._minifyReplace(c, "impl", "I", /\bimpl\b/g);
+      c = this._minifyReplace(c, "struct", "\u{1D49E}", /\bstruct\b/g);
+      c = this._minifyReplace(c, "use", "imp", /\buse\b/g);
+      c = this._minifyReplace(c, "match", "?", /\bmatch\b/g);
     }
     if (["go", "golang"].includes(l) || !l) {
-      c = c.replace(/\bfunc\b/g, "\u0192");
-      c = c.replace(/\bpackage\b/g, "pkg");
-      c = c.replace(/\bimport\b/g, "imp");
-      c = c.replace(/\btype\b/g, "\u25C7t");
-      c = c.replace(/\bstruct\b/g, "\u{1D49E}");
+      c = this._minifyReplace(c, "func", "\u0192", /\bfunc\b/g);
+      c = this._minifyReplace(c, "package", "pkg", /\bpackage\b/g);
+      c = this._minifyReplace(c, "import", "imp", /\bimport\b/g);
+      c = this._minifyReplace(c, "type", "\u25C7t", /\btype\b/g);
+      c = this._minifyReplace(c, "struct", "\u{1D49E}", /\bstruct\b/g);
     }
     if (["java", "cs", "csharp"].includes(l) || !l) {
-      c = c.replace(/\bpublic\b/g, "+");
-      c = c.replace(/\bprivate\b/g, "-");
-      c = c.replace(/\bprotected\b/g, "#");
-      c = c.replace(/\bclass\b/g, "\u{1D49E}");
-      c = c.replace(/\bimport\b/g, "imp");
-      c = c.replace(/\busing\b/g, "imp");
-      c = c.replace(/\bvoid\b/g, "\u25C7t");
+      c = this._minifyReplace(c, "public", "+", /\bpublic\b/g);
+      c = this._minifyReplace(c, "private", "-", /\bprivate\b/g);
+      c = this._minifyReplace(c, "protected", "#", /\bprotected\b/g);
+      c = this._minifyReplace(c, "class", "\u{1D49E}", /\bclass\b/g);
+      c = this._minifyReplace(c, "import", "imp", /\bimport\b/g);
+      c = this._minifyReplace(c, "using", "imp", /\busing\b/g);
+      c = this._minifyReplace(c, "void", "\u25C7t", /\bvoid\b/g);
     }
     c = c.replace(/^[ \t]+/gm, (match) => {
       const spaces = match.replace(/\t/g, "    ").length;
@@ -1984,7 +2055,8 @@ if (typeof module !== "undefined" && module.exports) {
     TECH_GLYPHS,
     PROVIDER_COMPRESSION_PROFILES,
     TRUST_POLICY_PROFILES,
-    selectCompressionLevel
+    selectCompressionLevel,
+    buildTrustWarnings
   };
 }
 // Annotate the CommonJS export names for ESM import in node:
@@ -1995,6 +2067,7 @@ if (typeof module !== "undefined" && module.exports) {
   PROVIDER_COMPRESSION_PROFILES,
   TECH_GLYPHS,
   TRUST_POLICY_PROFILES,
+  buildTrustWarnings,
   selectCompressionLevel,
   wrapAnthropic,
   wrapOpenAI

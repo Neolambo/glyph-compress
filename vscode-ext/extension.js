@@ -17,7 +17,7 @@
  */
 
 const vscode = require('vscode');
-const { GlyphCompressor, CODEBOOK_PROMPT, DOMAIN_GLYPHS } = require('./glyph-middleware.cjs');
+const { GlyphCompressor, CODEBOOK_PROMPT, DOMAIN_GLYPHS, buildTrustWarnings } = require('./glyph-middleware.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -162,6 +162,10 @@ function activate(context) {
       outputChannel.appendLine(`\nCompressed (${result.stats.compressedTokens} tokens, ${result.stats.ratio}):`);
       outputChannel.appendLine(result.compressed);
       outputChannel.appendLine(`Saved: ${result.stats.savedPct}`);
+      if (result.sourceMap?.trustWarnings?.length) {
+        outputChannel.appendLine('Trust warnings:');
+        for (const warning of result.sourceMap.trustWarnings) outputChannel.appendLine(`  - ${warning}`);
+      }
       outputChannel.show();
 
       // Also copy the compressed text to clipboard
@@ -352,6 +356,11 @@ function activate(context) {
   outputChannel.appendLine(`  Level: ${config.get('compressionLevel', 'standard')}`);
   outputChannel.appendLine(`  Trust: ${config.get('trustPolicy', 'auto')}`);
   outputChannel.appendLine(`  Codebook: ${CODEBOOK_PROMPT.length} chars (≈${Math.ceil(CODEBOOK_PROMPT.length / 4)} tokens)`);
+  const startupWarnings = buildTrustWarnings(compressor.trustProfile, config.get('compressionLevel', 'standard'));
+  if (startupWarnings.length) {
+    outputChannel.appendLine('  Trust warnings for the current configuration:');
+    for (const warning of startupWarnings) outputChannel.appendLine(`    - ${warning}`);
+  }
 }
 
 function updateStatusBar() {
