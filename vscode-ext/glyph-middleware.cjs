@@ -991,7 +991,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.19.0",
+      version: "1.20.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1167,9 +1167,7 @@ ${parsed.dynamicLine}`
     if (this.holographicFolding) {
       c = this._foldHolographicText(c);
     }
-    c = c.replace(/[ \t]+/g, " ");
-    c = c.replace(/\n{3,}/g, "\n\n");
-    c = c.replace(/[ \t]+$/gm, "");
+    c = this._normalizeWhitespaceOutsideCode(c);
     c = this._compressVerbosePhrases(c);
     if (this.level === "ultra" && this._allows("redundancyStrip")) {
       c = this._stripRedundancy(c);
@@ -1191,7 +1189,22 @@ ${parsed.dynamicLine}`
     return c;
   }
   _compressVerbosePhrases(text) {
-    return text.replace(/\bI need you to\b/gi, "").replace(/\bcan you (please )?/gi, "").replace(/\bplease\b/gi, "").replace(/\bthe following\b/gi, "this").replace(/\bin order to\b/gi, "to").replace(/\bas well as\b/gi, "&").replace(/\bmake sure (that )?/gi, "ensure ").replace(/\btake a look at\b/gi, "check").replace(/\bcould you\b/gi, "").replace(/\bI would like you to\b/gi, "").replace(/\bI want you to\b/gi, "").replace(/\bho bisogno che (tu )?/gi, "").replace(/\bpuoi (per favore )?/gi, "").replace(/\bper favore\b/gi, "").replace(/\bper cortesia\b/gi, "").replace(/\bvorrei che (tu )?/gi, "").replace(/\bpotresti\b/gi, "").replace(/\bdai un'?occhiata a\b/gi, "check").replace(/\bin modo da\b/gi, "per").replace(/\bmi serve che\b/gi, "").replace(/\bspiegami come\b/gi, "spiega").replace(/\bich m[öo]chte,? dass (du )?/gi, "").replace(/\bk[öo]nntest du (bitte )?/gi, "").replace(/\bbitte\b/gi, "").replace(/\bschau dir mal\b/gi, "check").replace(/\bich brauche,? dass\b/gi, "").replace(/\bum zu\b/gi, "zu").replace(/\bj'ai besoin que (tu )?/gi, "").replace(/\bpeux-tu (s'il te pla[iî]t )?/gi, "").replace(/\bs'il (te|vous) pla[iî]t\b/gi, "").replace(/\bje voudrais que (tu )?/gi, "").replace(/\bpourrais-tu\b/gi, "").replace(/\bjette un [œo]il [àa]\b/gi, "check").replace(/\bafin de\b/gi, "pour").replace(/[ \t]+/g, " ").trim();
+    return this._applyOutsideCodeFences(text, (t) => this._compressVerbosePhrasesRaw(t));
+  }
+  _applyOutsideCodeFences(text, transform) {
+    const fencePattern = /`{3,}\w*\n[\s\S]+?`{3,}/g;
+    let result = "";
+    let lastIndex = 0;
+    for (const match of text.matchAll(fencePattern)) {
+      const before = text.slice(lastIndex, match.index);
+      result += transform(before) + match[0];
+      lastIndex = match.index + match[0].length;
+    }
+    result += transform(text.slice(lastIndex));
+    return result;
+  }
+  _compressVerbosePhrasesRaw(text) {
+    return text.replace(/\bI need you to\b/gi, "").replace(/\bcan you (please )?/gi, "").replace(/\bplease\b/gi, "").replace(/\bthe following\b/gi, "this").replace(/\bin order to\b/gi, "to").replace(/\bas well as\b/gi, "&").replace(/\bmake sure (that )?/gi, "ensure ").replace(/\btake a look at\b/gi, "check").replace(/\bcould you\b/gi, "").replace(/\bI would like you to\b/gi, "").replace(/\bI want you to\b/gi, "").replace(/\bho bisogno che (tu )?/gi, "").replace(/\bpuoi (per favore )?/gi, "").replace(/\bper favore\b/gi, "").replace(/\bper cortesia\b/gi, "").replace(/\bvorrei che (tu )?/gi, "").replace(/\bpotresti\b/gi, "").replace(/\bdai un'?occhiata a\b/gi, "check").replace(/\bin modo da\b/gi, "per").replace(/\bmi serve che\b/gi, "").replace(/\bspiegami come\b/gi, "spiega").replace(/\bich m[öo]chte,? dass (du )?/gi, "").replace(/\bk[öo]nntest du (bitte )?/gi, "").replace(/\bbitte\b/gi, "").replace(/\bschau dir mal\b/gi, "check").replace(/\bich brauche,? dass\b/gi, "").replace(/\bum zu\b/gi, "zu").replace(/\bj'ai besoin que (tu )?/gi, "").replace(/\bpeux-tu (s'il te pla[iî]t )?/gi, "").replace(/\bs'il (te|vous) pla[iî]t\b/gi, "").replace(/\bje voudrais que (tu )?/gi, "").replace(/\bpourrais-tu\b/gi, "").replace(/\bjette un [œo]il [àa]\b/gi, "check").replace(/\bafin de\b/gi, "pour");
   }
   _stripRedundancy(text) {
     return text.replace(/\/\*(?!\*)[^]*?\*\//g, "").replace(/(?<![:"'])\/\/(?!\/).*/g, "").replace(/console\.(log|debug|info|trace)\([^)]*\);?/g, "");
@@ -1366,6 +1379,23 @@ ${parsed.dynamicLine}`
   _compressDiagnostics(text) {
     return text.replace(/error TS(\d+):/gi, "\u2717TS$1:").replace(/warning:/gi, "\u26A0:").replace(/\bat line (\d+)/gi, ":$1").replace(/on line (\d+)/gi, ":$1").replace(/\bline (\d+)/gi, ":$1").replace(/\bcolumn (\d+)/gi, "c$1");
   }
+  // Whitespace normalization (collapsing runs of spaces/tabs, trimming
+  // trailing whitespace, collapsing blank-line runs) used to run on the
+  // WHOLE message before code-block processing, including the contents
+  // of ```fenced``` code blocks. That silently flattened code
+  // indentation — 4-space and 8-space nesting both collapsed to the
+  // same single space/tab — destroying the visual structure a reader
+  // relies on to understand nesting, and for indentation-significant
+  // languages like Python, changing what the code actually does. It
+  // also desynced every code-block span/offset recorded in the source
+  // map from the caller's original text. Code fence contents are now
+  // left untouched; only prose outside fences is normalized.
+  _normalizeWhitespaceOutsideCode(text) {
+    return this._applyOutsideCodeFences(text, (t) => this._normalizeWhitespace(t));
+  }
+  _normalizeWhitespace(text) {
+    return text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+$/gm, "");
+  }
   _compressCodeBlocks(text, userPrompt) {
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code, offset, input) => {
       const lines = code.trim().split("\n");
@@ -1440,12 +1470,16 @@ ${parsed.dynamicLine}`
       addMatches(/\bfunction\s+([A-Za-z_$][\w$]*)/g, "function", "\u0192", 1);
       addMatches(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)/g, "declaration", "\u25C7", 1);
       addMatches(/\bclass\s+([A-Za-z_$][\w$]*)/g, "class", "\u{1D49E}", 1);
+      addMatches(/(?:\([^()]*\)|\b[A-Za-z_$][\w$]*)\s*=>/g, "arrowFunction", "\u0192=>");
+      addMatches(/\b(?!function\b|if\b|for\b|while\b|switch\b|catch\b|return\b)([A-Za-z_$][\w$]*)\s*\(/g, "call", "\u27D0", 1);
+      addMatches(/\b(?:const|let|var)\s*(\{[^{}=]+\}|\[[^\[\]=]+\])\s*=/g, "destructure", "\u21C8", 1);
     }
     if (["py", "python"].includes(l) || !l) {
       addMatches(/\b(?:import|from)\b/g, "import", "imp");
       addMatches(/\bdef\s+([A-Za-z_][\w]*)/g, "function", "\u0192", 1);
       addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, "class", "\u{1D49E}", 1);
       addMatches(/\bself\./g, "receiver", "s.");
+      addMatches(/\blambda\b/g, "arrowFunction", "\u0192=>");
     }
     if (["rs", "rust"].includes(l) || !l) {
       addMatches(/\buse\b/g, "import", "imp");
@@ -1469,8 +1503,36 @@ ${parsed.dynamicLine}`
       addMatches(/#include\b/g, "import", "imp");
       addMatches(/\b(?:int|void|char|float|double|long|short)\b/g, "type", "\u25C7t");
     }
+    if (["rb", "ruby"].includes(l) || !l) {
+      addMatches(/\brequire(?:_relative)?\b/g, "import", "imp");
+      addMatches(/\bdef\s+([A-Za-z_][\w?!]*)/g, "function", "\u0192", 1);
+      addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, "class", "\u{1D49E}", 1);
+      addMatches(/\bmodule\s+([A-Za-z_][\w]*)/g, "class", "\u{1D49E}", 1);
+      addMatches(/\battr_(?:accessor|reader|writer)\b/g, "declaration", "\u25C7");
+    }
+    if (["swift"].includes(l) || !l) {
+      addMatches(/\bimport\b/g, "import", "imp");
+      addMatches(/\bfunc\s+([A-Za-z_][\w]*)/g, "function", "\u0192", 1);
+      addMatches(/\b(?:class|struct|enum|protocol)\s+([A-Za-z_][\w]*)/g, "class", "\u{1D49E}", 1);
+      addMatches(/\b(?:var|let)\s+([A-Za-z_][\w]*)/g, "declaration", "\u25C7", 1);
+      addMatches(/\bguard\b/g, "modifier", "mod");
+    }
+    if (["kt", "kotlin"].includes(l) || !l) {
+      addMatches(/\bimport\b/g, "import", "imp");
+      addMatches(/\bfun\s+([A-Za-z_][\w]*)/g, "function", "\u0192", 1);
+      addMatches(/\b(?:class|object|interface)\s+([A-Za-z_][\w]*)/g, "class", "\u{1D49E}", 1);
+      addMatches(/\b(?:val|var)\s+([A-Za-z_][\w]*)/g, "declaration", "\u25C7", 1);
+    }
+    if (["php"].includes(l) || !l) {
+      addMatches(/\b(?:require|include)(?:_once)?\b/g, "import", "imp");
+      addMatches(/\bfunction\s+([A-Za-z_][\w]*)/g, "function", "\u0192", 1);
+      addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, "class", "\u{1D49E}", 1);
+      addMatches(/\$[A-Za-z_][\w]*/g, "variable", "\u25C7");
+    }
     addMatches(/\breturn\b/g, "return", "\u2192");
     addMatches(/\byield\b/g, "yield", "\u2192");
+    addMatches(/\b(?:async|await)\b/g, "async", "\u27FF");
+    addMatches(/\b(?:try|catch|throw|finally|except|rescue)\b/g, "exception", "\u26A0");
     return tokens.sort((a, b) => a.span.start.offset - b.span.start.offset);
   }
   _elideIrrelevantContext(code, userPrompt) {

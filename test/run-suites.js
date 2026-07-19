@@ -21,6 +21,7 @@ const suites = [
   ['mcp-server', 'test/mcp-server.js'],
   ['team-codebook', 'test/team-codebook.js'],
   ['logger', 'test/logger.js'],
+  ['ast-spans', 'test/ast-spans.js'],
 ];
 
 for (const [name, file] of suites) {

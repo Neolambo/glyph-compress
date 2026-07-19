@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs — CLI, MCP server, and VS Code extension, with a Context Router, team-shared dictionaries, and compression calibrated against real provider tokenizers.",
   "type": "module",
   "bin": {
@@ -66,6 +66,7 @@
     "test:mcp-server": "node test/mcp-server.js",
     "test:team-codebook": "node test/team-codebook.js",
     "test:logger": "node test/logger.js",
+    "test:ast-spans": "node test/ast-spans.js",
     "test:integration": "node test/integration.js",
     "calibrate:tokenizer": "node test/tokenizer-calibration.js",
     "benchmark": "node test/benchmark.js",

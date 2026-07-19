@@ -1,3 +1,26 @@
+## v1.20.0 — Expression-Level Source Maps
+
+Changes since v1.19.0:
+
+### Expression-Level AST Spans
+- `sourceMap.ast` now tracks arrow functions, function calls (with a span distinct from the surrounding declaration), destructuring assignments, async/await, and exception handling (try/catch/throw/finally/except/rescue) inside minified or summarized code blocks — previously only top-level import/export/function/class declarations were visible.
+- New language coverage for structural spans: Ruby, Swift, Kotlin, and PHP — all four already had `TECH_GLYPHS` entries but zero token extraction until now.
+- Deliberately kept as calibrated regex-based extraction rather than adopting a real parser dependency (acorn/meriyah/etc.): chat-pasted code snippets are routinely syntactically incomplete, which a real parser would simply reject, forcing a fallback to this same approach anyway — and a new parser dependency would add weight for every consumer to buy marginal precision on code that often can't be parsed at all.
+
+### Two Real Bugs Found and Fixed
+- **`test/ast-spans.js`** validates that every AST token's span slices back to exactly its own text against the caller's original input — "targeted validation for source-map fidelity at the expression level." Writing it surfaced two real, pre-existing correctness bugs:
+- Whitespace normalization ran on the *whole* message, including inside ` ```fenced``` ` code blocks, in **two independent places** in the compression pipeline (the main normalization pass in `_compressUserMessage`, and again at the tail of verbose-phrase compression) — neither was fence-aware.
+- 4-space and 8-space nested indentation both collapsed to the same single space (or single tab after the separate, intentional indent-to-tab minification pass), silently flattening code structure at **every** compression level, not just aggressive/ultra. For indentation-significant languages like Python, this could change what the code actually does, not just how it looks.
+- Fixed with a shared `_applyOutsideCodeFences()` helper that both passes now use to skip code fence contents entirely.
+
+### Tests & Verification
+- **New Test Suite**: `test/ast-spans.js` (7 assertions), including a dedicated regression test that nested indentation survives compression at every level.
+- **Complete Suite Validation**: 19 suites, all passing.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.19.0 — Structured Diagnostics & Git-Diff-Aware Routing
 
 Changes since v1.18.0:

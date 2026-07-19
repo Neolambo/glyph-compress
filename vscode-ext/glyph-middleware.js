@@ -1064,7 +1064,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.19.0',
+      version: '1.20.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1281,9 +1281,7 @@ class GlyphCompressor {
     if (this.holographicFolding) {
       c = this._foldHolographicText(c);
     }
-    c = c.replace(/[ \t]+/g, ' ');
-    c = c.replace(/\n{3,}/g, '\n\n');
-    c = c.replace(/[ \t]+$/gm, '');
+    c = this._normalizeWhitespaceOutsideCode(c);
     c = this._compressVerbosePhrases(c);
 
     // Ultra level: remove redundancy before processing
@@ -1318,6 +1316,30 @@ class GlyphCompressor {
   }
 
   _compressVerbosePhrases(text) {
+    // Same fence-safety concern as whitespace normalization: a prose
+    // filler pattern like "please"/"in order to" has no business being
+    // rewritten inside a code fence (a string literal or comment could
+    // legitimately contain that exact text), and the trailing whitespace
+    // collapse this chain used to end with had the same indentation-
+    // destroying bug _normalizeWhitespaceOutsideCode fixed — just
+    // reintroduced one step later in the pipeline.
+    return this._applyOutsideCodeFences(text, (t) => this._compressVerbosePhrasesRaw(t));
+  }
+
+  _applyOutsideCodeFences(text, transform) {
+    const fencePattern = /`{3,}\w*\n[\s\S]+?`{3,}/g;
+    let result = '';
+    let lastIndex = 0;
+    for (const match of text.matchAll(fencePattern)) {
+      const before = text.slice(lastIndex, match.index);
+      result += transform(before) + match[0];
+      lastIndex = match.index + match[0].length;
+    }
+    result += transform(text.slice(lastIndex));
+    return result;
+  }
+
+  _compressVerbosePhrasesRaw(text) {
     return text
       // English
       .replace(/\bI need you to\b/gi, '')
@@ -1356,9 +1378,7 @@ class GlyphCompressor {
       .replace(/\bje voudrais que (tu )?/gi, '')
       .replace(/\bpourrais-tu\b/gi, '')
       .replace(/\bjette un [œo]il [àa]\b/gi, 'check')
-      .replace(/\bafin de\b/gi, 'pour')
-      .replace(/[ \t]+/g, ' ')
-      .trim();
+      .replace(/\bafin de\b/gi, 'pour');
   }
 
   _stripRedundancy(text) {
@@ -1578,6 +1598,28 @@ class GlyphCompressor {
       .replace(/\bcolumn (\d+)/gi, 'c$1');
   }
 
+  // Whitespace normalization (collapsing runs of spaces/tabs, trimming
+  // trailing whitespace, collapsing blank-line runs) used to run on the
+  // WHOLE message before code-block processing, including the contents
+  // of ```fenced``` code blocks. That silently flattened code
+  // indentation — 4-space and 8-space nesting both collapsed to the
+  // same single space/tab — destroying the visual structure a reader
+  // relies on to understand nesting, and for indentation-significant
+  // languages like Python, changing what the code actually does. It
+  // also desynced every code-block span/offset recorded in the source
+  // map from the caller's original text. Code fence contents are now
+  // left untouched; only prose outside fences is normalized.
+  _normalizeWhitespaceOutsideCode(text) {
+    return this._applyOutsideCodeFences(text, (t) => this._normalizeWhitespace(t));
+  }
+
+  _normalizeWhitespace(text) {
+    return text
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]+$/gm, '');
+  }
+
   _compressCodeBlocks(text, userPrompt) {
     // Replace code blocks with semantic summaries or minification
     return text.replace(/`{3,}(\w*)\n([\s\S]+?)`{3,}/g, (match, lang, code, offset, input) => {
@@ -1653,12 +1695,20 @@ class GlyphCompressor {
       addMatches(/\bfunction\s+([A-Za-z_$][\w$]*)/g, 'function', 'ƒ', 1);
       addMatches(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)/g, 'declaration', '◇', 1);
       addMatches(/\bclass\s+([A-Za-z_$][\w$]*)/g, 'class', '𝒞', 1);
+      // Expression-level spans (v1.20.0): arrow functions, calls, and
+      // destructuring were previously invisible to the source map even
+      // though they're some of the densest, most information-carrying
+      // constructs in a minified block.
+      addMatches(/(?:\([^()]*\)|\b[A-Za-z_$][\w$]*)\s*=>/g, 'arrowFunction', 'ƒ=>');
+      addMatches(/\b(?!function\b|if\b|for\b|while\b|switch\b|catch\b|return\b)([A-Za-z_$][\w$]*)\s*\(/g, 'call', '⟐', 1);
+      addMatches(/\b(?:const|let|var)\s*(\{[^{}=]+\}|\[[^\[\]=]+\])\s*=/g, 'destructure', '⇈', 1);
     }
     if (['py', 'python'].includes(l) || !l) {
       addMatches(/\b(?:import|from)\b/g, 'import', 'imp');
       addMatches(/\bdef\s+([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
       addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
       addMatches(/\bself\./g, 'receiver', 's.');
+      addMatches(/\blambda\b/g, 'arrowFunction', 'ƒ=>');
     }
     if (['rs', 'rust'].includes(l) || !l) {
       addMatches(/\buse\b/g, 'import', 'imp');
@@ -1682,9 +1732,37 @@ class GlyphCompressor {
       addMatches(/#include\b/g, 'import', 'imp');
       addMatches(/\b(?:int|void|char|float|double|long|short)\b/g, 'type', '◇t');
     }
+    if (['rb', 'ruby'].includes(l) || !l) {
+      addMatches(/\brequire(?:_relative)?\b/g, 'import', 'imp');
+      addMatches(/\bdef\s+([A-Za-z_][\w?!]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\bmodule\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\battr_(?:accessor|reader|writer)\b/g, 'declaration', '◇');
+    }
+    if (['swift'].includes(l) || !l) {
+      addMatches(/\bimport\b/g, 'import', 'imp');
+      addMatches(/\bfunc\s+([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\b(?:class|struct|enum|protocol)\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\b(?:var|let)\s+([A-Za-z_][\w]*)/g, 'declaration', '◇', 1);
+      addMatches(/\bguard\b/g, 'modifier', 'mod');
+    }
+    if (['kt', 'kotlin'].includes(l) || !l) {
+      addMatches(/\bimport\b/g, 'import', 'imp');
+      addMatches(/\bfun\s+([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\b(?:class|object|interface)\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\b(?:val|var)\s+([A-Za-z_][\w]*)/g, 'declaration', '◇', 1);
+    }
+    if (['php'].includes(l) || !l) {
+      addMatches(/\b(?:require|include)(?:_once)?\b/g, 'import', 'imp');
+      addMatches(/\bfunction\s+([A-Za-z_][\w]*)/g, 'function', 'ƒ', 1);
+      addMatches(/\bclass\s+([A-Za-z_][\w]*)/g, 'class', '𝒞', 1);
+      addMatches(/\$[A-Za-z_][\w]*/g, 'variable', '◇');
+    }
 
     addMatches(/\breturn\b/g, 'return', '→');
     addMatches(/\byield\b/g, 'yield', '→');
+    addMatches(/\b(?:async|await)\b/g, 'async', '⟿');
+    addMatches(/\b(?:try|catch|throw|finally|except|rescue)\b/g, 'exception', '⚠');
 
     return tokens.sort((a, b) => a.span.start.offset - b.span.start.offset);
   }

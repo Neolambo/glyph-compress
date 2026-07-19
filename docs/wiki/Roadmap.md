@@ -3,7 +3,13 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.19.0`: Structured Diagnostics & Git-Diff-Aware Routing.
+`v1.20.0`: Expression-Level Source Maps.
+
+## Delivered in v1.20.0
+
+- `sourceMap.ast` now tracks arrow functions, function calls, destructuring, async/await, and exception handling in code blocks, plus Ruby/Swift/Kotlin/PHP language coverage that previously had none.
+- Found and fixed two real bugs while validating span fidelity: whitespace normalization ran on the whole message (including inside code fences) in two separate places, silently flattening 4-space/8-space indentation to a single space at every compression level. Fixed with a shared fence-aware helper.
+- 19 suites total, all passing.
 
 ## Delivered in v1.19.0
 
@@ -88,7 +94,6 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.20.0`: expression-level source maps.
 - `v1.21.0`: provider trust and UX.
 - `v1.22.0`: real task evaluation.
 - `v1.23.0`: adaptive workspace memory.

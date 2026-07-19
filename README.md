@@ -186,6 +186,12 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.20.0 (Expression-Level Source Maps & a Real Indentation Bug Fix)
+
+1. **Expression-level AST spans**: `sourceMap.ast` now tracks arrow functions, function calls (with a span distinct from the declaration), destructuring, async/await, and exception handling (try/catch/throw/finally) inside minified/summarized code blocks — not just top-level import/export/function/class declarations. New language coverage: Ruby, Swift, Kotlin, and PHP, which already had `TECH_GLYPHS` entries but no token extraction at all.
+2. **Fixed two real, pre-existing bugs found while validating span fidelity**: whitespace normalization ran on the *whole* message, including inside ` ```fenced``` ` code blocks, in two independent places in the pipeline. 4-space and 8-space nested indentation both silently collapsed to the same single space (or single tab), flattening code structure at **every** compression level — not just aggressive/ultra — and for indentation-significant languages like Python, changing what the code actually does. Both passes now skip code fence contents entirely.
+3. **`test/ast-spans.js`**: every AST token's span must slice back to exactly its own text against the original input — this is what caught the bug above.
+
 ### New in v1.19.0 (Structured Diagnostics & Git-Diff-Aware Routing)
 
 1. **Structured diagnostics**: every proxy/CLI log entry now carries an ISO timestamp and consistent redaction across every sink (console, VS Code `outputChannel`, and a new optional JSONL file sink via `--log-file`) — previously redaction only ran at one call site (the upstream error body), so other log lines could leak a secret unredacted. Each request now also logs richer trust/routing diagnostics: privacy firewall, decay/folding/intent-diff flags, dynamic dictionary and file index size, whether a team codebook was loaded, and whether the net-negative fallback fired.
@@ -369,7 +375,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.19.0)
+### 📏 Benchmark Snapshot (v1.20.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

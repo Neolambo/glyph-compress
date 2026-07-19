@@ -14,15 +14,15 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.19.0` for structured diagnostics, git-diff-aware Context Router routing, and the `vscode-ext/proxy.js` build-drift fix.
-- [x] Last stable release was `glyph-compress@1.18.0` (Team Codebook Registry).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.19.0`.
-- [x] `npm test` passes 18 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger) for `v1.19.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release is diagnostics/routing/build-hygiene, not a compression-ratio change.
+- [x] Current stable release is `v1.20.0` for expression-level AST source-map spans and a fix for two real bugs that silently flattened code-block indentation.
+- [x] Last stable release was `glyph-compress@1.19.0` (Structured Diagnostics & Git-Diff-Aware Routing).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.20.0`.
+- [x] `npm test` passes 19 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans) for `v1.20.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged on these fixtures; realistic-benchmark numbers on code-heavy files shifted by roughly a percentage point in either direction since the whitespace-collapse fix stopped inflating savings by mangling indentation.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.20.0` for expression-level source maps (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
+- [ ] Prepared next release is `v1.21.0` for provider trust and UX (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
 
 ## Release Reality Check
 
@@ -335,11 +335,12 @@ Status: delivered.
 
 ### v1.20.0: Expression-Level Source Maps
 
-Status: proposed.
+Status: delivered.
 
-- [ ] Add deeper expression-level AST spans for minified code blocks where language-specific parsers are available.
-- [ ] Expand language coverage for structural spans and reversible debug metadata.
-- [ ] Add targeted validation for source-map fidelity at the expression level.
+- [x] Add deeper expression-level AST spans for minified code blocks. Deliberately kept as calibrated regex-based extraction rather than a real parser dependency (acorn/meriyah/etc.) — chat-pasted code snippets are routinely syntactically incomplete (missing imports, partial functions), which a real parser would simply fail to handle, forcing a fallback to this same approach anyway; a new parser dependency would also add weight for every consumer to buy marginal precision on code that often can't be parsed at all. New token kinds: arrow functions, function calls (distinct span from declarations), destructuring, async/await, and exception handling (try/catch/throw/finally).
+- [x] Expand language coverage for structural spans: added Ruby, Swift, Kotlin, and PHP, which already had `TECH_GLYPHS` entries but zero token extraction.
+- [x] Add targeted validation for source-map fidelity at the expression level (`test/ast-spans.js`) — every token's span must slice back to exactly its own text against the caller's original input.
+- [x] **Found and fixed two real, pre-existing correctness bugs while writing that fidelity check**: whitespace normalization ran on the *whole* message, including inside ` ```fenced``` ` code blocks, in two independent places in the pipeline (the main normalization pass, and again at the tail of verbose-phrase compression) — neither fence-aware. 4-space and 8-space nested indentation both collapsed to the same single space (or single tab after the indent-to-tab pass), silently flattening code structure at every compression level, not just aggressive/ultra, and for indentation-significant languages like Python, changing what the code actually does. Fixed by making both passes skip code fence contents entirely (`_applyOutsideCodeFences`).
 
 ### v1.21.0: Provider Trust and UX
 
