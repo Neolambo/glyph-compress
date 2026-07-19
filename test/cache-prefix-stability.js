@@ -18,9 +18,23 @@
  * state (like the DYN: dynamic-dictionary line) must never bleed into a
  * block that's supposed to be cache-stable.
  *
- * This does not change runtime behavior; it locks in an invariant the
- * cache-aware code (see _anthropicStableProtocolBlock,
- * _buildMinimalCompactCodebookPrompt) already relies on implicitly.
+ * v1.25.0 fixed a real gap this suite's own name promised but didn't
+ * check: "protocol preamble stays identical across turns" only ever
+ * compared the FIRST LINE of the system message (a literal that never
+ * changes) — never the full codebook block, which was payload-filtered
+ * (only lists glyphs the current message happens to use) and so varied
+ * request to request, defeating the very caching this suite claimed to
+ * lock in. Found by reproducing it directly: two different multi-turn
+ * payloads produced two different SYM: lines. Fixed with a hybrid
+ * strategy mirroring Anthropic's existing first-turn-vs-multi-turn
+ * cache_control switch (see useStructuredSystem) — once a session has
+ * assistant history, OpenAI/Gemini get the full, unconditional codebook
+ * (byte-identical every time, with the per-request DYN line moved
+ * outside the stable block) instead of the smaller filtered one, but
+ * only when that larger header doesn't flip the message net-negative
+ * (see the two-tier retry in _compressMessagesForStrategy) — otherwise
+ * it falls back to the smaller filtered codebook, never to zero
+ * compression just because the stability upgrade wasn't affordable.
  */
 import assert from 'assert';
 import { GlyphCompressor, wrapOpenAI, wrapAnthropic } from '../src/glyph-middleware.js';
@@ -73,6 +87,107 @@ async function run() {
     // provider-side cache can match on the leading tokens.
     assert.strictEqual(sys1.split('\n')[0], sys2.split('\n')[0], 'protocol version header must be stable');
     assert.strictEqual(sys1.split('\n')[0], '[GLYPH PROTOCOL v0.5]', 'protocol header should be the expected literal');
+  });
+
+  // Large enough that the ~350 extra tokens of the full stable codebook
+  // still leaves the message net-positive — this is the realistic case
+  // (sizeable IDE agent system prompts, meaty exchanges) where the
+  // caching upgrade should actually engage.
+  const largeContent = (subject, repeats = 60) => (
+    `Fix the error in the ${subject} module. TypeError: cannot read property of undefined at line 42. `
+    + `function handle_${subject}(event) { const result = fetchData(event); return result; } `.repeat(repeats)
+  );
+  const bigSystemPrompt = 'You are an expert pair-programming assistant integrated into a code editor. '.repeat(20);
+
+  await test('OpenAI multi-turn: once assistant history exists, the ENTIRE codebook block (not just line 1) is byte-identical across turns with different tech/content', () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+    // Turn 1 has no assistant history yet — by design (mirroring Anthropic's
+    // own first-turn-lightweight behavior) it uses the smaller filtered
+    // codebook, since there's no prior turn to cache against. The real
+    // "does this stay stable" question only applies once a session is
+    // already in cache-stable mode — turn 2 vs. turn 3 below, both of
+    // which already have assistant history when compressed.
+    gc.compressMessages([
+      { role: 'system', content: bigSystemPrompt },
+      { role: 'user', content: largeContent('ReactAuth') },
+    ], 'openai');
+
+    const turn2 = gc.compressMessages([
+      { role: 'system', content: bigSystemPrompt },
+      { role: 'user', content: largeContent('ReactAuth') },
+      { role: 'assistant', content: 'Fixed it, the issue was a race condition.' },
+      { role: 'user', content: 'Create pytest unit tests for the DjangoBackend save() method. ' + 'def test_save_method(): pass '.repeat(60) },
+    ], 'openai');
+    assert(!turn2.stats.thisMessage.fallback, 'turn 2 (already has assistant history) should still compress, not fall back to zero compression');
+
+    const turn3 = gc.compressMessages([
+      { role: 'system', content: bigSystemPrompt },
+      { role: 'user', content: largeContent('ReactAuth') },
+      { role: 'assistant', content: 'Fixed it, the issue was a race condition.' },
+      { role: 'user', content: 'Create pytest unit tests for the DjangoBackend save() method. ' + 'def test_save_method(): pass '.repeat(60) },
+      { role: 'assistant', content: 'Added the tests.' },
+      { role: 'user', content: largeContent('KubernetesDeploy') },
+    ], 'openai');
+    assert(!turn3.stats.thisMessage.fallback, 'turn 3 should still compress, not fall back to zero compression');
+
+    const sys2 = turn2.messages.find((m) => m.role === 'system').content;
+    const sys3 = turn3.messages.find((m) => m.role === 'system').content;
+    assert(sys2.includes('TECH:') && sys3.includes('TECH:'), 'both multi-turn calls should upgrade to the full, unconditional codebook once they can afford the header');
+
+    // The stable block must be byte-identical up to the original system
+    // text — this is the actual "prefix a provider can cache" boundary,
+    // not just the protocol version line the old (insufficient) check used.
+    const codebookBlock2 = sys2.slice(0, sys2.indexOf('[/GLYPH]') + '[/GLYPH]'.length);
+    const codebookBlock3 = sys3.slice(0, sys3.indexOf('[/GLYPH]') + '[/GLYPH]'.length);
+    assert.strictEqual(codebookBlock2, codebookBlock3, `the full codebook block must be byte-identical across turns referencing different tech names, got:\n---turn2---\n${codebookBlock2}\n---turn3---\n${codebookBlock3}`);
+    assert(sys3.includes(bigSystemPrompt), 'the original system text must still be present verbatim');
+  });
+
+  await test('OpenAI multi-turn: the request-specific DYN line lives outside the stable codebook block', () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+    gc.compressMessages([
+      { role: 'system', content: bigSystemPrompt },
+      { role: 'user', content: largeContent('ReactAuth') },
+    ], 'openai');
+    const turn2 = gc.compressMessages([
+      { role: 'system', content: bigSystemPrompt },
+      { role: 'user', content: largeContent('ReactAuth') },
+      { role: 'assistant', content: 'Fixed it.' },
+      { role: 'user', content: 'Create pytest unit tests for the DjangoBackend save() method. ' + 'def test_save_method(): pass '.repeat(60) },
+    ], 'openai');
+    const sys2 = turn2.messages.find((m) => m.role === 'system').content;
+    const codebookBlock = sys2.slice(0, sys2.indexOf('[/GLYPH]') + '[/GLYPH]'.length);
+    assert(!codebookBlock.includes('DYN:'), 'the cache-stable block must never embed request-specific DYN entries, mirroring the Anthropic invariant above');
+    assert(sys2.includes('[GLYPH DYNAMIC]'), 'the DYN line should still be present, just outside the stable block');
+  });
+
+  await test('OpenAI multi-turn: a small message that cannot afford the larger stable header degrades to the filtered codebook, not to zero compression', () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+    gc.compressMessages([
+      { role: 'system', content: 'You are a coding assistant.' },
+      { role: 'user', content: largeContent('Alpha', 25) },
+    ], 'openai');
+    const turn2 = gc.compressMessages([
+      { role: 'system', content: 'You are a coding assistant.' },
+      { role: 'user', content: largeContent('Alpha', 25) },
+      { role: 'assistant', content: 'Fixed it.' },
+      { role: 'user', content: 'Create pytest unit tests for save(). ' + 'def test_save_method(): pass '.repeat(25) },
+    ], 'openai');
+    assert(!turn2.stats.thisMessage.fallback, 'a message too small for the stable header must still compress via the smaller filtered codebook, not fall all the way back to the original uncompressed payload');
+    const sys2 = turn2.messages.find((m) => m.role === 'system').content;
+    assert(!sys2.includes('TECH:'), 'too-small-to-afford-it case should use the smaller filtered codebook, not the full stable one');
+  });
+
+  await test('raw provider is unaffected by cache-stable codebook logic even with assistant history', () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
+    const turn2 = gc.compressMessages([
+      { role: 'system', content: bigSystemPrompt },
+      { role: 'user', content: largeContent('ReactAuth') },
+      { role: 'assistant', content: 'Fixed it.' },
+      { role: 'user', content: largeContent('DjangoBackend') },
+    ], 'raw');
+    const sys2 = turn2.messages.find((m) => m.role === 'system').content;
+    assert(!sys2.includes('[GLYPH DYNAMIC]'), 'raw provider must keep its existing single-block codebook shape, unaffected by the new hybrid logic');
   });
 
   await test('Anthropic: the cache_control-tagged stable block never embeds request-specific DYN entries', async () => {

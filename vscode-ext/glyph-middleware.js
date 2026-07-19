@@ -537,26 +537,48 @@ class GlyphCompressor {
       };
     });
 
-    const firstSystemIndex = compressed.findIndex((msg) => msg.role === 'system');
+    const buildWithCodebook = (forceFiltered) => {
+      const withCodebook = compressed.map((msg) => ({ ...msg }));
+      const idx = withCodebook.findIndex((msg) => msg.role === 'system');
+      if (idx >= 0) {
+        withCodebook[idx] = {
+          ...withCodebook[idx],
+          content: this._injectCodebook(withCodebook[idx].content, provider, compressed, { forceFiltered }),
+        };
+      } else {
+        withCodebook.unshift({
+          role: 'system',
+          content: this._injectCodebook('', provider, compressed, { forceFiltered }).trim(),
+        });
+      }
+      return withCodebook;
+    };
 
-    if (firstSystemIndex >= 0) {
-      compressed[firstSystemIndex] = {
-        ...compressed[firstSystemIndex],
-        content: this._injectCodebook(compressed[firstSystemIndex].content, provider, compressed),
-      };
-    } else {
-      compressed.unshift({
-        role: 'system',
-        content: this._injectCodebook('', provider, compressed).trim(),
-      });
+    let finalMessages = buildWithCodebook(false);
+    let compTokens = this._estimateTokens(finalMessages, provider);
+    let fallback = this.provider !== 'raw' && compTokens >= origTokens;
+
+    // The cache-stable codebook (see _injectCodebook) trades a larger,
+    // fixed header for a byte-identical prefix a provider can cache across
+    // turns — a bet that only pays off across multiple calls, invisible to
+    // this single call's token count. If it would flip this specific
+    // message into the zero-compression fallback below, retry with the
+    // smaller per-request-filtered codebook — still net-positive on its
+    // own pre-v1.25 merits — rather than discarding every other real
+    // saving (minification, dynamic dictionary, comment stripping) too.
+    if (fallback) {
+      const filteredMessages = buildWithCodebook(true);
+      const filteredTokens = this._estimateTokens(filteredMessages, provider);
+      if (filteredTokens < origTokens) {
+        finalMessages = filteredMessages;
+        compTokens = filteredTokens;
+        fallback = false;
+      }
     }
-
-    const compTokens = this._estimateTokens(compressed, provider);
-    const fallback = this.provider !== 'raw' && compTokens >= origTokens;
 
     return {
       level: candidate.level,
-      messages: fallback ? messages.map((msg) => ({ ...msg })) : compressed,
+      messages: fallback ? messages.map((msg) => ({ ...msg })) : finalMessages,
       compressedTokens: fallback ? origTokens : compTokens,
       sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
       fallback,
@@ -1123,7 +1145,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.24.0',
+      version: '1.25.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1253,24 +1275,51 @@ class GlyphCompressor {
     return result;
   }
 
-  _injectCodebook(systemPrompt, provider, messages = []) {
+  _injectCodebook(systemPrompt, provider, messages = [], options = {}) {
     // Don't double-inject
     if (systemPrompt.includes('[GLYPH PROTOCOL')) return systemPrompt;
 
     this._setProvider(provider);
 
-    let modifiedCodebook = this._codebookPromptForProvider(messages);
     const payloadText = this._payloadTextForCodebook(messages);
     const usedDynamicEntries = [...this.dynamicDict]
       .filter(([, glyph]) => payloadText.includes(glyph))
       .map(([word, glyph]) => `${glyph}=${word}`);
-    if (usedDynamicEntries.length > 0) {
-      const dyn = usedDynamicEntries.join(' | ');
-      modifiedCodebook = modifiedCodebook.replace('[/GLYPH]', `DYN: ${dyn}\n[/GLYPH]`);
-    }
+    const dynLine = usedDynamicEntries.length > 0 ? `DYN: ${usedDynamicEntries.join(' | ')}` : '';
+
+    // OpenAI/Gemini apply automatic, implicit prefix caching with no
+    // explicit opt-in — but only across requests whose leading tokens are
+    // byte-identical. The payload-filtered compact codebook below (only
+    // listing glyphs this specific message happens to use) varies request
+    // to request, so it can never be a stable prefix. Once a session has
+    // assistant history — the same "this is an ongoing conversation, not a
+    // one-shot query" signal Anthropic's cache_control hybrid already uses
+    // (see useStructuredSystem in _prepareAnthropicPayload) — switch to the
+    // full, unconditional codebook (byte-identical every time) and move the
+    // request-specific DYN line out of the protocol block entirely, so the
+    // stable prefix a provider can cache extends through the whole
+    // codebook and the original system text. A single first-turn request
+    // has no prior turn to cache against yet, so it keeps the smaller
+    // filtered header instead of paying the larger block's token cost for
+    // a benefit it can't use. Anthropic already gets its own dedicated,
+    // better (explicit cache_control) treatment via _prepareAnthropicPayload
+    // and is deliberately left out here to avoid disturbing that.
+    const cacheStable = !options.forceFiltered && this.provider !== 'raw' && this.provider !== 'anthropic'
+      && messages.some((message) => message.role === 'assistant');
+
+    let modifiedCodebook = cacheStable ? COMPACT_CODEBOOK_PROMPT : this._codebookPromptForProvider(messages);
 
     if (this.provider !== 'raw') {
       modifiedCodebook = modifiedCodebook.replace('[/GLYPH]', `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}\n[/GLYPH]`);
+    }
+
+    if (cacheStable) {
+      const dynBlock = dynLine ? `\n\n[GLYPH DYNAMIC]\n${dynLine}` : '';
+      return modifiedCodebook + '\n\n' + systemPrompt + dynBlock;
+    }
+
+    if (dynLine) {
+      modifiedCodebook = modifiedCodebook.replace('[/GLYPH]', `${dynLine}\n[/GLYPH]`);
     }
 
     // Prepend codebook (it's small: ~150 tokens)

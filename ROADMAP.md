@@ -14,17 +14,18 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.24.0`, a critical fix: every real proxy request to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API, because the proxy forwarded the OpenAI-shaped client request unmodified instead of translating it to Anthropic's native Messages API shape. See "v1.24.0: Anthropic Proxy Bridge" below.
+- [x] Current stable release is `v1.25.0`: the codebook header injected for OpenAI/Gemini is now a byte-identical, cacheable prefix once a session has assistant history, with a two-tier fallback so the larger header never costs more than it saves. See "v1.25.0: Cache-Stable Codebook" below.
+- [x] `v1.24.0` was a critical fix: every real proxy request to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API, because the proxy forwarded the OpenAI-shaped client request unmodified instead of translating it to Anthropic's native Messages API shape.
 - [x] `v1.23.0` shipped Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
-- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.24.0` to both npm and the Marketplace is still pending on maintainer credentials).
+- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.25.0` to both npm and the Marketplace is still pending on maintainer credentials).
 - [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.24.0`.
-- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.24.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release fixes proxy request/response translation for one upstream target, not text compression behavior.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.25.0`.
+- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.25.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; the fixture set is single-turn, so the new multi-turn-only cache-stable path never engages there.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.22.0` for real task evaluation or Anthropic/Gemini tokenizer calibration if provider API credentials become available (see Proposed Future Versions below, both blocked). Not blocked, and queued as a likely next step regardless: making the OpenAI/Gemini injected codebook header a stable byte-identical prefix across turns — found while investigating v1.24.0, it's currently filtered per request based on which glyphs that specific payload uses, which undermines their automatic prompt caching the same way the Anthropic proxy bug undermined Anthropic's explicit `cache_control` caching.
+- [ ] Prepared next release is `v1.22.0` for real task evaluation, or Anthropic/Gemini tokenizer calibration, if provider API credentials become available (see Proposed Future Versions below; both currently blocked on maintainer-provided API keys).
 
 ## Release Reality Check
 
@@ -390,6 +391,15 @@ Status: delivered.
 - [x] New `test/anthropic-bridge.js` (18 tests): unit coverage of every translation function plus end-to-end tests that start a real proxy server, mock the outbound HTTPS call, and assert on the actual forwarded request/response for both streaming and non-streaming Anthropic responses — including a check that OpenAI/Gemini targets are unaffected. The existing `test/proxy.js` Anthropic smoke test was strengthened the same way. Verified both suites actually catch the original bug by reverting the fix and confirming the expected failures before restoring it.
 - [x] README's IDE integration guide previously claimed swapping `apiBase`/target settings alone was enough to use an Anthropic upstream — corrected, with the real requirement (`glyphCompress.targetApiUrl = https://api.anthropic.com` and a real Anthropic model id) documented.
 
+### v1.25.0: Cache-Stable Codebook for OpenAI/Gemini
+
+Status: delivered.
+
+- [x] **Found a real gap while investigating v1.24.0: the codebook header injected for OpenAI/Gemini could never be a stable cache prefix.** It's payload-filtered — only lists the DOM/TECH/SYM/MOD glyphs the current message happens to use — so it varies request to request, defeating those providers' automatic, implicit prompt caching (which requires byte-identical leading tokens). The existing `test/cache-prefix-stability.js` suite's name promised to lock this in but its check only ever compared the system message's first line (a literal that never changes) — never the full codebook block — which is exactly why this shipped unnoticed.
+- [x] **Hybrid fix mirroring the existing Anthropic `cache_control` first-turn-vs-multi-turn split**: once a session has assistant history, `_injectCodebook()` switches OpenAI/Gemini/local to the full, unconditional codebook (byte-identical every time), with the per-request `DYN:` line moved to a separate `[GLYPH DYNAMIC]` block after the system text instead of embedded inside the cacheable block. A first-turn request has no prior turn to cache against yet, so it keeps the smaller filtered header — unchanged from pre-v1.25 behavior.
+- [x] **Two-tier fallback, not all-or-nothing**: the larger stable header costs ~350 extra tokens, a bet that only pays off across multiple cached turns — invisible to a single call's token count. Measured directly: if it would flip a specific message into GlyphCompress's existing net-negative fallback (losing every real saving, not just the header), that message automatically retries with the smaller filtered codebook first, before ever giving up to zero compression.
+- [x] `test/cache-prefix-stability.js` gained real multi-turn assertions: the entire codebook block byte-identical across turns once in cache-stable mode (not just line 1), DYN isolated outside it, graceful degradation when the header isn't affordable, and confirmation `raw`/Anthropic are unaffected. Verified these tests actually fail against the pre-fix code before being trusted, same discipline as v1.24.0.
+
 ## Repository Improvements
 
 ### Packaging
@@ -469,7 +479,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 ### 4. Product Moat
 
 - [x] Ship Context Router Wiring (v1.17.0) — `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query>` rank workspace files by relevance and compress as many as fit inside a token budget, with `selectedFiles`/`excludedFiles` (+ per-file `sourceMap`) making the routing decision auditable. Building it surfaced and fixed a real pre-existing bug: `extractDiagnostics()`'s TODO/FIXME/HACK regex had no word boundaries and matched "HACK" inside "Hacker News," inflating irrelevant marketing docs above the actually-relevant source file.
-- [x] Partial (v1.24.0): Anthropic `cache_control` structuring is now reachable through the proxy, not just `wrapAnthropic()` — see "v1.24.0: Anthropic Proxy Bridge" above. Still open: the codebook header injected for OpenAI/Gemini is filtered per-request (only includes glyphs actually used in that payload), so it isn't a stable byte-identical prefix across turns — undermining their automatic implicit caching the same way the Anthropic proxy gap undermined explicit `cache_control` caching. Queued as a likely next step.
+- [x] Anthropic `cache_control` structuring is reachable through the proxy, not just `wrapAnthropic()` (v1.24.0). The OpenAI/Gemini codebook header is now also a stable, byte-identical cache prefix once a session has assistant history, with a two-tier fallback so the larger header never costs more than it saves (v1.25.0). Remaining: extend the same stable-prefix treatment to Team Codebook Registry content and other large stable context blocks, and measure real cache-hit-rate impact once provider API credentials are available for live testing.
 - [x] Ship Team Codebook Registry (tracked below under Experimental Ideas) for shared, org-wide dictionaries — a network effect a single-user tool cannot replicate.
 
 ### 5. Go-to-Market

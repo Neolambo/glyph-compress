@@ -568,23 +568,37 @@ var GlyphCompressor = class {
         content: this._compressUserMessage(msg.content, safeText)
       };
     });
-    const firstSystemIndex = compressed.findIndex((msg) => msg.role === "system");
-    if (firstSystemIndex >= 0) {
-      compressed[firstSystemIndex] = {
-        ...compressed[firstSystemIndex],
-        content: this._injectCodebook(compressed[firstSystemIndex].content, provider, compressed)
-      };
-    } else {
-      compressed.unshift({
-        role: "system",
-        content: this._injectCodebook("", provider, compressed).trim()
-      });
+    const buildWithCodebook = (forceFiltered) => {
+      const withCodebook = compressed.map((msg) => ({ ...msg }));
+      const idx = withCodebook.findIndex((msg) => msg.role === "system");
+      if (idx >= 0) {
+        withCodebook[idx] = {
+          ...withCodebook[idx],
+          content: this._injectCodebook(withCodebook[idx].content, provider, compressed, { forceFiltered })
+        };
+      } else {
+        withCodebook.unshift({
+          role: "system",
+          content: this._injectCodebook("", provider, compressed, { forceFiltered }).trim()
+        });
+      }
+      return withCodebook;
+    };
+    let finalMessages = buildWithCodebook(false);
+    let compTokens = this._estimateTokens(finalMessages, provider);
+    let fallback = this.provider !== "raw" && compTokens >= origTokens;
+    if (fallback) {
+      const filteredMessages = buildWithCodebook(true);
+      const filteredTokens = this._estimateTokens(filteredMessages, provider);
+      if (filteredTokens < origTokens) {
+        finalMessages = filteredMessages;
+        compTokens = filteredTokens;
+        fallback = false;
+      }
     }
-    const compTokens = this._estimateTokens(compressed, provider);
-    const fallback = this.provider !== "raw" && compTokens >= origTokens;
     return {
       level: candidate.level,
-      messages: fallback ? messages.map((msg) => ({ ...msg })) : compressed,
+      messages: fallback ? messages.map((msg) => ({ ...msg })) : finalMessages,
       compressedTokens: fallback ? origTokens : compTokens,
       sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
       fallback,
@@ -1051,7 +1065,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.24.0",
+      version: "1.25.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1165,19 +1179,27 @@ ${parsed.dynamicLine}`
     }
     return result;
   }
-  _injectCodebook(systemPrompt, provider, messages = []) {
+  _injectCodebook(systemPrompt, provider, messages = [], options = {}) {
     if (systemPrompt.includes("[GLYPH PROTOCOL")) return systemPrompt;
     this._setProvider(provider);
-    let modifiedCodebook = this._codebookPromptForProvider(messages);
     const payloadText = this._payloadTextForCodebook(messages);
     const usedDynamicEntries = [...this.dynamicDict].filter(([, glyph]) => payloadText.includes(glyph)).map(([word, glyph]) => `${glyph}=${word}`);
-    if (usedDynamicEntries.length > 0) {
-      const dyn = usedDynamicEntries.join(" | ");
-      modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `DYN: ${dyn}
-[/GLYPH]`);
-    }
+    const dynLine = usedDynamicEntries.length > 0 ? `DYN: ${usedDynamicEntries.join(" | ")}` : "";
+    const cacheStable = !options.forceFiltered && this.provider !== "raw" && this.provider !== "anthropic" && messages.some((message) => message.role === "assistant");
+    let modifiedCodebook = cacheStable ? COMPACT_CODEBOOK_PROMPT : this._codebookPromptForProvider(messages);
     if (this.provider !== "raw") {
       modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `PROFILE: ${this.providerProfile.provider}/${this.providerProfile.strategy}
+[/GLYPH]`);
+    }
+    if (cacheStable) {
+      const dynBlock = dynLine ? `
+
+[GLYPH DYNAMIC]
+${dynLine}` : "";
+      return modifiedCodebook + "\n\n" + systemPrompt + dynBlock;
+    }
+    if (dynLine) {
+      modifiedCodebook = modifiedCodebook.replace("[/GLYPH]", `${dynLine}
 [/GLYPH]`);
     }
     return modifiedCodebook + "\n\n" + systemPrompt;

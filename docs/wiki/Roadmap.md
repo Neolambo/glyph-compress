@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.24.0`: Anthropic Proxy Bridge (critical fix).
+`v1.25.0`: Cache-Stable Codebook for OpenAI/Gemini.
+
+## Delivered in v1.25.0
+
+- Found while investigating v1.24.0: the codebook header injected for OpenAI/Gemini was payload-filtered (only lists glyphs the current message uses), so it varied request to request and could never be a stable prefix for their automatic prompt caching. The existing stability test's name promised this but only ever checked the first line of the header.
+- Fix mirrors the existing Anthropic `cache_control` first-turn-vs-multi-turn split: once a session has assistant history, OpenAI/Gemini/local get the full, unconditional codebook (byte-identical every time), with the per-request `DYN:` line moved to a separate block after the system text.
+- Two-tier fallback: the larger stable header only pays off across multiple turns, invisible to a single call's token count — if it would flip a message net-negative, it retries with the smaller filtered codebook before ever giving up to zero compression.
+- `test/cache-prefix-stability.js` gained real multi-turn assertions (the full block, not just line 1) plus graceful-degradation coverage; verified to actually fail against the pre-fix code before being trusted.
+- 24 suites total, all passing.
 
 ## Delivered in v1.24.0
 

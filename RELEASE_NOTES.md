@@ -1,3 +1,19 @@
+## v1.25.0 — Cache-Stable Codebook for OpenAI/Gemini
+
+Found while investigating v1.24.0: the codebook header injected for OpenAI/Gemini was payload-filtered — it only lists the DOM/TECH/SYM/MOD glyphs the current message happens to use — so it varied request to request and could never be a stable prefix for those providers' automatic, implicit prompt caching (which requires byte-identical leading tokens). `test/cache-prefix-stability.js`'s own name promised this was locked in, but its check only ever compared the system message's first line (a literal that never changes), never the full codebook block — exactly why this shipped unnoticed.
+
+### The fix
+- **Hybrid strategy mirroring the existing Anthropic `cache_control` first-turn-vs-multi-turn split** (`useStructuredSystem`): once a session has assistant history, `_injectCodebook()` switches OpenAI/Gemini/local to the full, unconditional codebook (byte-identical every time), with the per-request `DYN:` line moved to a separate `[GLYPH DYNAMIC]` block after the system text instead of embedded inside the cacheable block. A first-turn request has no prior turn to cache against yet, so it keeps the smaller filtered header — unchanged from pre-v1.25 behavior.
+- **Two-tier fallback, not all-or-nothing**: the larger stable header costs ~350 extra tokens (measured directly against the real filtered version), a bet that only pays off across multiple cached turns and is invisible to a single call's token count. If it would flip a specific message into GlyphCompress's existing net-negative fallback — which discards *every* real saving, not just the header — that message automatically retries with the smaller filtered codebook first, before ever giving up to zero compression.
+
+### Tests & Verification
+- **`test/cache-prefix-stability.js`**: new assertions cover the entire codebook block (not just line 1) staying byte-identical across turns once in cache-stable mode, the DYN line living outside that block, graceful degradation to the filtered codebook when the larger header isn't affordable, and confirmation that `raw` and Anthropic are both unaffected.
+- Verified these tests actually fail against the pre-fix code (reverted the fix, confirmed the expected failures, restored it) before being trusted — same discipline as v1.24.0.
+- **Complete Suite Validation**: 24 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.24.0 — Anthropic Proxy Bridge (Critical Fix)
 
 **Every real request sent through the GlyphProxy to an Anthropic target was being corrupted and rejected by the real API.**
