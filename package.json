@@ -1,10 +1,11 @@
 {
   "name": "glyph-compress",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs. Save 80%+ tokens.",
   "type": "module",
   "bin": {
-    "glyph-compress": "bin/cli.js"
+    "glyph-compress": "bin/cli.js",
+    "glyph-compress-mcp": "bin/mcp-server.js"
   },
   "main": "src/index.js",
   "types": "src/index.d.ts",
@@ -61,6 +62,7 @@
     "test:cache-prefix": "node test/cache-prefix-stability.js",
     "test:tech-glyph-economics": "node test/tech-glyph-economics.js",
     "test:context-router": "node test/context-router.js",
+    "test:mcp-server": "node test/mcp-server.js",
     "test:integration": "node test/integration.js",
     "benchmark": "node test/benchmark.js",
     "benchmark:realistic": "node test/benchmark-realistic.js",
@@ -82,7 +84,9 @@
     "claude",
     "vscode",
     "ide",
-    "cost-optimization"
+    "cost-optimization",
+    "mcp",
+    "model-context-protocol"
   ],
   "author": "Neolambo <campiossasco1@gmail.com>",
   "license": "AGPL-3.0-only",
@@ -100,5 +104,9 @@
   },
   "devDependencies": {
     "js-tiktoken": "^1.0.21"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   }
 }

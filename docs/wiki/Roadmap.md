@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.16.0`: Codebook Integrity & Adaptive Levels.
+`v1.17.0`: MCP Server, Context Router Wiring & Real-Tokenizer Economics.
+
+## Delivered in v1.17.0
+
+- Shipped an MCP server (`npx glyph-compress-mcp`) exposing `compress_text`, `compress_file`, `route_context`, and `get_codebook` tools for Claude Code, Claude Desktop, and other MCP-compatible clients.
+- Wired ranked workspace file selection into compression: `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query>` rank files by relevance and compress as many as fit inside a token budget, reporting selected/excluded files with score and reason.
+- Fixed a word-boundary bug in diagnostic extraction (`HACK` matching inside "Hacker News") found while building the router.
+- Extended tokenizer calibration to compare each `TECH_GLYPHS` entry against the actual word it replaces: found all 28 are a net token loss on real OpenAI tokenizers, and wired a measured cost table into the breakeven check so tech-name substitution never fires there when it would lose tokens.
+- 16 suites total, all passing, including a real end-to-end MCP protocol smoke test.
 
 ## Delivered in v1.16.0
 
@@ -66,7 +74,6 @@ Delivered in `v1.12.0`:
 
 ## Proposed Future Versions
 
-- `v1.17.0`: context router wiring.
 - `v1.18.0`: structured diagnostics and payload snapshots.
 - `v1.19.0`: expression-level source maps.
 - `v1.20.0`: provider trust and UX.

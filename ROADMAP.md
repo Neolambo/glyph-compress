@@ -14,16 +14,15 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.16.0` for codebook integrity fixes and automatic level selection.
-- [x] Last stable release was `glyph-compress@1.15.0` (Holographic Folding & Intent Diffs).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.16.0`.
-- [x] `npm test` passes 13 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability) for `v1.16.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — the genuine-savings figure is lower than the previously-reported 25% because the dynamic dictionary no longer counts single-occurrence substitutions that never paid for their own definition (see v1.16.0 below).
-- [ ] npm `latest`, VS Code Marketplace listing, and GitHub release for `1.16.0` are pending publication (requires npm and VSCE credentials this environment did not have).
+- [x] Current stable release is `v1.17.0` for the MCP server, Context Router wiring, and real-tokenizer TECH_GLYPHS economics.
+- [x] Last stable release was `glyph-compress@1.16.0` (Codebook Integrity & Adaptive Levels).
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.17.0`.
+- [x] `npm test` passes 16 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server) for `v1.17.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged from v1.16.0 on these fixtures; disabling measurably-losing TECH_GLYPHS substitution on OpenAI removed hidden waste with no observed downside.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.17.0` for context router wiring (see Proposed Future Versions below).
+- [ ] Prepared next release is `v1.18.0` for structured diagnostics and payload snapshots (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first.
 
 ## Release Reality Check
 
@@ -315,13 +314,15 @@ Status: delivered.
 - [x] Add tokenizer-calibrated glyph cost measurement (`npm run calibrate:tokenizer`, `js-tiktoken` dev dependency) to check the token-cost heuristic against real OpenAI tokenizers.
 - [x] Add `test/codebook-completeness.js` (60 assertions) and `test/cache-prefix-stability.js` as permanent regression suites.
 
-### v1.17.0: Context Router Wiring
+### v1.17.0: MCP Server, Context Router Wiring & Real-Tokenizer Economics
 
 Status: delivered.
 
+- [x] Ship an MCP server (`bin/mcp-server.js`, `npx glyph-compress-mcp`) exposing `compress_text`, `compress_file`, `route_context`, and `get_codebook` tools, verified end-to-end over real stdio transport with the official MCP SDK client (`test/mcp-server.js`).
 - [x] Wire ranked workspace file selection into normal compression calls behind an explicit option and token budget (`GlyphCompressor.routeAndCompress()`, CLI `glyph-compress route <query>`).
 - [x] Use diagnostics and recent task intent as router inputs (via `workspace-intelligence`'s existing intent detection + relevance scoring); fixed a word-boundary bug in diagnostic extraction (`HACK` matching inside "Hacker News") uncovered while wiring this up.
 - [x] Keep provider-aware routing behavior auditable through source-map metadata: `selectedFiles`/`excludedFiles` report score, token cost, and exclusion reason, with a per-file `sourceMap` for reversibility.
+- [x] Extend tokenizer calibration with apples-to-apples word-vs-glyph and phrase-level before/after comparison; found all 28 `TECH_GLYPHS` are a net token loss on OpenAI and wired a measured cost table into the breakeven check so tech-name substitution never fires there when it would lose tokens.
 - [ ] Partial: git-diff-aware routing (staged/unstaged files as a router signal) is available in `selectRelevantFiles` but not yet surfaced as a dedicated `routeAndCompress` option.
 
 ### v1.18.0: Structured Diagnostics and Snapshots
@@ -434,7 +435,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 
 ### 3. Distribution Beyond VS Code
 
-- [ ] Ship an MCP (Model Context Protocol) server so GlyphCompress plugs into Claude Code, Claude Desktop, and other MCP-compatible clients with no IDE-specific integration work.
+- [x] Ship an MCP (Model Context Protocol) server (`bin/mcp-server.js`, `npx glyph-compress-mcp`) exposing `compress_text`, `compress_file`, `route_context`, and `get_codebook` as callable tools — plugs into Claude Code, Claude Desktop, and other MCP-compatible clients with no IDE-specific integration work. Verified end-to-end over real stdio transport with the official MCP SDK client (`test/mcp-server.js`).
 - [ ] Add a JetBrains plugin and a Neovim plugin — most backend/enterprise developers are not on VS Code.
 - [ ] Upstream native integration (not just manual proxy config) into Continue.dev, Cline, RooCode, and Aider.
 - [ ] Offer an optional hosted/cloud proxy for teams that do not want to self-host, aligned with the existing dual AGPL/commercial license.

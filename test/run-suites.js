@@ -18,6 +18,7 @@ const suites = [
   ['cache-prefix-stability', 'test/cache-prefix-stability.js'],
   ['tech-glyph-economics', 'test/tech-glyph-economics.js'],
   ['context-router', 'test/context-router.js'],
+  ['mcp-server', 'test/mcp-server.js'],
 ];
 
 for (const [name, file] of suites) {

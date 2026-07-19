@@ -36,6 +36,7 @@ Watch the latest YouTube video to see how GlyphCompress achieves 90% token savin
 - [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
 - [🚀 Quick Start (Code & Extension)](#-quick-start)
 - [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy-v050)
+- [🔌 MCP Server (Claude Code, Claude Desktop & other MCP clients)](#-mcp-server-claude-code-claude-desktop--other-mcp-clients)
 - [🔤 The Glyph Protocol](#-the-glyph-protocol)
 - [👥 Contributing](#-contributing)
 - [⚖️ Dual Licensing Model](#%EF%B8%8F-dual-licensing-model)
@@ -175,6 +176,12 @@ Attentional Decay simulates human memory inside the multi-turn chat transcript. 
 
 ***
 
+
+### New in v1.17.0 (MCP Server, Context Router & Real-Tokenizer Economics)
+
+1. **MCP Server**: `npx glyph-compress-mcp` exposes GlyphCompress as a [Model Context Protocol](https://modelcontextprotocol.io/) server — `compress_text`, `compress_file`, `route_context`, and `get_codebook` tools, usable from Claude Code (`claude mcp add glyph-compress -- npx glyph-compress-mcp`), Claude Desktop, and any other MCP-compatible client with no IDE-specific integration work. See [MCP Server](#-mcp-server-claude-code-claude-desktop--other-mcp-clients) below.
+2. **Context Router**: `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query> [--budget] [--max-files]` rank workspace files by relevance to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. Reports `selectedFiles`/`excludedFiles` (with score, token cost, and exclusion reason) plus a per-file `sourceMap` for auditability. Building this surfaced and fixed a real pre-existing bug: the TODO/FIXME/HACK diagnostic-detection regex had no word boundaries and matched "HACK" inside "Hacker News," inflating irrelevant marketing docs above the actually-relevant source file.
+3. **Real-tokenizer TECH_GLYPHS economics**: extended `npm run calibrate:tokenizer` to compare every glyph against the *actual word it replaces* (not just its isolated cost) using real OpenAI tokenizers. Result: **all 28 `TECH_GLYPHS` were a net token loss** — common tech names are already 1-2 BPE tokens, and the Unicode glyph that replaced them cost as much or more (worst case: "express" at 1 token vs. its glyph at 5). Tech-name substitution now never fires on the `openai` provider when it would lose tokens (measured cost table, not a heuristic); `raw` mode keeps substituting unconditionally for demos/character-level reporting.
 
 ### New in v1.16.0 (Codebook Integrity & Adaptive Levels)
 
@@ -343,9 +350,9 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.16.0)
+### 📏 Benchmark Snapshot (v1.17.0)
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. The genuine-savings figure dropped from 25% to 22% in v1.16.0 because the dynamic dictionary no longer counts single-occurrence word substitutions as savings (see "New in v1.16.0" below) — the new number is lower but honest, not a regression in the underlying engine.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
 ### 🧪 Realistic Benchmark Notes
 
@@ -616,7 +623,7 @@ console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.16.0.vsix --force
+    code.cmd --install-extension .\glyph-compress-1.17.0.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
@@ -718,6 +725,48 @@ If you prefer OpenAI or Anthropic upstreams, keep the same `apiBase` and swap on
 
 ### 3. Done! 
 You don't need to do anything else. When your IDE sends huge blocks of code to the LLM, the proxy intercepts the JSON request, minifies the code blocks, injects the codebook, and forwards the heavily compressed request to the real LLM API. 
+
+## 🔌 MCP Server (Claude Code, Claude Desktop & other MCP clients)
+
+GlyphCompress ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server, so any MCP-compatible client can call compression directly — no IDE-specific integration or proxy configuration needed.
+
+### Tools exposed
+
+| Tool | What it does |
+|---|---|
+| `compress_text` | Compress an arbitrary text/context blob. Returns the compressed text, the codebook needed to decode it, and stats. |
+| `compress_file` | Read a file from disk and compress its content. |
+| `route_context` | Context Router: rank workspace files relevant to a query and compress as many as fit inside a token budget. |
+| `get_codebook` | Return the glyph codebook prompt for manual injection into a system prompt. |
+
+### Add it to Claude Code
+
+```bash
+claude mcp add glyph-compress -- npx glyph-compress-mcp
+```
+
+### Add it to Claude Desktop or another MCP client
+
+Add to the client's MCP server config (for Claude Desktop, `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "glyph-compress": {
+      "command": "npx",
+      "args": ["glyph-compress-mcp"]
+    }
+  }
+}
+```
+
+### Run it directly
+
+```bash
+npx glyph-compress-mcp
+```
+
+The server communicates over stdio using the official `@modelcontextprotocol/sdk`. It has no network dependency beyond your MCP client's own transport — everything runs locally, same as the CLI and proxy.
 
 ## 🔤 The Glyph Protocol
 

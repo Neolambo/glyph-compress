@@ -1,3 +1,28 @@
+## v1.17.0 — MCP Server, Context Router & Real-Tokenizer Economics
+
+Changes since v1.16.0:
+
+### Distribution
+- **MCP Server**: `bin/mcp-server.js` (`npx glyph-compress-mcp`) exposes GlyphCompress as a Model Context Protocol server over stdio using the official `@modelcontextprotocol/sdk`. Tools: `compress_text`, `compress_file`, `route_context`, `get_codebook`. Works with Claude Code, Claude Desktop, and any other MCP-compatible client with zero IDE-specific integration.
+
+### Context Router
+- **`GlyphCompressor.routeAndCompress(query, options)`**: ranks workspace files by relevance to a query (reusing workspace-intelligence's intent detection + scoring), then compresses as many as fit inside a token budget instead of the caller manually picking which files to send. Returns `selectedFiles`/`excludedFiles` (score, token cost, exclusion reason) and a per-file `sourceMap` for auditability.
+- **New CLI command**: `glyph-compress route <query> [--budget] [--max-files] [--json]`.
+- **Bug fix surfaced while building this**: `extractDiagnostics()`'s TODO/FIXME/HACK regex had no word boundaries, so "HACK" matched inside "Hacker News" and inflated irrelevant marketing docs above the actually-relevant source file for a bug-fix query. Fixed with `\b` boundaries.
+
+### Real-Tokenizer Economics
+- Extended `npm run calibrate:tokenizer` with an apples-to-apples word-vs-glyph comparison (not just isolated glyph cost) and phrase-level before/after measurement for error/prompt patterns.
+- **Finding**: all 28 `TECH_GLYPHS` are a net token loss on real OpenAI tokenizers — common tech names are already 1-2 BPE tokens; the glyph that replaced them cost as much or more (worst case: "express" 1 token vs. its glyph at 5 tokens).
+- **Fix**: `MEASURED_TECH_GLYPH_TOKENS_OPENAI` — a real, measured cost table — replaces the character-based heuristic for the `openai` provider. Tech-name substitution now never fires when it would lose tokens. `raw` mode (demos, character-level reporting) is unaffected.
+
+### Tests & Verification
+- **New Test Suites**: `test/tech-glyph-economics.js` (30 assertions), `test/context-router.js`, `test/mcp-server.js` (drives the real MCP server over stdio via the official SDK client, not just internal calls).
+- **Complete Suite Validation**: 16 suites, all passing. No regressions on existing benchmarks.
+- **Validation**:
+  - `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run)
+
+***
+
 ## v1.16.0 — Codebook Integrity & Adaptive Levels
 
 Changes since v1.15.0:

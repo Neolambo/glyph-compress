@@ -16,6 +16,7 @@ npx glyph-compress [file|command] [options]
 | `inspect [query]` | Build `.glyphcompress/codebook.json`, detect intent, and rank relevant workspace files. | `npx glyph-compress inspect "fix auth error"` |
 | `doctor` | Check repository readiness for GlyphCompress workflows. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
+| `route <query>` | Context Router: rank relevant workspace files and compress as many as fit inside a token budget. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
 
 ## Options
 
