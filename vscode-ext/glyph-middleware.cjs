@@ -774,7 +774,7 @@ ${file.content}`, provider);
       allMessages.push({ role: "system", content: originalSystemText });
     }
     allMessages.push(...messages);
-    const { messages: compressed } = this.compressMessages(allMessages, "anthropic");
+    const { messages: compressed, stats } = this.compressMessages(allMessages, "anthropic");
     const systemMsg = compressed.find((message) => message.role === "system");
     const otherMsgs = compressed.filter((message) => message.role !== "system").map((message) => ({ ...message }));
     const useStructuredSystem = messages.some((message) => message.role === "assistant");
@@ -785,7 +785,8 @@ ${file.content}`, provider);
     this._markLargestAnthropicUserBlock(otherMsgs);
     return {
       system: systemParam,
-      messages: otherMsgs
+      messages: otherMsgs,
+      stats
     };
   }
   _anthropicSystemText(systemInput) {
@@ -1050,7 +1051,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.23.0",
+      version: "1.24.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

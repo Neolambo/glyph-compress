@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.23.0`: Adaptive Workspace Memory.
+`v1.24.0`: Anthropic Proxy Bridge (critical fix).
+
+## Delivered in v1.24.0
+
+- **Critical fix**: every real proxy request to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API. Every documented IDE integration sends an OpenAI-shaped request to the proxy regardless of upstream, but the proxy never translated that to Anthropic's native Messages API shape (top-level `system` field, `x-api-key`/`anthropic-version` auth, `/v1/messages` endpoint) — and GlyphCompress's own compression path was inserting an illegal `role: "system"` message into `messages` on top of that.
+- New `src/anthropic-bridge.js` translates requests and responses (both non-streaming and streaming SSE) between the two shapes, reusing the same compression/`cache_control` logic `wrapAnthropic()` already used — now reachable through the proxy, not just the SDK wrapper.
+- Known limitations: multi-modal images are marked with a text placeholder rather than translated; tool-result messages are coerced to a labeled `user` message; streamed tool-call argument deltas aren't translated (non-streaming tool calls work fully).
+- Found by reproducing the bug directly (mocking the outbound request and inspecting the forwarded body/headers) rather than trusting the existing smoke test, which never checked request shape. New `test/anthropic-bridge.js` (18 tests) plus a strengthened `test/proxy.js` lock in the fix; both were verified to actually fail against the pre-fix code before being trusted.
+- 24 suites total, all passing.
 
 ## Delivered in v1.23.0
 

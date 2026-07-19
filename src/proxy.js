@@ -3,6 +3,13 @@ import https from 'https';
 import { GlyphCompressor } from './glyph-middleware.js';
 import { getDashboardHTML } from './dashboard.js';
 import { createStructuredLogger, redactForLog } from './logger.js';
+import {
+  isAnthropicNativeTarget,
+  openaiRequestToAnthropic,
+  anthropicHeadersFromOpenAI,
+  anthropicResponseToOpenAI,
+  createAnthropicToOpenAISSETransform,
+} from './anthropic-bridge.js';
 
 export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai.com', levelOrOptions = 'aggressive', sharedCompressor = null, outputChannel = null) {
   const options = normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, targetApiUrl);
@@ -86,12 +93,31 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
         try {
           // Parse the incoming request from the IDE
           const payload = JSON.parse(body);
-          
+          const anthropicBridge = isAnthropicNativeTarget(targetApiUrl);
+          let forwardBody = body;
+          let bridgeInfo = null;
+
           if (payload.messages && Array.isArray(payload.messages)) {
             log(`[Proxy] Intercepted ${req.method} ${req.url}`, { requestId: messagesProcessed + 1 });
 
-            const { messages: compressedMessages, stats } = compressor.compressMessages(payload.messages, options.compressionProvider);
-            payload.messages = compressedMessages;
+            let stats;
+            if (anthropicBridge) {
+              // Every documented IDE integration sends OpenAI-shaped chat/
+              // completions requests regardless of the upstream target, but
+              // api.anthropic.com only understands its own Messages API
+              // shape (top-level `system`, x-api-key auth, /v1/messages).
+              // Translate instead of forwarding the OpenAI shape as-is.
+              const translated = openaiRequestToAnthropic(payload, compressor);
+              stats = translated.stats;
+              forwardBody = JSON.stringify(translated.body);
+              bridgeInfo = { requestedModel: payload.model, isStreaming: payload.stream === true };
+              log(`[Proxy] Anthropic bridge: translated OpenAI request to native Messages API shape (model=${translated.body.model})`);
+            } else {
+              const compressedResult = compressor.compressMessages(payload.messages, options.compressionProvider);
+              payload.messages = compressedResult.messages;
+              forwardBody = JSON.stringify(payload);
+              stats = compressedResult.stats;
+            }
 
             // Richer routing/trust diagnostics: which knobs actually shaped
             // this request, not just the ratio it produced.
@@ -103,13 +129,13 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
               dynamicDictSize: compressor.dynamicDict.size,
               fileIndexSize: compressor.fileIndex.size,
               teamCodebookLoaded: compressor.getTeamCodebookInfo().loaded,
-              fallback: stats.thisMessage?.fallback === true,
+              fallback: stats?.thisMessage?.fallback === true,
             });
 
-            const thisMsg = stats.thisMessage;
+            const thisMsg = stats?.thisMessage;
             if (thisMsg) {
               log(`[Proxy] Compression ratio: ${thisMsg.ratio || '1.0x'} (Saved: ${thisMsg.savedPct || '0%'})`);
-              
+
               totalOriginalTokens += thisMsg.originalTokens || 0;
               totalCompressedTokens += thisMsg.compressedTokens || 0;
               messagesProcessed++;
@@ -128,9 +154,9 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
               if (statsHistory.length > 50) statsHistory.pop();
             }
           }
-          
+
           // Forward the modified request to the actual LLM API
-          forwardRequest(req, res, targetApiUrl, JSON.stringify(payload), structuredLogger);
+          forwardRequest(req, res, targetApiUrl, forwardBody, structuredLogger, bridgeInfo);
           
         } catch (e) {
           log('[Proxy] Error parsing/compressing JSON: ' + e.message);
@@ -190,17 +216,24 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
 
 const fallbackLogger = createStructuredLogger();
 
-function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallbackLogger) {
+function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallbackLogger, bridge = null) {
   try {
     let requestPath = clientReq.url;
-    if (targetApiUrl.includes('generativelanguage.googleapis.com') && requestPath.startsWith('/v1/')) {
+    let headers = { ...clientReq.headers };
+
+    if (bridge) {
+      // Anthropic's Messages API is a fixed endpoint with its own auth
+      // headers — never the path/headers the OpenAI-compatible client sent.
+      requestPath = '/v1/messages';
+      headers = anthropicHeadersFromOpenAI(clientReq.headers);
+    } else if (targetApiUrl.includes('generativelanguage.googleapis.com') && requestPath.startsWith('/v1/')) {
       requestPath = requestPath.replace('/v1/', '/v1beta/openai/');
     }
     const url = new URL(requestPath, targetApiUrl);
 
     const options = {
       method: clientReq.method,
-      headers: { ...clientReq.headers },
+      headers,
     };
 
     // Remove host header to avoid SSL mismatch
@@ -223,6 +256,41 @@ function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallb
           clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
           clientRes.end(responseBody);
         });
+        return;
+      }
+
+      if (bridge) {
+        // The client only understands OpenAI-shaped responses — translate
+        // Anthropic's native response (JSON or SSE) back before returning it.
+        if (bridge.isStreaming) {
+          clientRes.writeHead(proxyRes.statusCode, {
+            'content-type': 'text/event-stream; charset=utf-8',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive',
+          });
+          const transform = createAnthropicToOpenAISSETransform({ model: bridge.requestedModel });
+          proxyRes.pipe(transform).pipe(clientRes, { end: true });
+        } else {
+          const chunks = [];
+          proxyRes.on('data', chunk => chunks.push(chunk));
+          proxyRes.on('end', () => {
+            try {
+              const anthropicJson = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+              const openaiJson = anthropicResponseToOpenAI(anthropicJson, bridge.requestedModel);
+              const responseBody = JSON.stringify(openaiJson);
+              clientRes.writeHead(proxyRes.statusCode, {
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(responseBody),
+              });
+              clientRes.end(responseBody);
+            } catch (err) {
+              logger.error('[Proxy] Anthropic response translation error: ' + err.message);
+              const raw = Buffer.concat(chunks);
+              clientRes.writeHead(proxyRes.statusCode, { 'content-type': 'application/json' });
+              clientRes.end(raw);
+            }
+          });
+        }
         return;
       }
 

@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs — CLI, MCP server, and VS Code extension, with a Context Router, team-shared dictionaries, and compression calibrated against real provider tokenizers.",
   "type": "module",
   "bin": {

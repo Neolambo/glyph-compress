@@ -74,12 +74,20 @@ try {
 // exercised the require("./glyph-middleware.cjs") rewrite the build performs.
 // This closes that gap by actually starting the CJS build and hitting it.
 let cjsServer;
+let cjsForwardedOptions = null;
+let cjsForwardedBody = '';
 https.request = (url, options, callback) => {
   forwardedUrl = url.toString();
+  cjsForwardedOptions = options;
   const request = new EventEmitter();
-  request.write = () => {};
+  request.write = (chunk) => { cjsForwardedBody += chunk.toString(); };
   request.end = () => {
-    const proxyResponse = Readable.from(['{"ok":true}']);
+    const anthropicResponse = JSON.stringify({
+      id: 'msg_cjs', type: 'message', role: 'assistant', model: 'claude-3-5-sonnet-20241022',
+      content: [{ type: 'text', text: 'It compresses prompts.' }],
+      stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 4 },
+    });
+    const proxyResponse = Readable.from([Buffer.from(anthropicResponse, 'utf8')]);
     proxyResponse.statusCode = 200;
     proxyResponse.headers = { 'content-type': 'application/json' };
     queueMicrotask(() => callback(proxyResponse));
@@ -93,11 +101,27 @@ try {
   const { startProxyServer: startProxyServerCjs } = require('../vscode-ext/proxy.js');
   cjsServer = startProxyServerCjs(0, 'https://api.anthropic.com', { level: 'standard', provider: 'auto' });
   await once(cjsServer, 'listening');
-  const response = await postJson(cjsServer.address().port, '/v1/messages', {
-    messages: [{ role: 'user', content: 'explain how the compressor works' }],
-  });
+  // This client sends the same OpenAI chat/completions shape every
+  // documented GlyphProxy integration actually sends (system as a message
+  // role, not a top-level field) — real usage never sends native Anthropic
+  // shape directly. The CJS proxy build (test/anthropic-bridge.js already
+  // covers the ESM source) must translate it, not forward it unmodified —
+  // see test/anthropic-bridge.js for the full history of why this matters.
+  const response = await postJson(cjsServer.address().port, '/v1/chat/completions', {
+    model: 'claude-3-5-sonnet-20241022',
+    messages: [
+      { role: 'system', content: 'You are a helpful assistant.' },
+      { role: 'user', content: 'explain how the compressor works' },
+    ],
+  }, { Authorization: 'Bearer sk-ant-cjs-test-key' });
   assert(response.statusCode === 200, 'vscode-ext CJS proxy build should relay upstream status code');
-  assert(forwardedUrl.includes('api.anthropic.com'), 'vscode-ext CJS proxy build should forward to the target API');
+  assert(forwardedUrl === 'https://api.anthropic.com/v1/messages', 'vscode-ext CJS proxy build should translate to the real Messages API endpoint');
+  assert.strictEqual(cjsForwardedOptions.headers['x-api-key'], 'sk-ant-cjs-test-key', 'vscode-ext CJS proxy build should rewrite Bearer auth to x-api-key');
+  const cjsForwarded = JSON.parse(cjsForwardedBody);
+  assert(!cjsForwarded.messages.some((m) => m.role === 'system'), 'vscode-ext CJS proxy build must never forward an illegal role: "system" message to Anthropic');
+  assert(cjsForwarded.system, 'vscode-ext CJS proxy build should carry the system prompt in the top-level system field');
+  const clientJson = JSON.parse(response.body);
+  assert.strictEqual(clientJson.object, 'chat.completion', 'vscode-ext CJS proxy build should translate the Anthropic response back to OpenAI shape for the client');
 } finally {
   https.request = originalRequest;
   if (cjsServer) cjsServer.close();
@@ -105,7 +129,7 @@ try {
 
 console.log('proxy smoke suite ok');
 
-function postJson(port, path, payload) {
+function postJson(port, path, payload, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
     const request = http.request({
@@ -116,6 +140,7 @@ function postJson(port, path, payload) {
       headers: {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(body),
+        ...extraHeaders,
       },
     }, (response) => {
       let responseBody = '';

@@ -186,6 +186,14 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.24.0 (Anthropic Proxy Bridge — Critical Fix)
+
+**Every real request sent through the GlyphProxy to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API.** Every documented IDE integration (Cursor, Cline/RooCode, Continue.dev) configures the client in "OpenAI Compatible" mode, so the proxy always receives an OpenAI chat/completions-shaped request regardless of the real upstream — that was already correctly handled for OpenAI itself and for Gemini (which offers a genuine OpenAI-compatible endpoint), but never for Anthropic. `api.anthropic.com` does not accept OpenAI's request shape at all: the system prompt must be a top-level `system` field, not a `role: "system"` message; authentication is `x-api-key` + `anthropic-version`, not `Authorization: Bearer`; the endpoint is `/v1/messages`, not `/v1/chat/completions`. On top of that, GlyphCompress's own compression path was inserting an *illegal* `role: "system"` message into `messages` when none existed. Found by reproducing it directly — mocking the outbound request and inspecting exactly what the proxy forwarded — rather than trusting the existing proxy smoke test, which only checked the forwarded status code and URL, never the request shape, and so never caught it.
+
+1. **New Anthropic proxy bridge** (`src/anthropic-bridge.js`): translates OpenAI-shaped requests to Anthropic's native Messages API shape and translates the response back, for both non-streaming JSON and streaming SSE. Reuses the same compression and `cache_control` logic `wrapAnthropic()` already relied on (`GlyphCompressor._prepareAnthropicPayload`), so proxy users now get the same cache-stable structured system blocks as direct SDK-wrapper users — previously only reachable by importing `wrapAnthropic()` directly in Node code, never through the proxy.
+2. **Known limitations** (documented, not attempted here): multi-modal image content is marked with a visible text placeholder rather than translated to Anthropic's image blocks; OpenAI tool-result (`role: "tool"`) messages are coerced to a labeled `user` message rather than a proper `tool_result` content block; streamed tool-call argument deltas are not translated (non-streaming tool calls are fully translated, including the response's `tool_calls` field).
+3. **Tests**: `test/anthropic-bridge.js` (18 tests) covers the translation functions directly plus real end-to-end proxy round-trips (mocked outbound HTTPS, real server, both streaming and non-streaming) — including a check that OpenAI/Gemini targets are completely unaffected. The existing `test/proxy.js` Anthropic smoke test was also strengthened; it previously never asserted on the forwarded request shape at all, which is exactly how this bug shipped unnoticed. Verified these tests actually catch the original bug by reverting the fix and confirming the expected failures, before restoring it.
+
 ### New in v1.23.0 (Adaptive Workspace Memory)
 
 1. **Incremental codebook builds**: `buildWorkspaceCodebook()` no longer re-parses every workspace file on each call. When a file's mtime is unchanged since the last build, its symbols/imports/diagnostics are reused from the saved codebook instead of being re-extracted; only changed files are rescanned. The returned codebook now reports `incrementalStats: { reused, rescanned, total }`. Pass `{ incremental: false }` to force a full rescan.
@@ -398,7 +406,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.23.0)
+### 📏 Benchmark Snapshot (v1.24.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -752,7 +760,11 @@ If you want **100% automatic, invisible** compression without pressing *any* sho
 5. If you are proxying Gemini-compatible traffic, keep GlyphCompress VS Code settings aligned with:
   - `glyphCompress.provider = gemini`
   - `glyphCompress.targetApiUrl = https://generativelanguage.googleapis.com`
-6. All Chat and Cmd+K requests will now flow through the local proxy.
+6. If you are proxying Anthropic traffic, use:
+  - `glyphCompress.provider = anthropic`
+  - `glyphCompress.targetApiUrl = https://api.anthropic.com`
+  - **Model ID**: a real Anthropic model id (e.g. `claude-3-5-sonnet-20241022`), not an OpenAI one — the IDE still speaks OpenAI's chat/completions format to the local proxy, but the proxy translates the request and response to and from Anthropic's native Messages API on the wire (v1.24.0+; see "New in v1.24.0" below for why this matters).
+7. All Chat and Cmd+K requests will now flow through the local proxy.
 
 **Cline / RooCode (VS Code Extensions)**
 1. Open the Cline/RooCode settings panel.
@@ -773,7 +785,7 @@ models:
     apiBase: http://localhost:8080/v1
 ```
 
-If you prefer OpenAI or Anthropic upstreams, keep the same `apiBase` and swap only the upstream API key, model id, and GlyphCompress provider/target settings.
+If you prefer an OpenAI upstream, keep the same `apiBase` and swap only the upstream API key, model id, and GlyphCompress provider/target settings. For an Anthropic upstream, do the same but also set `glyphCompress.targetApiUrl = https://api.anthropic.com` and use a real Anthropic model id — the proxy translates the request/response shape for you (v1.24.0+).
 
 **GitHub Copilot Chat**
 *Note: Microsoft locks the API URL for the official Copilot extension for security reasons. To use GlyphCompress with the official Copilot, please use the `Ctrl+Alt+G` (One-Click Ask) shortcut provided by the GlyphCompress VS Code Extension.*

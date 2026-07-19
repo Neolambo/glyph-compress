@@ -792,7 +792,7 @@ class GlyphCompressor {
     }
     allMessages.push(...messages);
 
-    const { messages: compressed } = this.compressMessages(allMessages, 'anthropic');
+    const { messages: compressed, stats } = this.compressMessages(allMessages, 'anthropic');
     const systemMsg = compressed.find((message) => message.role === 'system');
     const otherMsgs = compressed
       .filter((message) => message.role !== 'system')
@@ -811,6 +811,7 @@ class GlyphCompressor {
     return {
       system: systemParam,
       messages: otherMsgs,
+      stats,
     };
   }
 
@@ -1122,7 +1123,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.23.0',
+      version: '1.24.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

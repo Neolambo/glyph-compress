@@ -1,3 +1,27 @@
+## v1.24.0 — Anthropic Proxy Bridge (Critical Fix)
+
+**Every real request sent through the GlyphProxy to an Anthropic target was being corrupted and rejected by the real API.**
+
+### What broke
+Every documented GlyphProxy integration (Cursor, Cline/RooCode, Continue.dev) configures the IDE in "OpenAI Compatible" mode, so the proxy always receives an OpenAI chat/completions-shaped request regardless of which upstream `targetApiUrl` GlyphCompress points at. That was already correctly handled for OpenAI itself and for Gemini (which offers a real OpenAI-compatible endpoint) — never for Anthropic. `api.anthropic.com` does not accept OpenAI's request shape at all: the system prompt must be a top-level `system` field, not a `role: "system"` message; authentication is `x-api-key` + `anthropic-version`, not `Authorization: Bearer`; the endpoint is `/v1/messages`, not `/v1/chat/completions`. On top of that, GlyphCompress's own compression path was inserting an *illegal* `role: "system"` message into `messages` when none existed. Every real Anthropic-target proxy request would have been rejected outright.
+
+This was found while investigating a smaller, related item (making the injected codebook header a stable prefix for OpenAI/Gemini's automatic caching) — reproducing that led to actually testing the Anthropic proxy path directly (mocking the outbound `https.request` call and inspecting exactly what got forwarded), rather than trusting the existing smoke test, which only ever checked the forwarded status code and URL, never the request shape.
+
+### The fix
+- New `src/anthropic-bridge.js` translates OpenAI-shaped requests to Anthropic's native Messages API shape and translates the response back — for both non-streaming JSON and streaming SSE, with a byte-buffered SSE parser that correctly handles HTTP chunk boundaries splitting events mid-frame.
+- Reuses `GlyphCompressor._prepareAnthropicPayload` — the same compression and `cache_control` structuring `wrapAnthropic()` already relied on — so proxy users now get the same cache-stable structured system blocks as direct SDK-wrapper users, a benefit previously unreachable through the proxy at all.
+- Known, documented limitations: multi-modal image content is marked with a visible text placeholder rather than translated to Anthropic's image blocks; OpenAI tool-result (`role: "tool"`) messages are coerced to a labeled `user` message rather than a proper `tool_result` block; streamed tool-call argument deltas are not translated (non-streaming tool calls, including the response's `tool_calls` field, are fully translated).
+- README's IDE integration guide previously claimed swapping `apiBase`/target settings alone was enough to use an Anthropic upstream — corrected, with the actual requirement (`glyphCompress.targetApiUrl = https://api.anthropic.com` plus a real Anthropic model id) documented.
+
+### Tests & Verification
+- **`test/anthropic-bridge.js`** (new, 18 tests): unit coverage of every translation function (system extraction, tool mapping, header rewriting, response mapping, SSE parsing across arbitrary chunk boundaries) plus end-to-end tests that start a real proxy server, mock the outbound HTTPS call, and assert on the actual forwarded request/response — both streaming and non-streaming — including a check that OpenAI/Gemini targets are completely unaffected.
+- **`test/proxy.js`**: the existing Anthropic smoke test was strengthened to assert on the forwarded request/response shape instead of just the status code — exactly the gap that let the original bug ship unnoticed.
+- Both suites were verified to actually fail against the pre-fix code (reverted the fix, confirmed the expected failures, restored it) before being trusted.
+- **Complete Suite Validation**: 24 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.23.0 — Adaptive Workspace Memory
 
 Changes since v1.21.2:

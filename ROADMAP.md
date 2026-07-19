@@ -14,16 +14,17 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.23.0`, Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
-- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.23.0` to both npm and the Marketplace is still pending on maintainer credentials).
+- [x] Current stable release is `v1.24.0`, a critical fix: every real proxy request to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API, because the proxy forwarded the OpenAI-shaped client request unmodified instead of translating it to Anthropic's native Messages API shape. See "v1.24.0: Anthropic Proxy Bridge" below.
+- [x] `v1.23.0` shipped Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
+- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.24.0` to both npm and the Marketplace is still pending on maintainer credentials).
 - [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.23.0`.
-- [x] `npm test` passes 23 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory) for `v1.23.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release changes workspace-file ranking and caching, not text compression behavior.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.24.0`.
+- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.24.0`.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release fixes proxy request/response translation for one upstream target, not text compression behavior.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.22.0` for real task evaluation (see Proposed Future Versions below), or Anthropic/Gemini tokenizer calibration if provider API credentials become available first — both remain blocked on maintainer-provided API keys.
+- [ ] Prepared next release is `v1.22.0` for real task evaluation or Anthropic/Gemini tokenizer calibration if provider API credentials become available (see Proposed Future Versions below, both blocked). Not blocked, and queued as a likely next step regardless: making the OpenAI/Gemini injected codebook header a stable byte-identical prefix across turns — found while investigating v1.24.0, it's currently filtered per request based on which glyphs that specific payload uses, which undermines their automatic prompt caching the same way the Anthropic proxy bug undermined Anthropic's explicit `cache_control` caching.
 
 ## Release Reality Check
 
@@ -379,6 +380,16 @@ Status: delivered.
 - [x] New `test/adaptive-workspace-memory.js` (10 tests): incremental reuse/rescan correctness, usage persistence and decay, and an end-to-end check that `routeAndCompress()` actually records usage for selected files.
 - [x] The workspace-memory layer (usage history, incremental per-file cache) is now in place as a foundation for future semantic diff features; Team Codebook Registry itself shipped separately in v1.18.0.
 
+### v1.24.0: Anthropic Proxy Bridge (Critical Fix)
+
+Status: delivered.
+
+- [x] **Found and fixed a critical bug: every real proxy request to an Anthropic target was corrupted and rejected by the real API.** Every documented IDE integration (Cursor, Cline/RooCode, Continue.dev) configures the client in "OpenAI Compatible" mode, so the proxy always receives an OpenAI chat/completions-shaped request regardless of the real upstream. That was already handled correctly for OpenAI and for Gemini (a real OpenAI-compatible endpoint), but never for Anthropic: `api.anthropic.com` requires the system prompt as a top-level `system` field (not a `role: "system"` message), `x-api-key`/`anthropic-version` auth (not `Authorization: Bearer`), and the `/v1/messages` endpoint (not `/v1/chat/completions`). GlyphCompress's own compression path was additionally inserting an illegal `role: "system"` message into `messages` when none existed. Found by mocking the outbound request and inspecting exactly what the proxy forwarded, rather than trusting the existing smoke test, which only checked the forwarded status code and URL and so never caught it.
+- [x] New `src/anthropic-bridge.js`: translates OpenAI-shaped requests to Anthropic's native Messages API shape and translates the response back, for both non-streaming JSON and streaming SSE (byte-buffered SSE parser correctly handles HTTP chunk boundaries that split events). Reuses `GlyphCompressor._prepareAnthropicPayload` — the same compression and `cache_control` structuring `wrapAnthropic()` already used — so proxy users now get the same cache-stable behavior as direct SDK-wrapper users, which was previously unreachable through the proxy at all.
+- [x] Known, documented limitations: multi-modal image content is marked with a visible text placeholder rather than translated to Anthropic's image blocks; OpenAI tool-result (`role: "tool"`) messages are coerced to a labeled `user` message rather than a proper `tool_result` block; streamed tool-call argument deltas are not translated (non-streaming tool calls, including the response's `tool_calls` field, are fully translated).
+- [x] New `test/anthropic-bridge.js` (18 tests): unit coverage of every translation function plus end-to-end tests that start a real proxy server, mock the outbound HTTPS call, and assert on the actual forwarded request/response for both streaming and non-streaming Anthropic responses — including a check that OpenAI/Gemini targets are unaffected. The existing `test/proxy.js` Anthropic smoke test was strengthened the same way. Verified both suites actually catch the original bug by reverting the fix and confirming the expected failures before restoring it.
+- [x] README's IDE integration guide previously claimed swapping `apiBase`/target settings alone was enough to use an Anthropic upstream — corrected, with the real requirement (`glyphCompress.targetApiUrl = https://api.anthropic.com` and a real Anthropic model id) documented.
+
 ## Repository Improvements
 
 ### Packaging
@@ -458,7 +469,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 ### 4. Product Moat
 
 - [x] Ship Context Router Wiring (v1.17.0) — `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query>` rank workspace files by relevance and compress as many as fit inside a token budget, with `selectedFiles`/`excludedFiles` (+ per-file `sourceMap`) making the routing decision auditable. Building it surfaced and fixed a real pre-existing bug: `extractDiagnostics()`'s TODO/FIXME/HACK regex had no word boundaries and matched "HACK" inside "Hacker News," inflating irrelevant marketing docs above the actually-relevant source file.
-- [ ] Systematically orchestrate provider-side prompt caching (not just Anthropic `cache_control`) by treating the codebook and stable context as cache-first blocks across OpenAI and Gemini's implicit caching too.
+- [x] Partial (v1.24.0): Anthropic `cache_control` structuring is now reachable through the proxy, not just `wrapAnthropic()` — see "v1.24.0: Anthropic Proxy Bridge" above. Still open: the codebook header injected for OpenAI/Gemini is filtered per-request (only includes glyphs actually used in that payload), so it isn't a stable byte-identical prefix across turns — undermining their automatic implicit caching the same way the Anthropic proxy gap undermined explicit `cache_control` caching. Queued as a likely next step.
 - [x] Ship Team Codebook Registry (tracked below under Experimental Ideas) for shared, org-wide dictionaries — a network effect a single-user tool cannot replicate.
 
 ### 5. Go-to-Market

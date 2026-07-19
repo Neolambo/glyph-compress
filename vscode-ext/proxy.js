@@ -861,6 +861,201 @@ function createStructuredLogger(options = {}) {
   };
 }
 
+// src/anthropic-bridge.js
+var import_stream = require("stream");
+var DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
+var DEFAULT_MAX_TOKENS = 4096;
+function isAnthropicNativeTarget(targetApiUrl = "") {
+  return String(targetApiUrl).toLowerCase().includes("api.anthropic.com");
+}
+function markUntranslatableParts(content) {
+  if (!Array.isArray(content)) return content;
+  return content.map((part) => {
+    if (part && typeof part === "object" && part.type && part.type !== "text") {
+      return { type: "text", text: `[${part.type} omitted: not yet supported by the GlyphCompress Anthropic proxy bridge]` };
+    }
+    return part;
+  });
+}
+function mapOpenAITools(tools) {
+  if (!Array.isArray(tools)) return [];
+  return tools.filter((tool) => tool && tool.type === "function" && tool.function && tool.function.name).map((tool) => ({
+    name: tool.function.name,
+    description: tool.function.description || "",
+    input_schema: tool.function.parameters || { type: "object", properties: {} }
+  }));
+}
+function openaiRequestToAnthropic(payload, compressor) {
+  const messages = Array.isArray(payload.messages) ? payload.messages : [];
+  const systemMessages = messages.filter((message) => message.role === "system");
+  const systemText = systemMessages.map((message) => compressor._anthropicSystemText(markUntranslatableParts(message.content))).filter(Boolean).join("\n\n");
+  const otherMessages = messages.filter((message) => message.role !== "system").map((message) => ({
+    role: message.role === "assistant" ? "assistant" : "user",
+    content: markUntranslatableParts(message.content)
+  }));
+  const { system, messages: anthropicMessages, stats } = compressor._prepareAnthropicPayload(systemText, otherMessages);
+  const body = {
+    model: payload.model,
+    max_tokens: payload.max_tokens || payload.max_completion_tokens || DEFAULT_MAX_TOKENS,
+    messages: anthropicMessages
+  };
+  if (system) body.system = system;
+  if (typeof payload.temperature === "number") body.temperature = payload.temperature;
+  if (typeof payload.top_p === "number") body.top_p = payload.top_p;
+  if (payload.stop !== void 0 && payload.stop !== null) {
+    body.stop_sequences = Array.isArray(payload.stop) ? payload.stop : [payload.stop];
+  }
+  if (payload.stream === true) body.stream = true;
+  const tools = mapOpenAITools(payload.tools);
+  if (tools.length) body.tools = tools;
+  return { body, stats };
+}
+function extractApiKey(value) {
+  if (!value) return "";
+  const match = /^Bearer\s+(.+)$/i.exec(String(value).trim());
+  return match ? match[1].trim() : String(value).trim();
+}
+function anthropicHeadersFromOpenAI(headers = {}) {
+  const next = { ...headers };
+  delete next.authorization;
+  delete next.Authorization;
+  delete next.host;
+  delete next.Host;
+  delete next["content-length"];
+  delete next["Content-Length"];
+  const apiKey = extractApiKey(headers.authorization || headers.Authorization) || headers["x-api-key"] || headers["X-Api-Key"];
+  if (apiKey) next["x-api-key"] = apiKey;
+  next["anthropic-version"] = headers["anthropic-version"] || DEFAULT_ANTHROPIC_VERSION;
+  next["content-type"] = "application/json";
+  return next;
+}
+function mapAnthropicStopReason(reason) {
+  switch (reason) {
+    case "max_tokens":
+      return "length";
+    case "tool_use":
+      return "tool_calls";
+    case "end_turn":
+    case "stop_sequence":
+    default:
+      return "stop";
+  }
+}
+function anthropicResponseToOpenAI(anthropicJson, requestedModel) {
+  const blocks = Array.isArray(anthropicJson.content) ? anthropicJson.content : [];
+  const text = blocks.filter((block) => block.type === "text").map((block) => block.text).join("");
+  const toolUseBlocks = blocks.filter((block) => block.type === "tool_use");
+  const message = { role: "assistant", content: text || null };
+  if (toolUseBlocks.length) {
+    message.tool_calls = toolUseBlocks.map((block, index) => ({
+      id: block.id || `call_${index}`,
+      type: "function",
+      function: {
+        name: block.name,
+        arguments: JSON.stringify(block.input || {})
+      }
+    }));
+  }
+  const inputTokens = anthropicJson.usage?.input_tokens || 0;
+  const outputTokens = anthropicJson.usage?.output_tokens || 0;
+  return {
+    id: anthropicJson.id || `chatcmpl-${Date.now()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1e3),
+    model: anthropicJson.model || requestedModel,
+    choices: [{
+      index: 0,
+      message,
+      finish_reason: mapAnthropicStopReason(anthropicJson.stop_reason)
+    }],
+    usage: {
+      prompt_tokens: inputTokens,
+      completion_tokens: outputTokens,
+      total_tokens: inputTokens + outputTokens
+    }
+  };
+}
+function extractSSEEvents(buffer) {
+  const events = [];
+  let rest = buffer;
+  let boundary = rest.indexOf("\n\n");
+  while (boundary !== -1) {
+    const rawEvent = rest.slice(0, boundary);
+    rest = rest.slice(boundary + 2);
+    let eventType = "message";
+    const dataLines = [];
+    for (const line of rawEvent.split("\n")) {
+      if (line.startsWith("event:")) eventType = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (dataLines.length > 0) {
+      try {
+        events.push({ event: eventType, data: JSON.parse(dataLines.join("\n")) });
+      } catch {
+      }
+    }
+    boundary = rest.indexOf("\n\n");
+  }
+  return { events, rest };
+}
+function formatOpenAIChunk({ id, model, delta, finishReason = null }) {
+  const chunk = {
+    id,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1e3),
+    model: model || "unknown",
+    choices: [{ index: 0, delta, finish_reason: finishReason }]
+  };
+  return `data: ${JSON.stringify(chunk)}
+
+`;
+}
+function createAnthropicToOpenAISSETransform({ model } = {}) {
+  let buffer = "";
+  let responseId = `chatcmpl-${Date.now()}`;
+  let sentRoleChunk = false;
+  let resolvedModel = model;
+  function handleEvent(stream, event, data) {
+    if (event === "message_start") {
+      responseId = data.message?.id || responseId;
+      resolvedModel = resolvedModel || data.message?.model;
+      if (!sentRoleChunk) {
+        stream.push(formatOpenAIChunk({ id: responseId, model: resolvedModel, delta: { role: "assistant" } }));
+        sentRoleChunk = true;
+      }
+      return;
+    }
+    if (event === "content_block_delta" && data.delta?.type === "text_delta") {
+      stream.push(formatOpenAIChunk({ id: responseId, model: resolvedModel, delta: { content: data.delta.text } }));
+      return;
+    }
+    if (event === "message_delta") {
+      const finishReason = mapAnthropicStopReason(data.delta?.stop_reason);
+      stream.push(formatOpenAIChunk({ id: responseId, model: resolvedModel, delta: {}, finishReason }));
+      return;
+    }
+    if (event === "message_stop") {
+      stream.push("data: [DONE]\n\n");
+    }
+  }
+  return new import_stream.Transform({
+    transform(chunk, _enc, callback) {
+      buffer += chunk.toString("utf8");
+      const { events, rest } = extractSSEEvents(buffer);
+      buffer = rest;
+      for (const { event, data } of events) handleEvent(this, event, data);
+      callback();
+    },
+    flush(callback) {
+      if (buffer.trim()) {
+        const { events } = extractSSEEvents(buffer + "\n\n");
+        for (const { event, data } of events) handleEvent(this, event, data);
+      }
+      callback();
+    }
+  });
+}
+
 // src/proxy.js
 function startProxyServer(port = 8080, targetApiUrl = "https://api.openai.com", levelOrOptions = "aggressive", sharedCompressor = null, outputChannel = null) {
   const options = normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, targetApiUrl);
@@ -931,10 +1126,24 @@ function startProxyServer(port = 8080, targetApiUrl = "https://api.openai.com", 
       req.on("end", () => {
         try {
           const payload = JSON.parse(body);
+          const anthropicBridge = isAnthropicNativeTarget(targetApiUrl);
+          let forwardBody = body;
+          let bridgeInfo = null;
           if (payload.messages && Array.isArray(payload.messages)) {
             log(`[Proxy] Intercepted ${req.method} ${req.url}`, { requestId: messagesProcessed + 1 });
-            const { messages: compressedMessages, stats } = compressor.compressMessages(payload.messages, options.compressionProvider);
-            payload.messages = compressedMessages;
+            let stats;
+            if (anthropicBridge) {
+              const translated = openaiRequestToAnthropic(payload, compressor);
+              stats = translated.stats;
+              forwardBody = JSON.stringify(translated.body);
+              bridgeInfo = { requestedModel: payload.model, isStreaming: payload.stream === true };
+              log(`[Proxy] Anthropic bridge: translated OpenAI request to native Messages API shape (model=${translated.body.model})`);
+            } else {
+              const compressedResult = compressor.compressMessages(payload.messages, options.compressionProvider);
+              payload.messages = compressedResult.messages;
+              forwardBody = JSON.stringify(payload);
+              stats = compressedResult.stats;
+            }
             log(`[Proxy] Provider=${options.compressionProvider} level=${compressor.level} trust=${compressor.trustPolicy}`, {
               privacyFirewall: compressor.privacyFirewall,
               attentionalDecay: compressor.attentionalDecay,
@@ -943,9 +1152,9 @@ function startProxyServer(port = 8080, targetApiUrl = "https://api.openai.com", 
               dynamicDictSize: compressor.dynamicDict.size,
               fileIndexSize: compressor.fileIndex.size,
               teamCodebookLoaded: compressor.getTeamCodebookInfo().loaded,
-              fallback: stats.thisMessage?.fallback === true
+              fallback: stats?.thisMessage?.fallback === true
             });
-            const thisMsg = stats.thisMessage;
+            const thisMsg = stats?.thisMessage;
             if (thisMsg) {
               log(`[Proxy] Compression ratio: ${thisMsg.ratio || "1.0x"} (Saved: ${thisMsg.savedPct || "0%"})`);
               totalOriginalTokens += thisMsg.originalTokens || 0;
@@ -965,7 +1174,7 @@ function startProxyServer(port = 8080, targetApiUrl = "https://api.openai.com", 
               if (statsHistory.length > 50) statsHistory.pop();
             }
           }
-          forwardRequest(req, res, targetApiUrl, JSON.stringify(payload), structuredLogger);
+          forwardRequest(req, res, targetApiUrl, forwardBody, structuredLogger, bridgeInfo);
         } catch (e) {
           log("[Proxy] Error parsing/compressing JSON: " + e.message);
           forwardRequest(req, res, targetApiUrl, body, structuredLogger);
@@ -1017,16 +1226,20 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
   };
 }
 var fallbackLogger = createStructuredLogger();
-function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallbackLogger) {
+function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallbackLogger, bridge = null) {
   try {
     let requestPath = clientReq.url;
-    if (targetApiUrl.includes("generativelanguage.googleapis.com") && requestPath.startsWith("/v1/")) {
+    let headers = { ...clientReq.headers };
+    if (bridge) {
+      requestPath = "/v1/messages";
+      headers = anthropicHeadersFromOpenAI(clientReq.headers);
+    } else if (targetApiUrl.includes("generativelanguage.googleapis.com") && requestPath.startsWith("/v1/")) {
       requestPath = requestPath.replace("/v1/", "/v1beta/openai/");
     }
     const url = new URL(requestPath, targetApiUrl);
     const options = {
       method: clientReq.method,
-      headers: { ...clientReq.headers }
+      headers
     };
     delete options.headers["host"];
     if (body) {
@@ -1044,6 +1257,38 @@ function forwardRequest(clientReq, clientRes, targetApiUrl, body, logger = fallb
           clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
           clientRes.end(responseBody);
         });
+        return;
+      }
+      if (bridge) {
+        if (bridge.isStreaming) {
+          clientRes.writeHead(proxyRes.statusCode, {
+            "content-type": "text/event-stream; charset=utf-8",
+            "cache-control": "no-cache",
+            connection: "keep-alive"
+          });
+          const transform = createAnthropicToOpenAISSETransform({ model: bridge.requestedModel });
+          proxyRes.pipe(transform).pipe(clientRes, { end: true });
+        } else {
+          const chunks = [];
+          proxyRes.on("data", (chunk) => chunks.push(chunk));
+          proxyRes.on("end", () => {
+            try {
+              const anthropicJson = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+              const openaiJson = anthropicResponseToOpenAI(anthropicJson, bridge.requestedModel);
+              const responseBody = JSON.stringify(openaiJson);
+              clientRes.writeHead(proxyRes.statusCode, {
+                "content-type": "application/json",
+                "content-length": Buffer.byteLength(responseBody)
+              });
+              clientRes.end(responseBody);
+            } catch (err) {
+              logger.error("[Proxy] Anthropic response translation error: " + err.message);
+              const raw = Buffer.concat(chunks);
+              clientRes.writeHead(proxyRes.statusCode, { "content-type": "application/json" });
+              clientRes.end(raw);
+            }
+          });
+        }
         return;
       }
       clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);

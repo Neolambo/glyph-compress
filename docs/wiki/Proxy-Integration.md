@@ -50,6 +50,12 @@ Use your real provider API key in the client tool. The proxy forwards requests t
 }
 ```
 
+## Anthropic Upstream (v1.24.0+)
+
+Set `glyphCompress.targetApiUrl = https://api.anthropic.com` (and `glyphCompress.provider = anthropic`) and use a real Anthropic model id — the client still speaks OpenAI's chat/completions format to the local proxy, but the proxy translates the request and response to and from Anthropic's native Messages API on the wire, including streaming. See [Roadmap](Roadmap) v1.24.0 for background: earlier versions forwarded the OpenAI-shaped request unmodified, which the real Anthropic API rejects.
+
+Known limitations: multi-modal image content isn't translated (marked with a text placeholder instead); streamed tool-call argument deltas aren't translated (non-streaming tool calls work fully).
+
 ## GitHub Copilot Chat
 
 The official Copilot extension does not allow custom API URL overrides. Use the VS Code command `GlyphCompress: Ask LLM (Auto-Compress)` for Copilot workflows.
