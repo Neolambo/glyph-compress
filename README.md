@@ -186,6 +186,12 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.26.0 (Gemini Tokenizer Calibration & Comprehension Spot-Check)
+
+1. **Real Gemini tokenizer calibration**: extended the OpenAI measurement (v1.17.0/v1.21.0) to Gemini, via live calls to the real `models/{model}:countTokens` API (Gemini has no offline pure-JS tokenizer equivalent to js-tiktoken, so this needed a real API key — see `test/tokenizer-calibration-gemini.js`, dev-only/manual, `npm run calibrate:tokenizer:gemini`). Same finding as OpenAI: **26/28 `TECH_GLYPHS` and 32/33 code-minification keyword/glyph pairs are a net token loss on Gemini too** — common tech names and code keywords are already efficient single-token entries there as well. `MEASURED_TECH_GLYPH_TOKENS_GEMINI`/`MEASURED_CODE_KEYWORD_TOKENS_GEMINI` now gate substitution on Gemini the same way the OpenAI tables already did — verified against the real heuristic-only behavior first (which got some cases wrong) before trusting the fix.
+2. **First real LLM comprehension spot-check** (`test/comprehension-check-gemini.js`, dev-only/manual, `npm run check:comprehension:gemini`): sends a realistic bug-fix scenario, compressed with the full codebook + dynamic dictionary (matching exactly what the CLI actually sends), to a real `gemini-2.5-flash-lite` model, and checks the response correctly names the actual function/class (decoded from `§N` glyphs) and correctly describes the bug rather than hallucinating plausible-looking names. This is a first, honestly-scoped step toward ROADMAP.md's "Real Task Evaluation" item — one scenario, one provider, not a statistical benchmark — multi-provider coverage remains open.
+3. Both are deliberately **not** part of `npm test`: they need a real provider API key, network access, and (for the comprehension check) real generation quota, unlike the OpenAI calibration which runs entirely offline via js-tiktoken.
+
 ### New in v1.25.0 (Cache-Stable Codebook for OpenAI/Gemini)
 
 Found while investigating the v1.24.0 Anthropic proxy bug: the codebook header injected for OpenAI/Gemini was payload-filtered — it only lists the DOM/TECH/SYM/MOD glyphs that specific message happens to use — so it varied request to request and could never be a stable prefix for those providers' automatic, implicit prompt caching (which requires byte-identical leading tokens). The existing `test/cache-prefix-stability.js` suite's name promised to lock this in but its actual check only ever compared the first line of the system message (a literal that never changes), never the full codebook block — which is why this shipped unnoticed.
@@ -414,7 +420,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.25.0)
+### 📏 Benchmark Snapshot (v1.26.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

@@ -17,6 +17,14 @@
  * must never apply when the measured data shows a loss, while 'raw'
  * (which intentionally has no breakeven guard, used for demos and
  * character-level reporting) keeps substituting unconditionally.
+ *
+ * v1.26.0 extended the same measurement to Gemini, using live calls
+ * against the real `models/{model}:countTokens` API (no offline pure-JS
+ * tokenizer exists for Gemini, unlike js-tiktoken for OpenAI — see
+ * test/tokenizer-calibration-gemini.js) — same finding, 26/28 losses.
+ * The tests below use the resulting static MEASURED_TECH_GLYPH_TOKENS_GEMINI
+ * table baked into the compressor, not a live call, so this suite needs
+ * no network access or API key to run.
  */
 import assert from 'assert';
 import { GlyphCompressor, TECH_GLYPHS } from '../src/glyph-middleware.js';
@@ -58,6 +66,42 @@ test('OpenAI provider still saves real tokens even with tech-name substitution d
   )).join(' ');
   const r = gc.compressText(text);
   assert(r.stats.compressedTokens <= r.stats.originalTokens, 'should never be net-negative on OpenAI (fallback protects this)');
+});
+
+// Measured live against Gemini's real countTokens API: 26/28 TECH_GLYPHS
+// are a net loss there too (only csharp and nextjs win, since their words
+// are 2 tokens and the glyph is 1) — see MEASURED_TECH_GLYPH_TOKENS_GEMINI.
+const GEMINI_WINNING_GLYPHS = new Set(['csharp', 'nextjs']);
+for (const [name, glyph] of Object.entries(TECH_GLYPHS)) {
+  if (GEMINI_WINNING_GLYPHS.has(name)) continue;
+  test(`Gemini: "${name}" is never replaced with its measured-loss glyph (${glyph})`, () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'gemini' });
+    const r = gc.compressText(`Use ${name} for this project and document how ${name} is configured.`, 'gemini');
+    assert(!r.compressed.includes(glyph), `"${name}" should stay as plain text on Gemini, got: ${r.compressed}`);
+    assert(r.compressed.includes(name), `"${name}" itself should still be present, got: ${r.compressed}`);
+  });
+}
+
+test('Gemini: the two measured-winning glyphs (csharp, nextjs) still substitute normally', () => {
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'gemini' });
+  // Large/repeated enough to clear the net-negative fallback threshold —
+  // a short message legitimately falls back to plain text either way
+  // (tested elsewhere), which would make this assertion pass vacuously.
+  const text = Array.from({ length: 10 }, (_, i) => (
+    `Use csharp and nextjs for microservice${i}, then document csharp and nextjs configuration for that service.`
+  )).join(' ');
+  const r = gc.compressText(text, 'gemini');
+  assert(r.compressed.includes('ᶜ'), `csharp should still substitute to its glyph on Gemini (measured win), got: ${r.compressed}`);
+  assert(r.compressed.includes('ℕ'), `nextjs should still substitute to its glyph on Gemini (measured win), got: ${r.compressed}`);
+});
+
+test('Gemini provider still saves real tokens even with tech-name substitution mostly disabled', () => {
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'gemini' });
+  const text = Array.from({ length: 10 }, (_, i) => (
+    `Use react and typescript to fix bug${i} in the AuthenticationManager module, then verify AuthenticationManager tests pass.`
+  )).join(' ');
+  const r = gc.compressText(text, 'gemini');
+  assert(r.stats.compressedTokens <= r.stats.originalTokens, 'should never be net-negative on Gemini (fallback protects this)');
 });
 
 console.log(`\ntech-glyph-economics: ${passed} passed, ${failed} failed`);

@@ -20,6 +20,11 @@
  * minification must never apply when the measured data shows a loss,
  * while 'raw' (demos, character-level reporting) keeps substituting
  * unconditionally.
+ *
+ * v1.26.0 extended the same measurement to Gemini via live countTokens
+ * API calls (see MEASURED_CODE_KEYWORD_TOKENS_GEMINI) — same finding,
+ * 32/33 losses (only "#include" -> "imp" wins). The tests below use that
+ * static table, so this suite needs no network access or API key to run.
  */
 import assert from 'assert';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
@@ -74,6 +79,33 @@ test('OpenAI code blocks still get real savings from comment/blank-line removal 
   const code = Array.from({ length: 8 }, (_, i) => `function fetchUser${i}(id) {\n  // fetch a user record\n  const user = db.find(id);\n\n  return user;\n}\n`).join('\n');
   const prompt = `Explain this module:\n\`\`\`js\n${code}\`\`\`\n`;
   const r = gc.compressText(prompt);
+  assert(r.fallback === false, 'a large enough snippet should stay net-positive without falling back to the original text');
+  assert(!r.compressed.includes('// fetch a user record'), 'comments should still be stripped');
+  assert(r.stats.compressedTokens < r.stats.originalTokens, 'should still be a genuine net token saving');
+});
+
+for (const { lang, glyph, keyword, code } of cases) {
+  test(`Gemini: "${keyword}" (${lang}) is never minified to its measured-loss glyph (${glyph})`, () => {
+    const gc = new GlyphCompressor({ level: 'aggressive', provider: 'gemini', trustPolicy: 'lossy' });
+    const prompt = repeatedSnippet(lang, code);
+    const r = gc.compressText(prompt, 'gemini');
+    assert(!r.compressed.includes(glyph), `"${keyword}" should never become "${glyph}" on Gemini, got: ${r.compressed.slice(0, 200)}`);
+  });
+}
+
+test('Gemini: the one measured-winning keyword ("#include" -> "imp") still minifies normally', () => {
+  const gc = new GlyphCompressor({ level: 'aggressive', provider: 'gemini', trustPolicy: 'lossy' });
+  const code = Array.from({ length: 8 }, (_, i) => `#include <stdioN_${i}.h>\nvoid runN_${i}() {}\n`).join('\n');
+  const prompt = `Explain this module:\n\`\`\`c\n${code}\`\`\`\n`;
+  const r = gc.compressText(prompt, 'gemini');
+  assert(r.compressed.includes('imp'), `"#include" should still minify to "imp" on Gemini (measured win), got: ${r.compressed.slice(0, 200)}`);
+});
+
+test('Gemini code blocks still get real savings from comment/blank-line removal and the dynamic dictionary, not just fallback', () => {
+  const gc = new GlyphCompressor({ level: 'aggressive', provider: 'gemini', trustPolicy: 'lossy' });
+  const code = Array.from({ length: 8 }, (_, i) => `function fetchUser${i}(id) {\n  // fetch a user record\n  const user = db.find(id);\n\n  return user;\n}\n`).join('\n');
+  const prompt = `Explain this module:\n\`\`\`js\n${code}\`\`\`\n`;
+  const r = gc.compressText(prompt, 'gemini');
   assert(r.fallback === false, 'a large enough snippet should stay net-positive without falling back to the original text');
   assert(!r.compressed.includes('// fetch a user record'), 'comments should still be stripped');
   assert(r.stats.compressedTokens < r.stats.originalTokens, 'should still be a genuine net token saving');

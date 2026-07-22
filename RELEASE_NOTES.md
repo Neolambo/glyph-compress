@@ -1,3 +1,28 @@
+## v1.26.0 — Gemini Tokenizer Calibration & Comprehension Spot-Check
+
+The v1.17.0/v1.21.0 OpenAI measurement (all `TECH_GLYPHS`/code keywords cost as many or more tokens than the words they replace) was extended to Gemini, using a live-provided API key, plus a first real LLM comprehension spot-check.
+
+### Real Gemini Tokenizer Calibration
+- Gemini has no offline pure-JS tokenizer library like OpenAI's js-tiktoken, so this measurement required live calls to the real `models/{model}:countTokens` API rather than an offline script — see `test/tokenizer-calibration-gemini.js` (dev-only/manual, `GEMINI_API_KEY=... npm run calibrate:tokenizer:gemini`).
+- Same finding as OpenAI: **26/28 `TECH_GLYPHS` and 32/33 code-minification keyword/glyph pairs are a net token loss on Gemini too** (only `csharp`/`nextjs` glyphs and `#include`→`imp` win). `MEASURED_TECH_GLYPH_TOKENS_GEMINI`/`MEASURED_CODE_KEYWORD_TOKENS_GEMINI` now gate substitution for the `gemini` provider, same mechanism as the existing OpenAI tables.
+- Verified this has real bite: reverting the gating and re-running the new tests showed the previous character-based heuristic got several glyphs wrong in each direction that the real measurement catches — the heuristic was "mostly right by luck," never actually verified against a real tokenizer before now.
+
+### First Real LLM Comprehension Spot-Check
+- `test/comprehension-check-gemini.js` (dev-only/manual, `GEMINI_API_KEY=... npm run check:comprehension:gemini`) sends a realistic bug-fix scenario — compressed with the actual codebook + dynamic dictionary exactly as `bin/cli.js` sends it, not a simplified version — to a real `gemini-2.5-flash-lite` model.
+- The response correctly named the compressed function (`calculateTotal`) and class (`OrderProcessor`) via their `§N` dynamic-dictionary glyphs, and correctly identified the discount bug — no hallucination. A first attempt that skipped `getCodebookPrompt()` (matching `compressText()`'s actual low-level contract, not real CLI usage) did produce a hallucinated function name, confirming the check needed to mirror real usage exactly to be meaningful.
+- This is a first, honestly-scoped step toward ROADMAP.md's "Real Task Evaluation" item — one scenario, one provider, not a statistical benchmark. Multi-provider coverage (OpenAI, Anthropic) remains open, pending those providers' API credentials.
+
+### Tests & Verification
+- `test/tech-glyph-economics.js` and `test/code-minify-economics.js` extended with Gemini coverage (58 and 16 tests respectively), including the measured-*winning* cases that should still substitute normally.
+- Both new scripts are deliberately excluded from `npm test`/`test/run-suites.js` — they need a real provider API key, network access, and (for the comprehension check) real generation quota.
+- **Complete Suite Validation**: 24 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+### Found, Not Fixed Here
+- `npm install` surfaced a pre-existing moderate-severity transitive vulnerability: `@modelcontextprotocol/sdk`'s `@hono/node-server` dependency has a Windows path-traversal advisory (GHSA-frvp-7c67-39w9). The available fix bumps the SDK to a version with breaking changes, so it's tracked in ROADMAP.md for a dedicated follow-up rather than rushed into this release.
+
+***
+
 ## v1.25.0 — Cache-Stable Codebook for OpenAI/Gemini
 
 Found while investigating v1.24.0: the codebook header injected for OpenAI/Gemini was payload-filtered — it only lists the DOM/TECH/SYM/MOD glyphs the current message happens to use — so it varied request to request and could never be a stable prefix for those providers' automatic, implicit prompt caching (which requires byte-identical leading tokens). `test/cache-prefix-stability.js`'s own name promised this was locked in, but its check only ever compared the system message's first line (a literal that never changes), never the full codebook block — exactly why this shipped unnoticed.

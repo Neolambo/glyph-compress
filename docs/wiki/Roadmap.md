@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.25.0`: Cache-Stable Codebook for OpenAI/Gemini.
+`v1.26.0`: Gemini Tokenizer Calibration & Comprehension Spot-Check.
+
+## Delivered in v1.26.0
+
+- Real Gemini tokenizer calibration via the live `countTokens` API (Gemini has no offline tokenizer library like OpenAI's js-tiktoken): 26/28 `TECH_GLYPHS` and 32/33 code-minification keywords are a net token loss on Gemini too, same pattern as OpenAI. Now gated the same way.
+- Verified the fix has real bite: the previous character-based heuristic for Gemini got several glyphs wrong that the real measurement catches.
+- First real LLM comprehension spot-check: a realistic bug-fix scenario, compressed exactly as the CLI sends it (codebook + dynamic dictionary included), sent to a real `gemini-2.5-flash-lite` model — it correctly named the compressed function/class and identified the bug, no hallucination.
+- Both new scripts (`test/tokenizer-calibration-gemini.js`, `test/comprehension-check-gemini.js`) are dev-only/manual, needing a real API key — not part of `npm test`.
+- 24 suites total (74 new assertions across tech-glyph-economics and code-minify-economics), all passing.
 
 ## Delivered in v1.25.0
 

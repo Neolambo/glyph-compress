@@ -14,18 +14,19 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.25.0`: the codebook header injected for OpenAI/Gemini is now a byte-identical, cacheable prefix once a session has assistant history, with a two-tier fallback so the larger header never costs more than it saves. See "v1.25.0: Cache-Stable Codebook" below.
+- [x] Current stable release is `v1.26.0`: real Gemini tokenizer calibration (same net-token-loss finding as OpenAI, now measured rather than assumed) plus a first, honestly-scoped LLM comprehension spot-check against a real Gemini model. See "v1.26.0: Gemini Tokenizer Calibration & Comprehension Spot-Check" below.
+- [x] `v1.25.0` made the codebook header injected for OpenAI/Gemini a byte-identical, cacheable prefix once a session has assistant history, with a two-tier fallback so the larger header never costs more than it saves.
 - [x] `v1.24.0` was a critical fix: every real proxy request to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API, because the proxy forwarded the OpenAI-shaped client request unmodified instead of translating it to Anthropic's native Messages API shape.
 - [x] `v1.23.0` shipped Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
-- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.25.0` to both npm and the Marketplace is still pending on maintainer credentials).
+- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.26.0` to both npm and the Marketplace is still pending on maintainer credentials).
 - [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.25.0`.
-- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.25.0`.
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; the fixture set is single-turn, so the new multi-turn-only cache-stable path never engages there.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.26.0`.
+- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.26.0` — the new Gemini calibration/comprehension scripts are deliberately excluded (they need a live API key and network access, unlike everything in `npm test`).
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release only changes which glyphs are skipped for the `gemini` provider, mirroring the existing OpenAI behavior.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is `v1.22.0` for real task evaluation, or Anthropic/Gemini tokenizer calibration, if provider API credentials become available (see Proposed Future Versions below; both currently blocked on maintainer-provided API keys).
+- [ ] Prepared next release is the remainder of `v1.22.0` (real task evaluation) — one Gemini comprehension scenario is now verified (v1.26.0), but multi-provider coverage (OpenAI, Anthropic) and broader task/repository coverage still need their own API credentials. Anthropic tokenizer calibration (the other half of the old "Anthropic/Gemini" pairing) also remains blocked on an Anthropic API key.
 
 ## Release Reality Check
 
@@ -365,9 +366,9 @@ Status: delivered.
 
 ### v1.22.0: Real Task Evaluation
 
-Status: proposed.
+Status: proposed, partially started in v1.26.0.
 
-- [ ] Add repeatable model-based comprehension tests across multiple providers.
+- [ ] Partial: `test/comprehension-check-gemini.js` (v1.26.0, dev-only/manual) sends one realistic bug-fix scenario, compressed with the real codebook + dynamic dictionary, to a real `gemini-2.5-flash-lite` model and checks the response correctly names the compressed function/class rather than hallucinating. One scenario, one provider — OpenAI and Anthropic comprehension checks still need their own API credentials before this can be called "repeatable... across multiple providers."
 - [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
 - [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
 
@@ -399,6 +400,17 @@ Status: delivered.
 - [x] **Hybrid fix mirroring the existing Anthropic `cache_control` first-turn-vs-multi-turn split**: once a session has assistant history, `_injectCodebook()` switches OpenAI/Gemini/local to the full, unconditional codebook (byte-identical every time), with the per-request `DYN:` line moved to a separate `[GLYPH DYNAMIC]` block after the system text instead of embedded inside the cacheable block. A first-turn request has no prior turn to cache against yet, so it keeps the smaller filtered header — unchanged from pre-v1.25 behavior.
 - [x] **Two-tier fallback, not all-or-nothing**: the larger stable header costs ~350 extra tokens, a bet that only pays off across multiple cached turns — invisible to a single call's token count. Measured directly: if it would flip a specific message into GlyphCompress's existing net-negative fallback (losing every real saving, not just the header), that message automatically retries with the smaller filtered codebook first, before ever giving up to zero compression.
 - [x] `test/cache-prefix-stability.js` gained real multi-turn assertions: the entire codebook block byte-identical across turns once in cache-stable mode (not just line 1), DYN isolated outside it, graceful degradation when the header isn't affordable, and confirmation `raw`/Anthropic are unaffected. Verified these tests actually fail against the pre-fix code before being trusted, same discipline as v1.24.0.
+
+### v1.26.0: Gemini Tokenizer Calibration & Comprehension Spot-Check
+
+Status: delivered.
+
+- [x] **Real Gemini tokenizer calibration**, using a live-provided Gemini API key: measured every `TECH_GLYPHS` entry and every code-minification keyword/glyph pair against the real `models/{model}:countTokens` API (`gemini-2.5-flash-lite`) — Gemini has no offline pure-JS tokenizer equivalent to js-tiktoken, so unlike the OpenAI calibration this can only be regenerated with a real key (`test/tokenizer-calibration-gemini.js`, dev-only/manual, `npm run calibrate:tokenizer:gemini`). Same finding as OpenAI: **26/28 `TECH_GLYPHS` and 32/33 code keywords are a net token loss on Gemini too.** `MEASURED_TECH_GLYPH_TOKENS_GEMINI`/`MEASURED_CODE_KEYWORD_TOKENS_GEMINI` now gate substitution for the `gemini` provider.
+- [x] Verified the fix has real bite, not just theoretical: reverting the gating logic and re-running the new tests showed the character-based heuristic previously used for Gemini got 3 glyphs wrong in each direction (tech names and code keywords) that the real measurement catches — the heuristic was "mostly right by luck," not verified.
+- [x] `test/tech-glyph-economics.js` and `test/code-minify-economics.js` extended with Gemini coverage (58 and 16 tests respectively, using the static measured table — no live key needed to run them), including the two/one measured-*winning* cases (`csharp`/`nextjs` glyphs, `#include`→`imp`) that should still substitute normally.
+- [x] **First real LLM comprehension spot-check** (`test/comprehension-check-gemini.js`, dev-only/manual, `npm run check:comprehension:gemini`): a realistic bug-fix scenario, compressed with the actual codebook + dynamic dictionary exactly as the CLI sends it, was sent to a real `gemini-2.5-flash-lite` model. The response correctly named the compressed function (`calculateTotal`) and class (`OrderProcessor`) via their `§N` dynamic-dictionary glyphs and correctly identified the discount bug — no hallucination. A first run that skipped `getCodebookPrompt()` (not matching real CLI usage) did produce a hallucinated function name, which is exactly why the script mirrors real usage exactly rather than a simplified version.
+- [x] Both new scripts are deliberately excluded from `npm test`/`test/run-suites.js` — they need a real provider API key, network access, and (for the comprehension check) real generation quota, unlike everything else in the suite.
+- [x] Found, unrelated to this work: `npm install` surfaced a pre-existing moderate-severity transitive vulnerability (`@hono/node-server` path traversal on Windows, via `@modelcontextprotocol/sdk`). Fixing it requires a breaking SDK version bump — flagged for a dedicated follow-up rather than bundled into this release.
 
 ## Repository Improvements
 
@@ -450,6 +462,7 @@ Status: delivered.
 - [x] Add pull request template with tests, docs, compression impact, and privacy checklist.
 - [x] Add link checking to GitHub Actions.
 - [x] Add release notes automation from conventional commits.
+- [ ] Found (v1.26.0, unrelated to that release's actual work): `@modelcontextprotocol/sdk`'s `@hono/node-server` dependency has a moderate-severity path-traversal advisory on Windows (GHSA-frvp-7c67-39w9). `npm audit fix --force` resolves it but bumps the SDK to a version with breaking changes — needs a dedicated, tested upgrade pass, not a rushed fix bundled into an unrelated release.
 
 ## Strategic Priorities — Becoming the Default IDE↔LLM Compression Layer
 
@@ -461,7 +474,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 - [x] Extend tokenizer calibration to every glyph family: `DOMAIN_GLYPHS`, `STRUCTURE_GLYPHS`/error-pattern symbols, and `PROMPT_PATTERNS` output — not just `TECH_GLYPHS`. Also added phrase-level (whole diagnostic/prompt string) before/after comparison, not just isolated glyphs.
 - [x] Compare each glyph against the *actual replaced word/phrase* token cost (apples-to-apples). Result: **all 28 `TECH_GLYPHS` are a net token loss on real OpenAI tokenizers** — common tech names are already 1-2 BPE tokens, and the glyph that replaced them cost as much or more (worst case: "express" 1 token vs `𝔼ˣ` 5 tokens).
 - [x] Replace the heuristic breakeven formula with a real, measured per-glyph token-cost table (`MEASURED_TECH_GLYPH_TOKENS_OPENAI`) for the `openai` provider — tech-name substitution now never fires when it would lose tokens. `raw` (demos, character-level reporting) is intentionally unaffected. Locked in by `test/tech-glyph-economics.js` (30 assertions).
-- [ ] Extend calibration to Anthropic (token-count endpoint) and Gemini (`countTokens` API) so all three primary providers are optimized against real tokenizers, not one out of three.
+- [x] Partial (v1.26.0): extended calibration to Gemini via its real `countTokens` API — see "v1.26.0" below (26/28 `TECH_GLYPHS` and 32/33 code keywords are a net token loss on Gemini too, same pattern as OpenAI). Anthropic (token-count endpoint) still needs its own calibration pass and API key before all three primary providers are covered.
 - [ ] Add repeatable model-based comprehension tests (tracked below under Experimental Ideas as "LLM Comprehension Tests") to verify decoding, not just assume it.
 
 ### 2. Trust at Scale
