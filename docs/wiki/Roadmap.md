@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.26.0`: Gemini Tokenizer Calibration & Comprehension Spot-Check.
+`v1.27.0`: OpenAI Comprehension Spot-Check.
+
+## Delivered in v1.27.0
+
+- Second real LLM comprehension spot-check (sibling to v1.26.0's Gemini one, same scenario/same checks): a realistic bug-fix scenario, compressed exactly as the CLI sends it, sent to a real `gpt-4o-mini` model. All four comprehension checks passed — it correctly named the function/class and identified the bug, and (since OpenAI's compression barely touches identifiers, per its existing measured-loss gating) even reproduced the original code and proposed a working fix.
+- ROADMAP.md's "Real Task Evaluation" item now has real evidence for two providers (Gemini, OpenAI). Anthropic coverage and broader task scenarios remain open.
+- Closed out the `@hono/node-server` vulnerability finding from v1.26.0 with a root cause: no current SDK version fixes it, and the vulnerable code path is never reached by GlyphCompress's stdio-only MCP transport — nothing to change on our side.
+- 24 suites total, all passing.
 
 ## Delivered in v1.26.0
 

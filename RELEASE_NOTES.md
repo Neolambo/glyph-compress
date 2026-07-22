@@ -1,3 +1,23 @@
+## v1.27.0 — OpenAI Comprehension Spot-Check
+
+Sibling to v1.26.0's Gemini spot-check, using a live-provided OpenAI key.
+
+### Second Real LLM Comprehension Spot-Check
+- `test/comprehension-check-openai.js` (dev-only/manual, `OPENAI_API_KEY=... npm run check:comprehension:openai`) sends the exact same bug-fix scenario as the Gemini sibling script — same compressed prompt shape, same four checks — to a real `gpt-4o-mini` model, so the two are directly comparable.
+- All four checks passed: it correctly named `calculateTotal`/`OrderProcessor` and identified the discount bug. Because OpenAI's existing measured-loss gating (v1.17.0/v1.21.0) means its compression barely substitutes identifiers at all, `gpt-4o-mini` also reproduced the original code verbatim and proposed a working fix — the strongest possible comprehension signal.
+- ROADMAP.md's "Real Task Evaluation" item now has real, reproducible comprehension evidence for two providers using directly comparable scenarios. Anthropic comprehension coverage and broader/varied task scenarios remain open, pending an Anthropic API key.
+
+### Also in This Release
+- Closed out the `@hono/node-server` transitive vulnerability finding from v1.26.0 with a root cause: checked every `@modelcontextprotocol/sdk` version through the current latest — all pin `@hono/node-server` to `^1.19.x`, always inside the vulnerable range, so no non-regressive upgrade exists yet. More importantly, `bin/mcp-server.js` only uses `StdioServerTransport` and never exercises the SDK's HTTP transport, which is the only thing that pulls in the vulnerable `serve-static` code path — the vulnerability is present in `node_modules` but unreachable at runtime. Nothing to change on our side right now.
+- Confirmed npm `latest` is caught up through `1.26.0`; `1.24.0`/`1.25.0` were deliberately left unpublished (a harmless historical gap, since `latest` already carries their fixes).
+
+### Tests & Verification
+- The new script is deliberately excluded from `npm test`/`test/run-suites.js` — it needs a real OpenAI API key, network access, and real generation quota.
+- **Complete Suite Validation**: 24 suites, all passing (unchanged from v1.26.0 — no compressor behavior changed in this release).
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.26.0 — Gemini Tokenizer Calibration & Comprehension Spot-Check
 
 The v1.17.0/v1.21.0 OpenAI measurement (all `TECH_GLYPHS`/code keywords cost as many or more tokens than the words they replace) was extended to Gemini, using a live-provided API key, plus a first real LLM comprehension spot-check.

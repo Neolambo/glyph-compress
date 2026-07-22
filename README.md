@@ -186,6 +186,10 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.27.0 (OpenAI Comprehension Spot-Check)
+
+Sibling to v1.26.0's Gemini spot-check, using a live-provided OpenAI key. `test/comprehension-check-openai.js` (dev-only/manual, `npm run check:comprehension:openai`) sends the exact same bug-fix scenario — compressed with the real codebook exactly as the CLI sends it — to a real `gpt-4o-mini` model. All four comprehension checks passed: it correctly named `calculateTotal`/`OrderProcessor` and identified the discount bug, and — since OpenAI's measured-loss gating (v1.17.0/v1.21.0) means its compression barely touches identifiers at all — it went further and reproduced the exact original code plus a working fix. ROADMAP.md's "Real Task Evaluation" item now has real, reproducible comprehension evidence for two providers (Gemini, OpenAI); Anthropic and broader task/repository coverage remain open.
+
 ### New in v1.26.0 (Gemini Tokenizer Calibration & Comprehension Spot-Check)
 
 1. **Real Gemini tokenizer calibration**: extended the OpenAI measurement (v1.17.0/v1.21.0) to Gemini, via live calls to the real `models/{model}:countTokens` API (Gemini has no offline pure-JS tokenizer equivalent to js-tiktoken, so this needed a real API key — see `test/tokenizer-calibration-gemini.js`, dev-only/manual, `npm run calibrate:tokenizer:gemini`). Same finding as OpenAI: **26/28 `TECH_GLYPHS` and 32/33 code-minification keyword/glyph pairs are a net token loss on Gemini too** — common tech names and code keywords are already efficient single-token entries there as well. `MEASURED_TECH_GLYPH_TOKENS_GEMINI`/`MEASURED_CODE_KEYWORD_TOKENS_GEMINI` now gate substitution on Gemini the same way the OpenAI tables already did — verified against the real heuristic-only behavior first (which got some cases wrong) before trusting the fix.
@@ -420,7 +424,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.26.0)
+### 📏 Benchmark Snapshot (v1.27.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

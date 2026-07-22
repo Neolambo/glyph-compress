@@ -14,19 +14,21 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.26.0`: real Gemini tokenizer calibration (same net-token-loss finding as OpenAI, now measured rather than assumed) plus a first, honestly-scoped LLM comprehension spot-check against a real Gemini model. See "v1.26.0: Gemini Tokenizer Calibration & Comprehension Spot-Check" below.
+- [x] Current stable release is `v1.27.0`: a real OpenAI comprehension spot-check (`gpt-4o-mini`), sibling to v1.26.0's Gemini one — same scenario, same checks, both passing. See "v1.27.0" below.
+- [x] `v1.26.0` added real Gemini tokenizer calibration (same net-token-loss finding as OpenAI, now measured rather than assumed) plus the first LLM comprehension spot-check, against a real Gemini model.
 - [x] `v1.25.0` made the codebook header injected for OpenAI/Gemini a byte-identical, cacheable prefix once a session has assistant history, with a two-tier fallback so the larger header never costs more than it saves.
 - [x] `v1.24.0` was a critical fix: every real proxy request to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API, because the proxy forwarded the OpenAI-shaped client request unmodified instead of translating it to Anthropic's native Messages API shape.
 - [x] `v1.23.0` shipped Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
-- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository — publication of `v1.13.0`-`v1.26.0` to both npm and the Marketplace is still pending on maintainer credentials).
+- [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository).
 - [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.26.0`.
-- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.26.0` — the new Gemini calibration/comprehension scripts are deliberately excluded (they need a live API key and network access, unlike everything in `npm test`).
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release only changes which glyphs are skipped for the `gemini` provider, mirroring the existing OpenAI behavior.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.27.0`.
+- [x] npm `latest` is caught up to `1.26.0` as of this writing (`1.27.0` publication pending); `1.24.0`/`1.25.0` were deliberately left unpublished as a harmless historical gap since `latest` already carries their fixes. VS Code Marketplace publication of `v1.13.0`-`v1.27.0` is still pending on maintainer action.
+- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, context-router, mcp-server, team-codebook, logger, ast-spans, code-minify-economics, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.27.0` — the Gemini/OpenAI calibration/comprehension scripts are deliberately excluded (they need a live API key and network access, unlike everything in `npm test`).
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release added a comprehension test script only, no compressor behavior changed.
 
 ## Prepared Next Release
 
-- [ ] Prepared next release is the remainder of `v1.22.0` (real task evaluation) — one Gemini comprehension scenario is now verified (v1.26.0), but multi-provider coverage (OpenAI, Anthropic) and broader task/repository coverage still need their own API credentials. Anthropic tokenizer calibration (the other half of the old "Anthropic/Gemini" pairing) also remains blocked on an Anthropic API key.
+- [ ] Prepared next release is the remainder of `v1.22.0` (real task evaluation) — Gemini and OpenAI comprehension scenarios are now verified (v1.26.0/v1.27.0), but Anthropic comprehension coverage and broader task/repository coverage still need their own API credentials. Anthropic tokenizer calibration also remains blocked on an Anthropic API key.
 
 ## Release Reality Check
 
@@ -366,9 +368,9 @@ Status: delivered.
 
 ### v1.22.0: Real Task Evaluation
 
-Status: proposed, partially started in v1.26.0.
+Status: proposed, partially started in v1.26.0/v1.27.0.
 
-- [ ] Partial: `test/comprehension-check-gemini.js` (v1.26.0, dev-only/manual) sends one realistic bug-fix scenario, compressed with the real codebook + dynamic dictionary, to a real `gemini-2.5-flash-lite` model and checks the response correctly names the compressed function/class rather than hallucinating. One scenario, one provider — OpenAI and Anthropic comprehension checks still need their own API credentials before this can be called "repeatable... across multiple providers."
+- [ ] Partial: `test/comprehension-check-gemini.js` (v1.26.0) and `test/comprehension-check-openai.js` (v1.27.0, dev-only/manual) send the same realistic bug-fix scenario, compressed with the real codebook + dynamic dictionary exactly as the CLI sends it, to real `gemini-2.5-flash-lite` and `gpt-4o-mini` models — both correctly named the compressed function/class and identified the bug with no hallucination (`gpt-4o-mini` also reproduced the code exactly and proposed a working fix, since OpenAI's measured-loss gating means its compression barely touches identifiers at all). Two providers, one scenario each — Anthropic comprehension coverage still needs its own API credentials, and broader/varied task scenarios are still needed before this is "repeatable... across multiple providers" in the full sense.
 - [ ] Measure task success on real repositories beyond deterministic benchmark proxies.
 - [ ] Track median token savings across real user repositories or opted-in benchmark corpora.
 
@@ -411,6 +413,14 @@ Status: delivered.
 - [x] **First real LLM comprehension spot-check** (`test/comprehension-check-gemini.js`, dev-only/manual, `npm run check:comprehension:gemini`): a realistic bug-fix scenario, compressed with the actual codebook + dynamic dictionary exactly as the CLI sends it, was sent to a real `gemini-2.5-flash-lite` model. The response correctly named the compressed function (`calculateTotal`) and class (`OrderProcessor`) via their `§N` dynamic-dictionary glyphs and correctly identified the discount bug — no hallucination. A first run that skipped `getCodebookPrompt()` (not matching real CLI usage) did produce a hallucinated function name, which is exactly why the script mirrors real usage exactly rather than a simplified version.
 - [x] Both new scripts are deliberately excluded from `npm test`/`test/run-suites.js` — they need a real provider API key, network access, and (for the comprehension check) real generation quota, unlike everything else in the suite.
 - [x] Found, unrelated to this work: `npm install` surfaced a pre-existing moderate-severity transitive vulnerability (`@hono/node-server` path traversal on Windows, via `@modelcontextprotocol/sdk`). Fixing it requires a breaking SDK version bump — flagged for a dedicated follow-up rather than bundled into this release.
+
+### v1.27.0: OpenAI Comprehension Spot-Check
+
+Status: delivered.
+
+- [x] **Second real LLM comprehension spot-check** (`test/comprehension-check-openai.js`, dev-only/manual, `npm run check:comprehension:openai`), using a live-provided OpenAI key: the exact same bug-fix scenario as v1.26.0's Gemini check — same compressed prompt shape, same four checks — sent to a real `gpt-4o-mini` model. All four checks passed: it correctly named `calculateTotal`/`OrderProcessor` and identified the discount bug. Because OpenAI's existing measured-loss gating (v1.17.0/v1.21.0) means its compression barely substitutes identifiers at all, `gpt-4o-mini` also reproduced the original code verbatim and proposed a working fix — the strongest possible comprehension signal.
+- [x] ROADMAP.md's "Real Task Evaluation" item now has real, reproducible comprehension evidence for two providers (Gemini, OpenAI) using directly comparable scenarios. Anthropic comprehension coverage and broader/varied task scenarios remain open.
+- [x] Investigated and closed out the `@hono/node-server` finding from v1.26.0 with a root cause (see "Governance and Quality" below): no current SDK version has a fix, and the vulnerable code path is never reached by GlyphCompress's stdio-only MCP transport anyway — nothing to change on our side right now.
 
 ## Repository Improvements
 
