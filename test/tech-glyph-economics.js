@@ -22,9 +22,13 @@
  * against the real `models/{model}:countTokens` API (no offline pure-JS
  * tokenizer exists for Gemini, unlike js-tiktoken for OpenAI — see
  * test/tokenizer-calibration-gemini.js) — same finding, 26/28 losses.
- * The tests below use the resulting static MEASURED_TECH_GLYPH_TOKENS_GEMINI
- * table baked into the compressor, not a live call, so this suite needs
- * no network access or API key to run.
+ * v1.28.0 extended it again to Anthropic (test/tokenizer-calibration-
+ * anthropic.js, live `/v1/messages/count_tokens` calls) — the most
+ * extreme finding of the three: **28/28 TECH_GLYPHS are a net loss, no
+ * exceptions**. The tests below use the resulting static
+ * MEASURED_TECH_GLYPH_TOKENS_GEMINI/_ANTHROPIC tables baked into the
+ * compressor, not a live call, so this suite needs no network access or
+ * API key to run.
  */
 import assert from 'assert';
 import { GlyphCompressor, TECH_GLYPHS } from '../src/glyph-middleware.js';
@@ -102,6 +106,27 @@ test('Gemini provider still saves real tokens even with tech-name substitution m
   )).join(' ');
   const r = gc.compressText(text, 'gemini');
   assert(r.stats.compressedTokens <= r.stats.originalTokens, 'should never be net-negative on Gemini (fallback protects this)');
+});
+
+// Measured live against Anthropic's real count_tokens API: 28/28
+// TECH_GLYPHS are a net loss there too — no exceptions, unlike Gemini's
+// two winning cases — see MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC.
+for (const [name, glyph] of Object.entries(TECH_GLYPHS)) {
+  test(`Anthropic: "${name}" is never replaced with its measured-loss glyph (${glyph})`, () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+    const r = gc.compressText(`Use ${name} for this project and document how ${name} is configured.`, 'anthropic');
+    assert(!r.compressed.includes(glyph), `"${name}" should stay as plain text on Anthropic, got: ${r.compressed}`);
+    assert(r.compressed.includes(name), `"${name}" itself should still be present, got: ${r.compressed}`);
+  });
+}
+
+test('Anthropic provider still saves real tokens even with tech-name substitution fully disabled', () => {
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+  const text = Array.from({ length: 10 }, (_, i) => (
+    `Use react and typescript to fix bug${i} in the AuthenticationManager module, then verify AuthenticationManager tests pass.`
+  )).join(' ');
+  const r = gc.compressText(text, 'anthropic');
+  assert(r.stats.compressedTokens <= r.stats.originalTokens, 'should never be net-negative on Anthropic (fallback protects this)');
 });
 
 console.log(`\ntech-glyph-economics: ${passed} passed, ${failed} failed`);

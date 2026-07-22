@@ -186,6 +186,14 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.28.0 (Anthropic Tokenizer Calibration & Comprehension Spot-Check)
+
+Completes the real-tokenizer calibration and comprehension spot-check work across all three primary providers, using a live-provided Anthropic key.
+
+1. **Real Anthropic tokenizer calibration**: measured every `TECH_GLYPHS` entry and code-minification keyword/glyph pair against the real `/v1/messages/count_tokens` API (`claude-haiku-4-5`) — Anthropic has no offline tokenizer library either, so this needed a live key (`test/tokenizer-calibration-anthropic.js`, dev-only/manual, `npm run calibrate:tokenizer:anthropic`). Most extreme finding of the three providers: **28/28 `TECH_GLYPHS` are a net token loss, no exceptions** (32/33 code keywords too, only `#include`→`imp` wins — same as Gemini). `MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC`/`MEASURED_CODE_KEYWORD_TOKENS_ANTHROPIC` now gate substitution for the `anthropic` provider.
+2. **Third real LLM comprehension spot-check** (`test/comprehension-check-anthropic.js`, dev-only/manual, `npm run check:comprehension:anthropic`): the same scenario as the Gemini/OpenAI sibling scripts, sent to a real `claude-haiku-4-5` model. All four checks passed — it correctly named `calculateTotal`/`OrderProcessor`, identified the discount bug, and (like OpenAI, since Anthropic's compression now also barely touches identifiers) proposed the most complete fix of the three providers, correctly implementing percentage-based discount logic.
+3. ROADMAP.md's "Real Task Evaluation" and tokenizer-calibration items now have real, reproducible evidence across all three primary providers (OpenAI, Gemini, Anthropic) using directly comparable scenarios and methodology.
+
 ### New in v1.27.0 (OpenAI Comprehension Spot-Check)
 
 Sibling to v1.26.0's Gemini spot-check, using a live-provided OpenAI key. `test/comprehension-check-openai.js` (dev-only/manual, `npm run check:comprehension:openai`) sends the exact same bug-fix scenario — compressed with the real codebook exactly as the CLI sends it — to a real `gpt-4o-mini` model. All four comprehension checks passed: it correctly named `calculateTotal`/`OrderProcessor` and identified the discount bug, and — since OpenAI's measured-loss gating (v1.17.0/v1.21.0) means its compression barely touches identifiers at all — it went further and reproduced the exact original code plus a working fix. ROADMAP.md's "Real Task Evaluation" item now has real, reproducible comprehension evidence for two providers (Gemini, OpenAI); Anthropic and broader task/repository coverage remain open.
@@ -424,7 +432,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.27.0)
+### 📏 Benchmark Snapshot (v1.28.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

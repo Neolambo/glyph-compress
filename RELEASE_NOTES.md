@@ -1,3 +1,25 @@
+## v1.28.0 — Anthropic Tokenizer Calibration & Comprehension Spot-Check
+
+Completes real-tokenizer calibration and comprehension spot-checks across all three primary providers, using a live-provided Anthropic key.
+
+### Real Anthropic Tokenizer Calibration
+- Anthropic has no offline tokenizer library either, so this measurement required live calls to the real `/v1/messages/count_tokens` API — see `test/tokenizer-calibration-anthropic.js` (dev-only/manual, `ANTHROPIC_API_KEY=... npm run calibrate:tokenizer:anthropic`).
+- Most extreme finding of the three providers: **28/28 `TECH_GLYPHS` are a net token loss, no exceptions** (OpenAI: 28/28, Gemini: 26/28), and 32/33 code-minification keyword/glyph pairs (only `#include`→`imp` wins, same as Gemini). `MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC`/`MEASURED_CODE_KEYWORD_TOKENS_ANTHROPIC` now gate substitution for the `anthropic` provider, closing a gap noted since v1.17.0.
+- Verified this has real bite: reverting the gating and re-running the new tests showed the previous character-based heuristic got several glyphs wrong in each direction that the real measurement catches.
+
+### Third Real LLM Comprehension Spot-Check
+- `test/comprehension-check-anthropic.js` (dev-only/manual, `ANTHROPIC_API_KEY=... npm run check:comprehension:anthropic`) sends the exact same bug-fix scenario as the Gemini/OpenAI sibling scripts to a real `claude-haiku-4-5` model.
+- All four checks passed: it correctly named `calculateTotal`/`OrderProcessor` and identified the discount bug. Like OpenAI, since Anthropic's compression now barely touches identifiers, it also proposed a fix — the most complete of the three providers, correctly implementing percentage-based discount logic rather than just subtracting a flat amount.
+- All three primary providers (OpenAI, Gemini, Anthropic) now have real, reproducible tokenizer calibration and comprehension evidence using directly comparable methodology and scenarios — closing out this thread of ROADMAP.md's "Real Task Evaluation" and tokenizer-calibration items. Broader/varied task scenarios and real-repository evaluation remain open.
+
+### Tests & Verification
+- `test/tech-glyph-economics.js` (87 tests) and `test/code-minify-economics.js` (24 tests) extended with Anthropic coverage, including the one measured-*winning* code keyword that should still substitute normally.
+- Both new scripts are deliberately excluded from `npm test`/`test/run-suites.js` — they need a real provider API key, network access, and (for the comprehension check) real generation quota.
+- **Complete Suite Validation**: 24 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.27.0 — OpenAI Comprehension Spot-Check
 
 Sibling to v1.26.0's Gemini spot-check, using a live-provided OpenAI key.

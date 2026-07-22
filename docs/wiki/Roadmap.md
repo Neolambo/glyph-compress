@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.27.0`: OpenAI Comprehension Spot-Check.
+`v1.28.0`: Anthropic Tokenizer Calibration & Comprehension Spot-Check.
+
+## Delivered in v1.28.0
+
+- Real Anthropic tokenizer calibration via the live `/v1/messages/count_tokens` API: 28/28 `TECH_GLYPHS` are a net token loss on Anthropic — no exceptions, the most extreme finding of the three providers — plus 32/33 code keywords. Now gated the same way OpenAI/Gemini already were.
+- Third real LLM comprehension spot-check: the same scenario as the Gemini/OpenAI sibling scripts, sent to a real `claude-haiku-4-5` model — it correctly named the compressed function/class, identified the bug, and proposed the most complete fix of the three providers.
+- All three primary providers (OpenAI, Gemini, Anthropic) now have real tokenizer calibration and comprehension evidence using directly comparable methodology.
+- `test/tokenizer-calibration-anthropic.js` and `test/comprehension-check-anthropic.js` are dev-only/manual, needing a real API key — not part of `npm test`.
+- 24 suites total (87 tech-glyph-economics + 24 code-minify-economics assertions across all providers), all passing.
 
 ## Delivered in v1.27.0
 

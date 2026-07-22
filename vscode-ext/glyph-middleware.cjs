@@ -226,6 +226,71 @@ var MEASURED_CODE_KEYWORD_TOKENS_GEMINI = {
   using: [1, 1],
   "#include": [2, 1]
 };
+var MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC = {
+  typescript: [8, 12],
+  javascript: [8, 13],
+  python: [8, 12],
+  rust: [8, 11],
+  go: [8, 12],
+  java: [8, 11],
+  csharp: [10, 12],
+  swift: [8, 11],
+  ruby: [8, 12],
+  react: [8, 11],
+  nextjs: [9, 11],
+  vue: [8, 12],
+  angular: [8, 12],
+  svelte: [9, 12],
+  django: [8, 12],
+  rails: [8, 11],
+  express: [8, 16],
+  fastapi: [9, 12],
+  docker: [8, 12],
+  kubernetes: [8, 12],
+  terraform: [8, 12],
+  postgres: [8, 11],
+  mysql: [8, 11],
+  mongodb: [8, 11],
+  redis: [8, 12],
+  llm: [9, 11],
+  agent: [8, 8],
+  prompt: [8, 8]
+};
+var MEASURED_CODE_KEYWORD_TOKENS_ANTHROPIC = {
+  return: [8, 8],
+  function: [8, 11],
+  const: [8, 10],
+  let: [8, 10],
+  import: [8, 8],
+  export: [8, 8],
+  def: [8, 11],
+  class: [8, 12],
+  from: [8, 8],
+  yield: [8, 8],
+  "self.": [9, 9],
+  int: [8, 11],
+  void: [8, 11],
+  char: [8, 11],
+  float: [8, 11],
+  double: [8, 11],
+  long: [8, 11],
+  short: [8, 11],
+  fn: [8, 11],
+  pub: [8, 8],
+  mut: [8, 8],
+  impl: [8, 8],
+  struct: [8, 12],
+  use: [8, 8],
+  match: [8, 8],
+  func: [8, 11],
+  package: [8, 8],
+  type: [8, 11],
+  public: [8, 8],
+  private: [8, 8],
+  protected: [8, 8],
+  using: [8, 8],
+  "#include": [9, 8]
+};
 var TECH_LABEL_OVERRIDES = {
   typescript: "TS",
   javascript: "JS",
@@ -1130,7 +1195,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.27.0",
+      version: "1.28.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1460,6 +1525,9 @@ ${dynLine}` : "";
       } else if (this.provider === "gemini" && MEASURED_TECH_GLYPH_TOKENS_GEMINI[name]) {
         const [wordTokens, glyphTokens] = MEASURED_TECH_GLYPH_TOKENS_GEMINI[name];
         skip = glyphTokens >= wordTokens;
+      } else if (this.provider === "anthropic" && MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC[name]) {
+        const [wordTokens, glyphTokens] = MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC[name];
+        skip = glyphTokens >= wordTokens;
       } else {
         const origTokenCost = name.length / charsPerToken;
         const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
@@ -1703,9 +1771,9 @@ ${dynLine}` : "";
     return result;
   }
   // Skips a keyword->glyph minification when the current provider's
-  // measured-cost table (MEASURED_CODE_KEYWORD_TOKENS_OPENAI/_GEMINI) shows
-  // it is a net token loss; applies unconditionally for anthropic/local/raw,
-  // which don't have their own calibration pass yet, matching
+  // measured-cost table (MEASURED_CODE_KEYWORD_TOKENS_OPENAI/_GEMINI/
+  // _ANTHROPIC) shows it is a net token loss; applies unconditionally for
+  // local/raw, which don't have their own calibration pass yet, matching
   // _compressTechNames()'s established breakeven pattern.
   _minifyReplace(text, key, glyph, pattern) {
     if (this.provider === "openai") {
@@ -1716,6 +1784,12 @@ ${dynLine}` : "";
       }
     } else if (this.provider === "gemini") {
       const measured = MEASURED_CODE_KEYWORD_TOKENS_GEMINI[key];
+      if (measured) {
+        const [wordTokens, glyphTokens] = measured;
+        if (glyphTokens >= wordTokens) return text;
+      }
+    } else if (this.provider === "anthropic") {
+      const measured = MEASURED_CODE_KEYWORD_TOKENS_ANTHROPIC[key];
       if (measured) {
         const [wordTokens, glyphTokens] = measured;
         if (glyphTokens >= wordTokens) return text;
