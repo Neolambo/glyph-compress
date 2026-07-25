@@ -1,0 +1,27 @@
+# GlyphCompress
+
+> Semantic compression for IDE↔LLM communication. A CLI, VS Code extension, MCP server, and Node.js library that compresses verbose IDE→LLM context (code, diagnostics, chat history, diffs) into compact Unicode glyph sequences, using a shared codebook injected into the model's system prompt so the model can decode it back. Reversible by default, calibrated against real provider tokenizers (js-tiktoken for OpenAI, live API measurement for Anthropic/Gemini), and gated by a net-negative fallback that never knowingly sends output more expensive than the original.
+
+Dual-licensed: AGPL-3.0-only for open-source use, commercial license required for proprietary/SaaS/embedded use (see COMMERCIAL_LICENSE.md). npm package `glyph-compress`; VS Code Marketplace extension `neolambo.glyph-compress`; GitHub repo `Neolambo/glyph-compress`.
+
+## Core docs
+
+- [README.md](README.md): full usage — CLI, SDK, VS Code extension, transparent proxy, MCP server, glyph protocol, architecture, project structure, testing.
+- [ROADMAP.md](ROADMAP.md): planned work and versioned history of what shipped in each release (the canonical changelog; README does not duplicate it).
+- [RELEASE_NOTES.md](RELEASE_NOTES.md): per-version release notes, same content as GitHub Releases.
+- [docs/architecture.md](docs/architecture.md): system architecture and data flow.
+- [docs/benchmark-methodology.md](docs/benchmark-methodology.md): how the token-savings numbers are measured, what is and isn't claimed, and comparison methodology against naive truncation.
+- [docs/licensing.md](docs/licensing.md): dual-license (AGPL-3.0 / commercial) policy details.
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, testing, and contribution expectations.
+
+## Entry points (for an agent integrating this library)
+
+- CLI: `npx glyph-compress <file> [--level ...] [--provider ...] [--copy] [--explain] [--source-map]` — see `bin/cli.js`.
+- MCP server: `npx glyph-compress-mcp` exposes `compress_text`, `compress_file`, `route_context`, `get_codebook` tools — see `bin/mcp-server.js`.
+- Node.js library: `import { GlyphCompressor } from 'glyph-compress/middleware'` — see `src/glyph-middleware.js` and `src/index.d.ts` for the typed public API.
+- Token estimation: `src/token-estimator.js` exports `estimateProviderTokens`, `PROVIDER_TOKEN_PROFILES`, `estimateGlyphTokenCost` for real, calibrated per-provider token math.
+
+## Operational
+
+- [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md): security reporting and privacy-firewall/redaction behavior.
+- [ENTERPRISE.md](ENTERPRISE.md), [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md): commercial/team usage terms.

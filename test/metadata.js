@@ -27,6 +27,7 @@ assert(!pkg.files.includes('docs/'), 'package should not publish the entire docs
 assert(!pkg.files.includes('scripts/'), 'package should not publish the entire scripts directory');
 
 for (const file of [
+  'llms.txt',
   'NOTICE',
   'docs/licensing.md',
   'COMMERCIAL_LICENSE.md',

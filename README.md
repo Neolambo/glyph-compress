@@ -19,6 +19,18 @@
   Up to 90%+ savings on well-suited payloads (see benchmarks below); real aggregate savings on the project's own benchmark suite is a more modest, honestly-reported 22%.
 </p>
 
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> ·
+  <a href="#-usage-command-line-cli">CLI</a> ·
+  <a href="#-mcp-server-claude-code-claude-desktop--other-mcp-clients">MCP Server</a> ·
+  <a href="#-when-to-use-glyphcompress-and-when-to-skip-it">When to Use / Skip</a> ·
+  <a href="#-benchmarks">Benchmarks</a> ·
+  <a href="https://github.com/Neolambo/glyph-compress/releases">Releases</a> ·
+  <a href="ROADMAP.md">Roadmap</a> ·
+  <a href="llms.txt">llms.txt</a> ·
+  <a href="LICENSE">License</a>
+</p>
+
 GlyphCompress uses a compositional radical-based encoding system (inspired by Chinese logograms) to compress the verbose context exchanged between IDEs and Large Language Models. A shared codebook injected into the LLM's system prompt enables it to decode compact glyph sequences back into full semantic concepts.
 
 ### 🎬 See it in Action
@@ -33,6 +45,7 @@ Watch the latest YouTube video to see how GlyphCompress achieves 90% token savin
 
 - [🎯 The Problem](#-the-problem)
 - [✨ The Solution](#-the-solution)
+- [🧭 When to Use GlyphCompress (and When to Skip It)](#-when-to-use-glyphcompress-and-when-to-skip-it)
 - [🔍 Realistic Session Showcase](#-realistic-session-showcase)
 - [🧠 Advanced Features: Holographic Folding, Intent Diffs & History Decay](#-advanced-features-holographic-folding-intent-diffs--history-decay)
 - [📊 Benchmarks](#-benchmarks)
@@ -80,6 +93,23 @@ AFTER (137 chars):
 
 → 12.7x compression, 92% saved
 ```
+
+## 🧭 When to Use GlyphCompress (and When to Skip It)
+
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1300) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+
+**Good fit:**
+- **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
+- **Multi-turn IDE chat sessions** — the shared codebook is a one-time cost amortized across turns; Anthropic's cache-adjusted estimate on this repo's fixtures is ~28% even though the raw transmitted payload alone is closer to break-even.
+- **Multi-file context** (Holographic Folding) and **git-diff review** (Intent Diffs) — structurally repetitive payloads where deterministic substitution has the most to work with.
+- **Long-running conversations** that would otherwise blow a context window — Attentional Decay Compaction trades old-turn fidelity for indefinite session length, on purpose.
+
+**Weak fit — GlyphCompress says so itself:**
+- **Short, Unicode-light prose requests.** The ~400-token codebook header can outweigh what a small payload saves; the net-negative fallback (as of v1.30.0, requiring a real measured 10% improvement) detects this and sends the original unchanged rather than risking a silent regression.
+- **One-off, single-turn requests on plain English text** — there's no repeated content for the dynamic dictionary to amortize, and no multi-turn cache to spread the codebook cost over.
+- **Anything where you need the LLM to see exact original text** (e.g., verbatim quoting requirements, legal/contract review) — use `trustPolicy: lossless` or skip compression for that specific payload; `lossy`/`ultra` levels are explicitly irreversible by design.
+
+**Not a substitute for:** provider-side prompt caching (Anthropic `cache_control`, OpenAI/Gemini implicit caching) — GlyphCompress **complements** caching (see the Anthropic hybrid wrapper) rather than replacing it; caching only helps repeated prefixes across calls, GlyphCompress reduces the token count of the content itself.
 
 ## 🔍 Realistic Session Showcase
 
@@ -190,256 +220,9 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 
 Fixes the `src/token-estimator.js` bug found while building v1.29.0's benchmark below — it turned out to be two compounding issues. **(1)** An uncalibrated, double-counting Unicode penalty (fixed with codepoint-aware counting and class-calibrated costs). **(2)** The larger issue: OpenAI's base `charsPerToken` was only accurate for code, not prose — recalibrated to `4.2`, the char-weighted blended average across five real repository files, measured with real `js-tiktoken`. **(3)** Even recalibrated, a single heuristic number wasn't reliable enough on marginal content, so the net-negative fallback now requires a real 10% measured improvement, not just any nonzero one. Also found and fixed a third, unrelated bug while verifying this: `src/token-estimator.cjs` (used by the root package's CJS entry point) was never rebuilt by the build script at all. All three files that previously showed a masked real-token regression (`README.md`, `ROADMAP.md`, `docs/architecture.md`) now correctly fall back instead. New `test/token-estimator-accuracy.js` (13 tests). Full writeup in [docs/benchmark-methodology.md](docs/benchmark-methodology.md) and `RELEASE_NOTES.md`.
 
-### New in v1.29.0 (Benchmark vs. Alternatives)
+> **Full version history** (v0.5.0 → v1.29.0, 35+ releases) lives in [GitHub Releases](https://github.com/Neolambo/glyph-compress/releases) and [RELEASE_NOTES.md](RELEASE_NOTES.md) — not duplicated here. See [ROADMAP.md](ROADMAP.md) for what's planned next.
 
-1. **`npm run benchmark:alternatives`**: a reproducible public comparison against no-compression and naive truncation — the two realistic alternatives available without a specialized dependency — using real `js-tiktoken` token counts across five real repository files at four token budgets. Metric: at a fixed budget, what fraction of the *original* content survives? Naive truncation permanently deletes whatever's cut; GlyphCompress shrinks the same information so more of it fits, when compression actually reduces real tokens for that content. Full methodology, including what is and isn't claimed, in [docs/benchmark-methodology.md](docs/benchmark-methodology.md). **LLMLingua is intentionally excluded** — a Python library, a separate dependency decision, documented rather than approximated.
-2. **Found while building it, fixed in v1.30.0 above**: `src/token-estimator.js`'s flat per-non-ASCII-character penalty overestimated Unicode-heavy prose badly enough that the compressor's own net-negative fallback could miss a genuine real-token regression — confirmed on this repository's own README and ROADMAP.
-
-### New in v1.28.0 (Anthropic Tokenizer Calibration & Comprehension Spot-Check)
-
-Completes the real-tokenizer calibration and comprehension spot-check work across all three primary providers, using a live-provided Anthropic key.
-
-1. **Real Anthropic tokenizer calibration**: measured every `TECH_GLYPHS` entry and code-minification keyword/glyph pair against the real `/v1/messages/count_tokens` API (`claude-haiku-4-5`) — Anthropic has no offline tokenizer library either, so this needed a live key (`test/tokenizer-calibration-anthropic.js`, dev-only/manual, `npm run calibrate:tokenizer:anthropic`). Most extreme finding of the three providers: **28/28 `TECH_GLYPHS` are a net token loss, no exceptions** (32/33 code keywords too, only `#include`→`imp` wins — same as Gemini). `MEASURED_TECH_GLYPH_TOKENS_ANTHROPIC`/`MEASURED_CODE_KEYWORD_TOKENS_ANTHROPIC` now gate substitution for the `anthropic` provider.
-2. **Third real LLM comprehension spot-check** (`test/comprehension-check-anthropic.js`, dev-only/manual, `npm run check:comprehension:anthropic`): the same scenario as the Gemini/OpenAI sibling scripts, sent to a real `claude-haiku-4-5` model. All four checks passed — it correctly named `calculateTotal`/`OrderProcessor`, identified the discount bug, and (like OpenAI, since Anthropic's compression now also barely touches identifiers) proposed the most complete fix of the three providers, correctly implementing percentage-based discount logic.
-3. ROADMAP.md's "Real Task Evaluation" and tokenizer-calibration items now have real, reproducible evidence across all three primary providers (OpenAI, Gemini, Anthropic) using directly comparable scenarios and methodology.
-
-### New in v1.27.0 (OpenAI Comprehension Spot-Check)
-
-Sibling to v1.26.0's Gemini spot-check, using a live-provided OpenAI key. `test/comprehension-check-openai.js` (dev-only/manual, `npm run check:comprehension:openai`) sends the exact same bug-fix scenario — compressed with the real codebook exactly as the CLI sends it — to a real `gpt-4o-mini` model. All four comprehension checks passed: it correctly named `calculateTotal`/`OrderProcessor` and identified the discount bug, and — since OpenAI's measured-loss gating (v1.17.0/v1.21.0) means its compression barely touches identifiers at all — it went further and reproduced the exact original code plus a working fix. ROADMAP.md's "Real Task Evaluation" item now has real, reproducible comprehension evidence for two providers (Gemini, OpenAI); Anthropic and broader task/repository coverage remain open.
-
-### New in v1.26.0 (Gemini Tokenizer Calibration & Comprehension Spot-Check)
-
-1. **Real Gemini tokenizer calibration**: extended the OpenAI measurement (v1.17.0/v1.21.0) to Gemini, via live calls to the real `models/{model}:countTokens` API (Gemini has no offline pure-JS tokenizer equivalent to js-tiktoken, so this needed a real API key — see `test/tokenizer-calibration-gemini.js`, dev-only/manual, `npm run calibrate:tokenizer:gemini`). Same finding as OpenAI: **26/28 `TECH_GLYPHS` and 32/33 code-minification keyword/glyph pairs are a net token loss on Gemini too** — common tech names and code keywords are already efficient single-token entries there as well. `MEASURED_TECH_GLYPH_TOKENS_GEMINI`/`MEASURED_CODE_KEYWORD_TOKENS_GEMINI` now gate substitution on Gemini the same way the OpenAI tables already did — verified against the real heuristic-only behavior first (which got some cases wrong) before trusting the fix.
-2. **First real LLM comprehension spot-check** (`test/comprehension-check-gemini.js`, dev-only/manual, `npm run check:comprehension:gemini`): sends a realistic bug-fix scenario, compressed with the full codebook + dynamic dictionary (matching exactly what the CLI actually sends), to a real `gemini-2.5-flash-lite` model, and checks the response correctly names the actual function/class (decoded from `§N` glyphs) and correctly describes the bug rather than hallucinating plausible-looking names. This is a first, honestly-scoped step toward ROADMAP.md's "Real Task Evaluation" item — one scenario, one provider, not a statistical benchmark — multi-provider coverage remains open.
-3. Both are deliberately **not** part of `npm test`: they need a real provider API key, network access, and (for the comprehension check) real generation quota, unlike the OpenAI calibration which runs entirely offline via js-tiktoken.
-
-### New in v1.25.0 (Cache-Stable Codebook for OpenAI/Gemini)
-
-Found while investigating the v1.24.0 Anthropic proxy bug: the codebook header injected for OpenAI/Gemini was payload-filtered — it only lists the DOM/TECH/SYM/MOD glyphs that specific message happens to use — so it varied request to request and could never be a stable prefix for those providers' automatic, implicit prompt caching (which requires byte-identical leading tokens). The existing `test/cache-prefix-stability.js` suite's name promised to lock this in but its actual check only ever compared the first line of the system message (a literal that never changes), never the full codebook block — which is why this shipped unnoticed.
-
-1. **Hybrid cache-stable codebook**, mirroring the existing Anthropic `cache_control` first-turn-vs-multi-turn split (`useStructuredSystem`): once a session has assistant history, `GlyphCompressor` switches OpenAI/Gemini/local to the full, unconditional codebook (byte-identical every time) with the per-request `DYN:` dynamic-dictionary line moved to a separate `[GLYPH DYNAMIC]` block after the system text, instead of embedded inside the cacheable block. A first-turn request has no prior turn to cache against yet, so it keeps the smaller filtered header.
-2. **Two-tier fallback, not an all-or-nothing one**: the larger stable header (~350 extra tokens) only pays off in aggregate across turns — invisible to a single call's token count — so if it would flip a specific message into GlyphCompress's existing net-negative fallback, that message automatically retries with the smaller filtered codebook (still net-positive on its own pre-v1.25 merits) instead of losing every other real saving (minification, dynamic dictionary, comment stripping) along with it.
-3. `test/cache-prefix-stability.js` gained real multi-turn assertions: the entire codebook block (not just line 1) byte-identical across turns once in cache-stable mode, the DYN line isolated outside it, graceful degradation for messages too small to afford the larger header, and confirmation `raw`/Anthropic are unaffected. Verified these new tests actually fail against the pre-fix code before being trusted, same as the v1.24.0 fix.
-
-### New in v1.24.0 (Anthropic Proxy Bridge — Critical Fix)
-
-**Every real request sent through the GlyphProxy to an Anthropic target (`targetApiUrl = https://api.anthropic.com`) was being corrupted and rejected by the real API.** Every documented IDE integration (Cursor, Cline/RooCode, Continue.dev) configures the client in "OpenAI Compatible" mode, so the proxy always receives an OpenAI chat/completions-shaped request regardless of the real upstream — that was already correctly handled for OpenAI itself and for Gemini (which offers a genuine OpenAI-compatible endpoint), but never for Anthropic. `api.anthropic.com` does not accept OpenAI's request shape at all: the system prompt must be a top-level `system` field, not a `role: "system"` message; authentication is `x-api-key` + `anthropic-version`, not `Authorization: Bearer`; the endpoint is `/v1/messages`, not `/v1/chat/completions`. On top of that, GlyphCompress's own compression path was inserting an *illegal* `role: "system"` message into `messages` when none existed. Found by reproducing it directly — mocking the outbound request and inspecting exactly what the proxy forwarded — rather than trusting the existing proxy smoke test, which only checked the forwarded status code and URL, never the request shape, and so never caught it.
-
-1. **New Anthropic proxy bridge** (`src/anthropic-bridge.js`): translates OpenAI-shaped requests to Anthropic's native Messages API shape and translates the response back, for both non-streaming JSON and streaming SSE. Reuses the same compression and `cache_control` logic `wrapAnthropic()` already relied on (`GlyphCompressor._prepareAnthropicPayload`), so proxy users now get the same cache-stable structured system blocks as direct SDK-wrapper users — previously only reachable by importing `wrapAnthropic()` directly in Node code, never through the proxy.
-2. **Known limitations** (documented, not attempted here): multi-modal image content is marked with a visible text placeholder rather than translated to Anthropic's image blocks; OpenAI tool-result (`role: "tool"`) messages are coerced to a labeled `user` message rather than a proper `tool_result` content block; streamed tool-call argument deltas are not translated (non-streaming tool calls are fully translated, including the response's `tool_calls` field).
-3. **Tests**: `test/anthropic-bridge.js` (18 tests) covers the translation functions directly plus real end-to-end proxy round-trips (mocked outbound HTTPS, real server, both streaming and non-streaming) — including a check that OpenAI/Gemini targets are completely unaffected. The existing `test/proxy.js` Anthropic smoke test was also strengthened; it previously never asserted on the forwarded request shape at all, which is exactly how this bug shipped unnoticed. Verified these tests actually catch the original bug by reverting the fix and confirming the expected failures, before restoring it.
-
-### New in v1.23.0 (Adaptive Workspace Memory)
-
-1. **Incremental codebook builds**: `buildWorkspaceCodebook()` no longer re-parses every workspace file on each call. When a file's mtime is unchanged since the last build, its symbols/imports/diagnostics are reused from the saved codebook instead of being re-extracted; only changed files are rescanned. The returned codebook now reports `incrementalStats: { reused, rescanned, total }`. Pass `{ incremental: false }` to force a full rescan.
-2. **Usage-weighted relevance**: `recordFileUsage(rootDir, filePaths)` records that a file was actually selected and sent for a task; `selectRelevantFiles()`/the Context Router now add a decaying usage boost (14-day half-life, capped so no file can permanently dominate) on top of keyword/intent scoring, so files that have proven useful before can outrank a cold keyword match. `GlyphCompressor.routeAndCompress()` calls this automatically for every file it selects.
-3. **Fixed a real gap found while testing this**: `recordFileUsage()` originally no-opped unless a codebook had already been persisted to disk (only the CLI's `inspect` command did that) — meaning usage tracking silently did nothing the first time `routeAndCompress()` ran on a fresh workspace. It now builds and saves a codebook on the fly when none exists, which also seeds the incremental cache for the next call.
-4. New `test/adaptive-workspace-memory.js` (10 tests) covers incremental reuse/rescan behavior, usage persistence and decay, and `routeAndCompress()` actually recording usage end-to-end.
-
-### New in v1.21.2 (VS Code Marketplace Listing Fix)
-
-`vscode-ext/` had no `README.md`, so the Marketplace "Overview" tab showed "No overview has been entered by publisher" — `@vscode/vsce package` reads `README.md` from the extension's own root directory to populate that page, and it was simply missing. Also found while investigating: the last version actually published to the Marketplace was `1.12.0`, months and many features behind this repository — the description text visible on the listing page had been edited manually through the Marketplace management portal at some point, independent of publishing a new package version, which made the listing look more current than it was. Added `vscode-ext/README.md` and a `repository` field to `vscode-ext/package.json` (removing the now-unnecessary `--allow-missing-repository` packaging flag).
-
-### New in v1.21.1 (Critical Packaging Hotfix)
-
-**The published VS Code extension was broken since v1.17.0.** `vscode-ext/glyph-middleware.cjs` required `../src/workspace-intelligence.cjs` and `../src/team-codebook.cjs` — paths that resolve fine inside this repo checkout, but `@vscode/vsce package` only includes files physically inside `vscode-ext/`, so every packaged VSIX since Context Router/Team Codebook Registry shipped (v1.17.0-v1.21.0) crashed with `MODULE_NOT_FOUND` the moment any command tried to compress anything. Caught by extracting a real installed VSIX and starting the proxy from it — every prior test required files by repo-relative path, which never exercises the actual packaged layout. **The equivalent npm-package risk was also real** (the local `vscode-ext/` copies this fix introduces were initially missing from `package.json`'s `files` allowlist) and is fixed in the same commit.
-
-Two new regression suites lock this in permanently: `test/extension.js` now scans every packaged `.cjs` file for any `require("../...")` escaping outside `vscode-ext/`, and `test/npm-pack-smoke.js` runs a real `npm pack`, extracts the actual tarball, and requires the published entry points from it — both reproduced the original failure on purpose before trusting the fix.
-
-### New in v1.21.0 (Provider Trust & UX)
-
-1. **Code-block minification is now real-tokenizer-aware too**: the same measurement that found all 28 `TECH_GLYPHS` losing on OpenAI (v1.17.0) was applied to `_minifySyntax()`'s keyword-to-glyph substitutions inside code blocks (`return` → `→`, `function` → `ƒ`, `const` → `◇`, `public` → `+`, ...). Result: **all 33 keyword/glyph pairs tested are also net token losses on OpenAI** — common code keywords are already single BPE tokens (code is a huge fraction of pretraining data), so replacing them with a 1-4 token Unicode glyph never wins. Tech-name and code-keyword minification now both skip measured-loss substitutions on the `openai` provider; comment removal, blank-line removal, and indent-to-tab compaction (not glyph substitutions) still apply and still save real tokens.
-2. **Trust warnings** (`buildTrustWarnings()`, `sourceMap.trustWarnings`): plain-language, fact-derived warnings about what the current level/trust-policy combination actually permits — e.g. "lossy trust policy: code summaries and redundancy stripping are irreversible." Every warning is derived strictly from the trust profile's own existing `reversible`/`redacts`/`lossy`/`allows.*` flags, not new claims about model behavior. Surfaced in CLI `--explain`, the VS Code extension's output channel (both at startup and after each compression), and `sourceMap.trustWarnings` for any consumer.
-3. **Fixed a real export bug found while adding the trust-warnings API**: `vscode-ext/glyph-middleware.js` hand-maintains a second, manual `module.exports = {...}` block for CJS consumers alongside its `export {...}` statement (esbuild's own auto-generated CJS export is dead code there). A new export added to one list without the other silently produces `undefined` for `require()` consumers — which is exactly what shipped initially with `buildTrustWarnings` in this same release, caught immediately by a new regression test that now compares both lists.
-
-### New in v1.20.0 (Expression-Level Source Maps & a Real Indentation Bug Fix)
-
-1. **Expression-level AST spans**: `sourceMap.ast` now tracks arrow functions, function calls (with a span distinct from the declaration), destructuring, async/await, and exception handling (try/catch/throw/finally) inside minified/summarized code blocks — not just top-level import/export/function/class declarations. New language coverage: Ruby, Swift, Kotlin, and PHP, which already had `TECH_GLYPHS` entries but no token extraction at all.
-2. **Fixed two real, pre-existing bugs found while validating span fidelity**: whitespace normalization ran on the *whole* message, including inside ` ```fenced``` ` code blocks, in two independent places in the pipeline. 4-space and 8-space nested indentation both silently collapsed to the same single space (or single tab), flattening code structure at **every** compression level — not just aggressive/ultra — and for indentation-significant languages like Python, changing what the code actually does. Both passes now skip code fence contents entirely.
-3. **`test/ast-spans.js`**: every AST token's span must slice back to exactly its own text against the original input — this is what caught the bug above.
-
-### New in v1.19.0 (Structured Diagnostics & Git-Diff-Aware Routing)
-
-1. **Structured diagnostics**: every proxy/CLI log entry now carries an ISO timestamp and consistent redaction across every sink (console, VS Code `outputChannel`, and a new optional JSONL file sink via `--log-file`) — previously redaction only ran at one call site (the upstream error body), so other log lines could leak a secret unredacted. Each request now also logs richer trust/routing diagnostics: privacy firewall, decay/folding/intent-diff flags, dynamic dictionary and file index size, whether a team codebook was loaded, and whether the net-negative fallback fired.
-2. **`routeAndCompress(query, { gitDiffOnly: true })`**: restricts the Context Router to git staged/unstaged files only, for "review what I changed" workflows — CLI: `glyph-compress route <query> --git-diff-only`.
-3. **Fixed a real build-drift bug found while doing this work**: `vscode-ext/proxy.js` was a hand-maintained CommonJS duplicate of `src/proxy.js` that had fallen out of sync (missing several options and the dashboard/stats endpoints). It's now generated from the same source as the rest of the CJS build, so it can't drift again — and had zero test coverage before or after, now covered by a CJS-build smoke test.
-
-### New in v1.18.0 (Team Codebook Registry)
-
-1. **Team Codebook Registry**: `glyphcompress.team.json` (git-committable, at the workspace root) lets a team share a priority-ordered dynamic dictionary, so every teammate's `GlyphCompressor` — through the CLI, MCP server, VS Code extension, or proxy — assigns the exact same `§N` glyph to the same repeated identifier, instead of each machine learning its own independent, incompatible assignment. New CLI: `glyph-compress team-codebook show|sync`. See [Team Codebook Registry](#4-team-codebook-registry-v1180) above.
-
-### New in v1.17.0 (MCP Server, Context Router & Real-Tokenizer Economics)
-
-1. **MCP Server**: `npx glyph-compress-mcp` exposes GlyphCompress as a [Model Context Protocol](https://modelcontextprotocol.io/) server — `compress_text`, `compress_file`, `route_context`, and `get_codebook` tools, usable from Claude Code (`claude mcp add glyph-compress -- npx glyph-compress-mcp`), Claude Desktop, and any other MCP-compatible client with no IDE-specific integration work. See [MCP Server](#-mcp-server-claude-code-claude-desktop--other-mcp-clients) below.
-2. **Context Router**: `GlyphCompressor.routeAndCompress(query, options)` and CLI `glyph-compress route <query> [--budget] [--max-files] [--git-diff-only]` rank workspace files by relevance to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. `gitDiffOnly` restricts candidates to git staged/unstaged files for "review what I changed" workflows. Reports `selectedFiles`/`excludedFiles` (with score, token cost, and exclusion reason) plus a per-file `sourceMap` for auditability. Building this surfaced and fixed a real pre-existing bug: the TODO/FIXME/HACK diagnostic-detection regex had no word boundaries and matched "HACK" inside "Hacker News," inflating irrelevant marketing docs above the actually-relevant source file.
-3. **Real-tokenizer TECH_GLYPHS economics**: extended `npm run calibrate:tokenizer` to compare every glyph against the *actual word it replaces* (not just its isolated cost) using real OpenAI tokenizers. Result: **all 28 `TECH_GLYPHS` were a net token loss** — common tech names are already 1-2 BPE tokens, and the Unicode glyph that replaced them cost as much or more (worst case: "express" at 1 token vs. its glyph at 5). Tech-name substitution now never fires on the `openai` provider when it would lose tokens (measured cost table, not a heuristic); `raw` mode keeps substituting unconditionally for demos/character-level reporting.
-
-### New in v1.16.0 (Codebook Integrity & Adaptive Levels)
-
-This release fixes real correctness gaps found during an audit of the compression engine, then builds three new capabilities on top of the fixes.
-
-**Correctness fixes:**
-
-1. **Dynamic-dictionary symbol collision fixed**: the per-session dynamic dictionary used to draw from a pool of Greek/Cyrillic letters that overlapped with reserved `TECH_GLYPHS` symbols — `α` was both the first dynamic-dictionary assignment *and* the fixed glyph for "Agent", so any session with a repeated word and any mention of "Agent" produced an ambiguous glyph the model could not reliably decode. Dynamic entries are now `§N` references (the same indexed-reference convention already used for file refs like `◈₍1₎`), which is collision-free and has no fixed symbol-pool ceiling.
-2. **Undocumented tech glyphs fixed**: 13 of 28 `TECH_GLYPHS` entries (Java, C#, Swift, Ruby, Angular, Svelte, Django, Rails, Express, FastAPI, MySQL, MongoDB, "prompt") could appear in compressed output without ever being documented in the codebook sent to the model. The codebook is now generated directly from `TECH_GLYPHS`, so it cannot drift out of sync with what the compressor actually emits. The same class of bug (14/33 documented) was fixed in the legacy `compressor.js` engine used by `npm run demo`.
-3. **CLI codebook completeness fixed**: `getCodebookPrompt()` — the codebook source for `npx glyph-compress <file>` — never included the dynamic dictionary's `DYN:` definitions, so CLI output could contain `§N` glyphs with no definition attached anywhere in the printed output. It now always includes definitions for every dynamic entry it produced.
-4. **Dynamic-dictionary economics fixed**: a word seen only once in a payload was still being treated as a "saving," even though a single occurrence can never amortize the cost of transmitting its own `word=§N` definition. The dictionary now requires a word to repeat at least twice and nets out the definition cost when estimating savings.
-5. **`compressText()` net-negative fallback added**: `compressMessages()` already fell back to the original payload when compression measured net-negative; `compressText()` (used by the CLI and standalone SDK calls) had no equivalent safety net and could silently return output that cost *more* tokens than the input. It now shares the same fallback (for all providers except `raw`, which intentionally reports unguarded character-level deltas).
-
-**New capabilities:**
-
-6. **Automatic level selection (`level: 'auto'`)**: pass `level: 'auto'` (or `--level auto` on the CLI) and GlyphCompress picks `light`/`standard`/`aggressive`/`ultra` per request from content signals — text length and code density — instead of a fixed default. `selectCompressionLevel()` is also exported directly for programmatic use.
-7. **Tokenizer-calibrated glyph costs**: `npm run calibrate:tokenizer` measures the *real* token cost of every glyph against OpenAI's cl100k_base and o200k_base tokenizers (via the `js-tiktoken` dev dependency) instead of relying solely on a fixed heuristic, and flags any glyph whose real cost is worse than assumed.
-8. **Codebook completeness test suite**: `npm run test:codebook` deterministically exercises every `TECH_GLYPHS`/`DOMAIN_GLYPHS` entry and the dynamic dictionary, and asserts every emitted glyph is documented in whatever codebook ships with it — this is the test that would have caught fixes #1-#3 automatically.
-9. **Cache-prefix stability test suite**: `npm run test:cache-prefix` locks in that the injected codebook is byte-identical for identical content (required for OpenAI/Gemini implicit prompt caching) and that Anthropic's `cache_control`-tagged stable block never embeds request-specific dynamic-dictionary entries.
-
-> [!NOTE]
-> The aggregate benchmark numbers below moved slightly (25% → 22% genuine savings) as a direct, expected result of fix #4 — the old number included savings from single-occurrence substitutions that were never economically real. `ultra`-level savings on code-heavy content are unaffected.
-
-### New in v1.15.0 (Holographic Folding & Intent Diffs)
-
-1. **Holographic Context Folding**: Folds overlapping related files and import boilerplate into layered, structured blocks (e.g. `⟦Base: ...⟧ ↷ [file1.tsx ↷ file2.tsx]`), saving up to 40% characters on multi-file workspaces.
-2. **Generative Intent Diffs**: Condenses verbose unified git/IDE diffs into extremely short symbolic change action lines (e.g. `⚡: ⊝₍1₎ ▼𝒞 Auth | ▲𝒞 Authentication`), saving over 80% tokens on refactoring payloads.
-3. **VS Code configuration support**: Toggle ADC easily within IDE settings via `glyphCompress.experimentalDecay`.
-4. **CLI/Proxy Flags**: Enables decay on the command-line or local proxy server via `--decay` or `--experimental-decay`.
-5. **Unicode superscript tagging compatibility**: Enhanced regex parsing ensures cold zone summaries perfectly extract minified superscript language tags (e.g. `ʲˢ`).
-
-### New in v1.13.0 (Cross-Session Dictionary Caching)
-
-1. **Cross-Session Dictionary Caching**: Persists `dynamicDict` and `fileIndex` on disk under `~/.glyphcompress/cache/<sha256>.json` to enable instant warm-starts.
-2. **Consistent Workspace Keying**: Computes SHA-256 hashes of workspace paths (for the VS Code extension) and working directories (for CLI/proxy) to ensure isolated, project-specific caches.
-3. **Improved Anthropic Prompt Caching**: Prompts remain consistent across separate developer sessions, avoiding unnecessary cache invalidation and reducing input token costs.
-4. **Dynamic Restorations**: Restores dynamic dictionary mappings and bigram counts seamlessly on startup, ensuring compression consistency across multiple command-line invocations and extension reloads.
-5. **ESM & CJS Exporter Synchronization**: Exposes `PROVIDER_COMPRESSION_PROFILES` and `TRUST_POLICY_PROFILES` consistently in both ES Modules and CommonJS runtimes, preventing runtime undefined errors in downstream imports.
-
-### v1.12.0 (Performance Engine Overhaul)
-
-1. **Codebook-Skip Threshold**: Skips the ~400-token protocol header when text-level savings are below 80 tokens, eliminating negative compression on short requests.
-2. **Unicode Token Accuracy**: All token estimators now apply a 1.5× penalty per non-ASCII glyph, preventing inflated savings metrics from cheap-looking Unicode substitutions.
-3. **Per-Glyph Breakeven**: Tech name and dynamic dictionary substitutions are individually checked — if the glyph costs more tokens than the original word, the replacement is skipped.
-4. **Multilingual Verbose Phrase Compression**: Strips filler/polite phrases in **English, Italian, German, and French** (e.g., "per favore", "bitte", "s'il vous plaît") for international developer workflows.
-5. **Latency & Memory Optimization**: Eliminated all `JSON.parse(JSON.stringify())` state cloning (~70% faster), capped source map entries at 500, and cached compiled regexes.
-6. **Adaptive Chat Strategy Selection**: Message compression evaluates multiple provider-aware strategies and falls back automatically when a compressed chat payload is not cheaper.
-7. **Anthropic Hybrid Wrapper**: `wrapAnthropic()` keeps first-turn `system` prompts lightweight and switches to structured cacheable blocks only once assistant history exists.
-8. **Expanded File Path Support**: File path regex now supports `@scoped/packages`, Windows backslashes, and 10+ new extensions (`.toml`, `.sql`, `.graphql`, `.proto`, etc.).
-9. **ESM/CJS Sync**: All performance optimizations are applied to both the ESM and CommonJS middleware paths.
-
-### v1.9.0 (Proxy and Packaging Hardening)
-
-1. **Provider-Aware Proxy**: CLI and VS Code proxy flows now preserve provider, trust policy, privacy mode, and target API settings instead of falling back to a generic `auto` profile.
-2. **Gemini-Compatible Routing**: The proxy maps OpenAI-compatible `/v1/*` requests to Gemini's `/v1beta/openai/*` endpoint when forwarding to `generativelanguage.googleapis.com`.
-3. **Clean ESM Runtime Export**: The package middleware ESM export now resolves through `src/glyph-middleware.js`, avoiding Node package-scope warnings from the VS Code extension folder.
-4. **Focused npm Package**: The npm allowlist now publishes runtime files and essential docs only, excluding outreach drafts, demo scripts, and broad internal documentation folders.
-5. **VS Code Lifecycle Hardening**: Proxy startup uses the CommonJS extension path, status-bar toggling handles hidden status bars, and the status interval is disposed with the extension context.
-
-### v1.8.0 (Safe Compression Trust Policies)
-
-1. **Explicit Trust Policies**: Added `lossless`, `reversible`, `privacy`, and `lossy` trust policies so consumers can choose which transformations are allowed.
-2. **Transformation Gating**: `lossless` preserves user text, `reversible` blocks code minification/summaries, `privacy` enables redaction, and `lossy` permits aggressive/ultra summaries.
-3. **Trust Metadata**: Source maps now include `sourceMap.trustPolicy` and `sourceMap.trust` so downstream tools can audit compression guarantees.
-4. **CLI Trust Flag**: Added `--trust <policy>` / `--policy <policy>` and explanation output for selected trust policy.
-5. **VS Code Trust Setting**: Added `glyphCompress.trustPolicy` to the extension settings and wired it into compressor activation.
-
-### 🔥 v1.7.0 (Provider-Aware Compression Profiles)
-
-1. **Provider Compression Profiles**: Added provider-specific compression profiles for `raw`, `openai`, `anthropic`, `gemini`, and `local` model workflows.
-2. **Estimator-Guided Dynamic Dictionaries**: Dynamic dictionary thresholds now adapt per provider so OpenAI/local profiles can be more compact while Anthropic stays more cache-stable.
-3. **Source Map Profile Metadata**: Source maps now include `provider` and `profile` metadata, and dynamic entries record which provider strategy selected them.
-4. **CLI Provider Flag**: Added `--provider <provider>` so command-line compression can estimate and profile output for OpenAI, Anthropic, Gemini-compatible, local, or raw text targets.
-5. **Typed Public Profiles**: TypeScript declarations now expose `ProviderCompressionProfile` and `PROVIDER_COMPRESSION_PROFILES` for downstream tooling.
-
-### 🔥 v1.6.0 (AST-Like Code Block Source Spans)
-
-1. **Code Block Token Maps**: Minified and summarized code blocks now include `tokens` metadata for structural source tokens.
-2. **Top-Level AST Map**: Added `sourceMap.ast` so downstream tools can inspect structural code spans without walking every code block.
-3. **Language-Aware Tokens**: Tracks imports, exports, functions, classes, declarations, return/yield, package/use/using, visibility, and type markers across JS/TS, Python, Rust, Go, Java/C#, and C/C++ families.
-4. **Typed AST Spans**: TypeScript declarations now include `GlyphAstTokenSpan`, and `getReversibleDictionaries()` exposes `ast` metadata.
-5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, issue templates, npm metadata, and VS Code extension metadata for v1.6.0.
-
-### 🔥 v1.5.0 (Privacy Firewall Mode)
-
-1. **Opt-In Privacy Firewall**: Added `privacyFirewall: true` / `privacy: true` to redact secrets and sensitive identifiers before prompt compression.
-2. **Safe Redaction Placeholders**: API keys, tokens, secret assignments, emails, IP addresses, AWS keys, GitHub tokens, JWTs, and bearer tokens are replaced with stable placeholders such as `⟦SECRET_ASSIGNMENT_1⟧`.
-3. **Non-Revealing Source Maps**: Added `sourceMap.privacy` entries with redaction kind, label, placeholder, line/column span, and short SHA-256 hash metadata without storing the raw secret.
-4. **CLI Privacy Flag**: Added `--privacy` so command-line compression can redact sensitive values before output, clipboard copy, or source-map printing.
-5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, issue templates, npm metadata, and VS Code extension metadata for v1.5.0.
-
-### 🔥 v1.4.0 (Extension & Proxy Smoke Suites)
-
-1. **VS Code Activation Smoke Test**: Added a mocked VS Code host suite that verifies extension activation reaches ready state and registers every contributed command.
-2. **Proxy Forwarding Smoke Test**: Added a local proxy suite that confirms chat payload compression, glyph protocol injection, upstream path preservation, and corrected `content-length` forwarding.
-3. **Extension CJS Loading Hardening**: The VS Code extension now loads the CommonJS middleware artifact directly, preventing activation-path module format drift.
-4. **Focused Test Scripts**: Added `test:extension` and `test:proxy`, and wired both into `npm test` and release validation.
-5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, issue templates, npm metadata, and VS Code extension metadata for v1.4.0.
-
-### 🔥 v1.3.0 (Semantic Source Map Spans)
-
-1. **Line/Column Source Spans**: Source map entries now include `span.start` and `span.end` with line, column, and offset metadata for tracked replacements.
-2. **Symbol-Level Mappings**: Added a `sourceMap.symbols` array that maps generated glyphs back to their original prompt, tech name, file path, diagnostic, dynamic dictionary, or code block source.
-3. **Reversible Span Access**: `getReversibleDictionaries()` now exposes `symbols` alongside files, dynamic entries, diagnostics, and code blocks.
-4. **Typed Source Maps**: TypeScript declarations now include `GlyphSourcePosition`, `GlyphSourceSpan`, and `GlyphSymbolSpan`.
-5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, and VS Code extension metadata for v1.3.0.
-
-### 🔥 v1.2.0 (Provider Accuracy & Test Suites)
-
-1. **Provider-Aware Token Estimates**: Added OpenAI, Anthropic, Gemini-compatible, local-model, and raw text estimator profiles for more realistic savings metrics.
-2. **Public Estimator API**: Added `estimateProviderTokens()`, `compareTokenEstimates()`, `normalizeProvider()`, and `PROVIDER_TOKEN_PROFILES` to the stable package exports.
-3. **Split Test Suites**: Added focused `test:unit`, `test:cli`, `test:workspace`, `test:metadata`, and `test:integration` scripts, with `npm test` running the full suite runner.
-4. **Benchmark Alignment**: The benchmark now uses provider-specific estimates for chat payloads instead of a single generic character heuristic.
-5. **Release Metadata**: Updated source maps, workspace codebooks, tests, README, roadmap, and VS Code extension metadata for v1.2.0.
-
-### 🔥 v1.1.1 (License Hardening)
-
-1. **AGPL-3.0-only Metadata**: Root package, VS Code extension, and package lock metadata now use the more precise `AGPL-3.0-only` SPDX identifier.
-2. **Commercial License Gate**: Added explicit commercial-use language clarifying that proprietary, hosted, SaaS, embedded, OEM, marketplace, or private redistribution rights require a separate written agreement.
-3. **NOTICE and Licensing Policy**: Added `NOTICE` and `docs/licensing.md` so npm, GitHub, and enterprise reviewers see the licensing posture directly.
-4. **Contributor Safeguards**: Added contribution licensing terms and a PR checklist item to preserve the dual-license model for future contributions.
-
-### 🔥 v1.1.0 (Contributor & Release Hygiene)
-
-1. **Contributor Guide**: Added `CONTRIBUTING.md` with setup, testing, documentation, and API stability expectations.
-2. **Release Documentation**: Added `docs/release.md` and `docs/architecture.md` for maintainers and technical reviewers.
-3. **GitHub Templates**: Added issue templates for bugs, features, provider compatibility, benchmark submissions, and a PR checklist.
-4. **Link Checking**: Added `npm run check:links` and wired it into CI.
-5. **Release Metadata**: Updated tests and package metadata to verify contributor hygiene assets.
-
-### 🔥 v1.0.0 (Stable Platform)
-
-1. **Stable Public API**: The `GlyphCompressor`, provider wrappers, source maps, workspace intelligence exports, CLI commands, and VS Code settings are documented as the stable `1.x` platform surface.
-2. **TypeScript Declarations**: Added package-level declarations for the middleware, source maps, workspace codebooks, intent detection, and repository doctor APIs.
-3. **CI and Packaging Validation**: Added GitHub Actions coverage for Node LTS tests, benchmarks, npm pack dry-runs, and VS Code extension packaging.
-4. **Formal Governance Docs**: Added security, privacy, and enterprise deployment documentation for production adoption.
-5. **Lean npm Package**: Added an explicit package allowlist so npm releases include runtime, docs, typings, and extension files without scratch artifacts.
-
-### 🔥 v0.9.0 (Workspace Intelligence)
-
-1. **Persistent Workspace Codebook**: Added `glyph-compress inspect` to scan supported project files and write `.glyphcompress/codebook.json` with symbols, imports, diagnostics, owners, and git status.
-2. **Intent Detection**: Detects common workflows such as fix error, review diff, implement feature, explain architecture, write tests, and optimize performance.
-3. **Relevant File Selection**: Ranks workspace files for a query so compressed context can focus on the files most likely to matter.
-4. **Repository Health Commands**: Added `glyph-compress doctor` and `glyph-compress benchmark` for repo readiness and trust metrics from the CLI.
-
-### 🔥 v0.8.0 (Reversible Compression & Source Maps)
-
-1. **Source Map API**: `compressText()` and `compressMessages()` now return a `sourceMap` with file refs, dynamic dictionary entries, diagnostics, code blocks, and replacements.
-2. **Reversible Dictionaries**: Added `getReversibleDictionaries()` for file paths, repeated identifiers, diagnostics, and summarized code blocks.
-3. **CLI Source Maps**: Added `glyph-compress --source-map` to print source map JSON alongside compressed output.
-4. **Round-Trip Coverage**: Added integration tests for source maps, dynamic dictionaries, CommonJS alignment, and CLI source-map output.
-
-### 🔥 v0.7.0 (Trust & Measurement)
-
-1. **Benchmark Harness**: Added `npm run benchmark` to compare original and compressed payloads across raw text, OpenAI, Anthropic, Gemini-compatible, and ultra-mode fixtures.
-2. **Trust Metrics**: The benchmark reports payload ratio, token savings, context fidelity score, edit success proxy, and hallucinated file references.
-3. **CLI Explain Mode**: Added `glyph-compress --explain` to show level behavior, indexed file refs, dynamic dictionary entries, and detected compression changes.
-4. **Fixture Coverage**: Added CLI trust-feature coverage to the integration suite.
-
-### 🔥 v0.6.1 (Packaging & VS Code Hardening)
-
-1. **Root API Alignment**: The documented `GlyphCompressor`, `wrapOpenAI`, and `wrapAnthropic` imports are now exported from the package root.
-2. **CommonJS Entry Point**: Added the missing CommonJS package entry so `require('glyph-compress')` works for CJS consumers.
-3. **VS Code Proxy Configuration**: The extension proxy now respects `glyphCompress.targetApiUrl` instead of using a hardcoded provider URL.
-4. **Opt-In Workspace Rules**: Automatic writes to `.cursorrules` and `.github/copilot-instructions.md` are gated behind `glyphCompress.autoUpdateWorkspaceRules`.
-
-For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
+For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
 ### 📏 Benchmark Snapshot (v1.30.0)
 
@@ -468,25 +251,10 @@ The current realistic benchmark shows a more nuanced picture than the synthetic 
 
 Use `npm run benchmark` as the stable regression benchmark and `npm run benchmark:realistic` when you want a more honest estimate of repository-scale and chat-payload behavior.
 
-### 🔥 v0.6.0 (Project "Rosetta")
-
-1. **Adaptive Payload Dictionary (APD)**: Analyzes term frequency in real-time and maps the highest token-consuming strings (classes, functions, variables) to a dynamic Unicode "Rosetta Stone" on the fly.
-2. **Semantic Context Elision (Blackout Algorithm)**: Intelligently analyzes user intent (e.g., "fix", "deploy"). The new `_elideIrrelevantContext` function strips the bodies of unrelated functions across massive payloads (`[✂]`), keeping structural signatures while slashing token noise.
-3. **Prompt Caching for Anthropic**: Automatic injection of `cache_control: { type: 'ephemeral' }` into the heaviest blocks of context (dictionary and files) to minimize repeated token costs and latency for Claude users.
-4. **Indentation Minification**: Converts spaces to tabs or strips them automatically to scale down structural byte and token counts before final compression.
-
-### ⚡ Previous Highlights (v0.5.x & Below)
-
-1. **Workspace Compression (VS Code & Antigravity)**: A brand new command `GlyphCompress: Compress Entire Workspace` scans your entire project, removes boilerplate, and generates a single semantic map (Level: Ultra) in an unsaved tab! Perfect for feeding massive architectures to Claude or Antigravity.
-2. **Zero-Command Transparent Proxy**: Intercept LLM API calls from your IDE (Continue, Cursor, Cline) automatically. No more shortcuts or copy-pasting—everything happens transparently in the background on `localhost:8080`.
-3. **Universal Syntax Minification**: The `aggressive` compression level now actively removes comments and blank lines for **C-family (JS, TS, C#, Java, C++, Go, Rust), Python, Ruby, HTML, and CSS**, slashing token counts drastically.
-4. **Google Gemini Native Support**: The proxy seamlessly reroutes OpenAI-formatted requests to Gemini's official `v1beta/openai` compatible endpoints.
-5. **Persistent Telemetry**: The VS Code extension tracks your *Lifetime Savings* across all sessions, showing exactly how many millions of tokens (and dollars) you've saved overall.
-
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1180) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1300) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
@@ -496,6 +264,18 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 | Debug Python ML pipeline | 1,925 chars | 249 chars | **7.7x** | 87% |
 | Create React form | 116 chars | 33 chars | **3.5x** | 72% |
 | **Average** | | | **9.3x** | **89%** |
+
+### 🆚 Compared to Alternatives
+
+Honest positioning, not a sales table — reproduce these numbers yourself with `npm run benchmark:alternatives` (full methodology in [docs/benchmark-methodology.md](docs/benchmark-methodology.md)).
+
+| Approach | Reversible? | Extra runtime? | Real measured result (this repo, 5 files, `js-tiktoken`) |
+|---|---|---|---|
+| **No compression** | Yes (nothing changes) | None | Exceeds budget on 4 of 5 real files tested at 500-4000 tokens. |
+| **Naive truncation** | **No** — cut content is gone permanently | None | The common real-world fallback. Retains 24%-64% of original content depending on budget. |
+| **Provider-side prompt caching** (Anthropic `cache_control`, OpenAI/Gemini implicit) | Yes | None | Complementary, not a substitute — reduces *cost* on repeated prefixes across turns, not the *token count* of new content. GlyphCompress stacks with it (see the Anthropic hybrid wrapper below). |
+| [**LLMLingua**](https://github.com/microsoft/LLMLingua) | No — model-based, lossy by design | Python runtime | Intentionally not benchmarked here — a genuinely relevant comparison, but a separate dependency decision for a Node.js project's tooling, documented rather than approximated. |
+| **GlyphCompress** | Yes — source-map decodable, trust-policy gated | None (pure JS/Node) | Ties naive truncation exactly on Unicode-light prose (correctly falls back rather than risking a real-token loss) and beats it by a measured margin on code-heavy files — e.g. 83% vs. 78% retained at a 4,000-token budget on `src/compressor.js`. |
 
 ## 🚀 Usage: Command Line (CLI)
 
