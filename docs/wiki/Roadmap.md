@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.28.0`: Anthropic Tokenizer Calibration & Comprehension Spot-Check.
+`v1.29.0`: Benchmark vs. Alternatives.
+
+## Delivered in v1.29.0
+
+- `npm run benchmark:alternatives` compares GlyphCompress against no-compression and naive truncation using real `js-tiktoken` token counts across five real repository files, with open methodology in `docs/benchmark-methodology.md`. No API key required.
+- LLMLingua is intentionally excluded (a Python dependency — a separate decision), documented plainly rather than approximated.
+- Caught a real math bug in the benchmark script's own formula before trusting its output — a case that silently collapsed to be identical to plain truncation, erasing any real signal.
+- Found (but has not yet fixed) a real bug in `src/token-estimator.js`: a flat per-non-ASCII-character penalty overestimates Unicode-heavy prose badly enough (40% on one file) that the compressor's own net-negative fallback can miss a genuine real-token regression — confirmed on this repository's own README and ROADMAP. Documented honestly, tracked as an open item.
+- 24 suites total, all passing.
 
 ## Delivered in v1.28.0
 

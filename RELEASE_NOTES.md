@@ -1,3 +1,27 @@
+## v1.29.0 — Benchmark vs. Alternatives
+
+A reproducible public benchmark comparing GlyphCompress against realistic alternatives, with open methodology.
+
+### `npm run benchmark:alternatives`
+- New `test/benchmark-alternatives.js` compares GlyphCompress against **no compression** and **naive truncation** — the two realistic alternatives available without a specialized dependency — across five real files from this repository (`README.md`, `ROADMAP.md`, `docs/architecture.md`, `src/compressor.js`, `src/workspace-intelligence.js`) at four token budgets (500/1000/2000/4000).
+- Token counts use real `js-tiktoken` (`o200k_base`, GPT-4o's tokenizer), not this project's internal character-count heuristic — consistent with the real-tokenizer-over-heuristic approach `test/tokenizer-calibration.js` already established.
+- Metric is deliberately narrow: at a fixed budget, what fraction of the *original* content survives? This does not claim better model answers — that requires real per-strategy LLM judging, still open under ROADMAP.md's `v1.22.0`. It does show, reproducibly, with no API key: naive truncation permanently deletes whatever doesn't fit; GlyphCompress shrinks the same information so more of it survives, when compression actually reduces real tokens for that content.
+- **LLMLingua intentionally excluded**: it's a Python library, and adding it means adding a Python runtime as a benchmark dependency — a separate decision, documented plainly in `docs/benchmark-methodology.md` rather than approximated.
+
+### Found While Building This
+- **A real bug in the benchmark script's own formula**, caught before trusting its output: the "compressed text still exceeds budget" case computed `budget/compressedTokens * compressedTokens/originalTokens`, which algebraically collapses to `budget/originalTokens` — identical to plain naive truncation, silently erasing any real GlyphCompress advantage. Caught by noticing the aggregate table showed a suspicious flat "+0%" advantage at every budget instead of scaling with each file's real compression ratio. Fixed to the correct `budget/compressedTokens`.
+- **A real, previously undetected bug in `src/token-estimator.js`**, found while validating the corrected numbers: `estimateProviderTokens()` adds a flat `+1.5` estimated-token penalty for every non-ASCII character, calibrated for the compressor's own rare multi-token Unicode glyphs but applied uniformly to any non-ASCII character — including cheap, common prose punctuation. This overestimates Unicode-heavy markdown badly enough (40% on `docs/architecture.md`: 746 heuristic vs. 532 real tokens) that the net-negative fallback safety net compares two inflated numbers and can miss a genuine regression — confirmed directly on this repository's own `README.md` and `ROADMAP.md`, both real-token-*larger* after compression despite `fallback: false`. Documented honestly in the benchmark's own output rather than hidden or worked around; **not yet fixed** — tracked in ROADMAP.md, since it touches the estimator every provider and compression call relies on.
+
+### Docs
+- New `docs/benchmark-methodology.md`: full methodology, what is and isn't claimed, the LLMLingua exclusion rationale, and the token-estimator finding above — with reproduction instructions (`npm run benchmark:alternatives`, no API key needed).
+
+### Tests & Verification
+- `test/benchmark-alternatives.js` is a reporting/comparison tool, not a pass/fail regression gate — deliberately excluded from `npm test`/`test/run-suites.js`, same as the existing `benchmark.js`/`benchmark-realistic.js` scripts.
+- **Complete Suite Validation**: 24 suites, all passing (unchanged — no compressor behavior changed in this release).
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.28.0 — Anthropic Tokenizer Calibration & Comprehension Spot-Check
 
 Completes real-tokenizer calibration and comprehension spot-checks across all three primary providers, using a live-provided Anthropic key.

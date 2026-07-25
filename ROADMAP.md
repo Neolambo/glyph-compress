@@ -14,7 +14,8 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 
 ## Current Stable Release
 
-- [x] Current stable release is `v1.28.0`: real Anthropic tokenizer calibration (28/28 `TECH_GLYPHS` are a net loss, the most extreme finding of the three providers) plus a third real LLM comprehension spot-check, against a real Claude model. This completes real-tokenizer calibration and comprehension evidence across all three primary providers. See "v1.28.0" below.
+- [x] Current stable release is `v1.29.0`: a reproducible public benchmark against no-compression and naive truncation (`npm run benchmark:alternatives`), using real `js-tiktoken` measurement. Building it caught a real bug in the benchmark script itself before trusting its output, and found (but did not yet fix) a real overestimation bug in `src/token-estimator.js`'s Unicode-glyph penalty. See "v1.29.0" below.
+- [x] `v1.28.0` added real Anthropic tokenizer calibration (28/28 `TECH_GLYPHS` are a net loss, the most extreme finding of the three providers) plus a third real LLM comprehension spot-check, against a real Claude model — completing real-tokenizer calibration and comprehension evidence across all three primary providers.
 - [x] `v1.27.0` added a real OpenAI comprehension spot-check (`gpt-4o-mini`), sibling to v1.26.0's Gemini one — same scenario, same checks, both passing.
 - [x] `v1.26.0` added real Gemini tokenizer calibration (same net-token-loss finding as OpenAI, now measured rather than assumed) plus the first LLM comprehension spot-check, against a real Gemini model.
 - [x] `v1.25.0` made the codebook header injected for OpenAI/Gemini a byte-identical, cacheable prefix once a session has assistant history, with a two-tier fallback so the larger header never costs more than it saves.
@@ -22,14 +23,14 @@ GlyphCompress should make large codebases cheaper, faster, and easier for LLMs t
 - [x] `v1.23.0` shipped Adaptive Workspace Memory — incremental codebook builds (reuse unchanged files by mtime instead of full re-parse) and usage-decay-weighted relevance ranking, both wired automatically into `GlyphCompressor.routeAndCompress()`.
 - [x] `v1.21.2` was a VS Code Marketplace listing fix (`vscode-ext/README.md` was missing entirely, so the Marketplace "Overview" tab was blank; also discovered the Marketplace had never received anything past `v1.12.0`, months behind this repository).
 - [x] `v1.21.1` was a critical packaging hotfix — the VS Code extension had been broken since `v1.17.0` (see below).
-- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.28.0`.
-- [x] npm `latest` is caught up to `1.26.0` as of this writing (`1.27.0`/`1.28.0` publication pending); `1.24.0`/`1.25.0` were deliberately left unpublished as a harmless historical gap since `latest` already carries their fixes. VS Code Marketplace publication of `v1.13.0`-`v1.28.0` is still pending on maintainer action.
-- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, code-minify-economics, context-router, mcp-server, team-codebook, logger, ast-spans, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.28.0` — `tech-glyph-economics` now has 87 assertions and `code-minify-economics` 24, covering all three providers. The calibration/comprehension scripts are deliberately excluded from `npm test` (they need a live API key and network access).
-- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release only changes which glyphs are skipped for the `anthropic` provider, mirroring the existing OpenAI/Gemini behavior.
+- [x] Root npm package, VS Code extension manifest, and VS Code extension lockfile are versioned to `1.29.0`.
+- [x] npm `latest` is caught up to `1.28.0`; `1.24.0`/`1.25.0`/`1.27.0` were left unpublished as a harmless historical gap since `latest` already carries their fixes. VS Code Marketplace publication of `v1.13.0`-`v1.29.0` is still pending on maintainer action.
+- [x] `npm test` passes 24 suites (unit, CLI, workspace, extension, proxy, metadata, snapshot, integration, holographic, intent, codebook-completeness, auto-level, cache-prefix-stability, tech-glyph-economics, code-minify-economics, context-router, mcp-server, team-codebook, logger, ast-spans, trust-warnings, npm-pack-smoke, adaptive-workspace-memory, anthropic-bridge) for `v1.29.0`. `test/benchmark-alternatives.js` is deliberately excluded, same as the existing `benchmark.js`/`benchmark-realistic.js` reporting scripts — it's a comparison tool, not a pass/fail regression gate.
+- [x] `npm run benchmark` reports 1.3x aggregate ratio, 22% genuine savings, 100% fidelity proxy, 100% edit success, and 0 hallucinated refs — unchanged; this release added a new comparison script, no compressor behavior changed.
 
 ## Prepared Next Release
 
-- [ ] Real-tokenizer calibration and single-scenario comprehension checks are now done across all three primary providers (OpenAI, Gemini, Anthropic). What remains of `v1.22.0` (real task evaluation) is broader/varied task scenarios and measuring task success on real repositories beyond this one curated bug-fix example — see the "Real Remaining Work" items below. No specific next release is queued; see Strategic Priorities for larger, judgment-call items (public benchmark vs. alternatives, JetBrains/Neovim plugins, hosted proxy, security audit, go-to-market content).
+- [ ] No specific next release is queued. Real-tokenizer calibration, single-scenario comprehension checks, and a public benchmark vs. alternatives are now done. What's concretely actionable next: fix the `src/token-estimator.js` Unicode-glyph overestimation bug found in v1.29.0 (see "Still Missing in Practice" below) — scoped, not yet started. Everything else remaining is either broader in scope (real task-success evaluation on varied scenarios/real repositories, `v1.22.0`) or a strategic call needing direction (JetBrains/Neovim plugins, hosted proxy, security audit, go-to-market content — see Strategic Priorities).
 
 ## Release Reality Check
 
@@ -57,6 +58,7 @@ This section separates what is actually complete from what remains useful future
 - [ ] Partial: `doctor` now validates repository basics plus installed VS Code extension version, local `glyphCompress.*` settings, Continue proxy config, and provider credential env vars when discoverable, but broader IDE/provider setup validation is still incomplete.
 - [ ] Partial: Proxy diagnostics now log upstream status, redacted error bodies, completed response byte counts, and early client disconnects, but structured log sinks, timestamps, and broader extension-side diagnostics are still missing.
 - [ ] Partial: Release notes can now be scaffolded from conventional commit subjects, but still need human curation before publication.
+- [ ] **Found while building `npm run benchmark:alternatives` (v1.29.0), not yet fixed**: `estimateProviderTokens()` in `src/token-estimator.js` adds a flat `+1.5` estimated-token penalty for *every* non-ASCII character, calibrated for the compressor's own rare multi-token Unicode substitution glyphs (`ℜ`, `𝒟`, `𝒦`, ...) but applied uniformly to any non-ASCII character, including cheap, common prose punctuation (em-dashes, curly quotes, emoji headers). Measured directly: this overestimates a real Unicode-heavy markdown file's cost by 40% (746 heuristic vs. 532 real `js-tiktoken` tokens for `docs/architecture.md`). Because `compressText()`'s net-negative fallback compares two heuristic numbers, not real ones, it can miss a genuine real-token regression on Unicode-rich prose — confirmed on this repository's own `README.md` and `ROADMAP.md`, both real-token-*larger* after compression despite `fallback: false`. `js-tiktoken` is a devDependency only (not shipped at runtime), so the fix is recalibrating the heuristic's per-glyph-family penalty, not adding a live tokenizer call — scoped but not yet started.
 
 ## Product Bets
 
@@ -433,6 +435,16 @@ Status: delivered.
 - [x] **Third real LLM comprehension spot-check** (`test/comprehension-check-anthropic.js`, dev-only/manual, `npm run check:comprehension:anthropic`): the same scenario as the Gemini/OpenAI sibling scripts, sent to a real `claude-haiku-4-5` model. All four checks passed — it correctly named `calculateTotal`/`OrderProcessor`, identified the discount bug, and (like OpenAI, since Anthropic's compression now also barely touches identifiers) proposed the most complete fix of the three providers, correctly implementing percentage-based discount logic.
 - [x] ROADMAP.md's tokenizer-calibration and "Real Task Evaluation" items now have real, reproducible evidence across all three primary providers (OpenAI, Gemini, Anthropic) using directly comparable methodology and scenarios.
 
+### v1.29.0: Benchmark vs. Alternatives
+
+Status: delivered.
+
+- [x] **`npm run benchmark:alternatives`** (`test/benchmark-alternatives.js`): compares GlyphCompress against no-compression and naive truncation — the two realistic alternatives available without a specialized dependency — using real `js-tiktoken` (`o200k_base`) token counts across five real files from this repository at four token budgets. Metric is deliberately narrow: at a fixed budget, what fraction of the *original* content survives? Naive truncation permanently deletes whatever is cut; GlyphCompress shrinks the same information so more of it fits, when compression actually reduces real tokens for that content.
+- [x] **LLMLingua intentionally excluded**: a Python library, and adding it means adding a Python runtime as a benchmark dependency — a separate decision, documented plainly in `docs/benchmark-methodology.md` rather than approximated or guessed at.
+- [x] **Caught a real bug in the benchmark script itself before trusting its output**: the first version's formula for "compressed text still exceeds budget" (`budget/compressedTokens * compressedTokens/originalTokens`) algebraically collapses to `budget/originalTokens` — identical to plain naive truncation — silently erasing any measurable GlyphCompress advantage whenever both strategies needed further truncation. Caught by noticing the aggregate table showed a suspicious flat "+0%" advantage at every budget instead of scaling with each file's real compression ratio. Fixed to the correct `budget/compressedTokens`.
+- [x] **Found a real, previously undetected bug in `src/token-estimator.js` while validating the benchmark's own numbers**: `estimateProviderTokens()`'s flat `+1.5`-per-non-ASCII-character penalty — calibrated for the compressor's own rare multi-token Unicode glyphs — is applied to *any* non-ASCII character, overestimating Unicode-heavy prose badly enough (40% on `docs/architecture.md`) that the net-negative fallback safety net can miss a genuine regression. Confirmed on this repository's own `README.md` and `ROADMAP.md`, both real-token-larger after compression despite `fallback: false`. Documented honestly in the benchmark output and methodology doc rather than hidden; tracked as a separate, not-yet-started fix in "Still Missing in Practice" above, since it touches the estimator every provider and call site relies on.
+- [x] `docs/benchmark-methodology.md` documents the full methodology, what is and isn't claimed (information survival, not answer quality — real task-success evaluation remains open under `v1.22.0`), and how to reproduce it with no API key.
+
 ## Repository Improvements
 
 ### Packaging
@@ -500,7 +512,7 @@ GlyphCompress competes against a moving target: providers are shipping native pr
 
 ### 2. Trust at Scale
 
-- [ ] Publish a reproducible public benchmark against known alternatives (LLMLingua, no compression, naive truncation) with open methodology.
+- [x] Partial (v1.29.0): `npm run benchmark:alternatives` (`test/benchmark-alternatives.js`, `docs/benchmark-methodology.md`) compares GlyphCompress against no-compression and naive truncation, using real `js-tiktoken` token counts, with open methodology and no API key required. LLMLingua is explicitly excluded (a Python dependency, a separate decision) rather than approximated. Building it surfaced a real bug in the token estimator — see "Real Remaining Work" below.
 - [ ] Commission a third-party security audit of the proxy (it intercepts real provider API keys) to unblock enterprise adoption beyond self-reported SECURITY.md/PRIVACY.md.
 
 ### 3. Distribution Beyond VS Code
