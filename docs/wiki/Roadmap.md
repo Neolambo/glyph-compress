@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.30.1`: Documentation & Repository Layout.
+`v1.31.0`: MCP Registry Manifest.
+
+## Delivered in v1.31.0
+
+- Added `server.json` for MCP registry auto-discovery.
+- Since this npm package has two bins (CLI and MCP server) and the registry schema has no field to pick a non-default one, added an `mcp` CLI subcommand (`npx glyph-compress mcp`) instead of publishing a second package.
+- `package.json` gained `mcpName` for registry ownership verification.
+- New tests: the `mcp` subcommand driven through a real MCP client, and `server.json`/`package.json` consistency guarded against drift.
+- 26 suites total, all passing.
 
 ## Delivered in v1.30.1
 

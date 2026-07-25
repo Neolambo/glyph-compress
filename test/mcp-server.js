@@ -23,6 +23,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const serverPath = fileURLToPath(new URL('../bin/mcp-server.js', import.meta.url));
+const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 
 let passed = 0;
 let failed = 0;
@@ -102,6 +103,23 @@ await test('get_codebook returns the protocol prompt', async () => {
 });
 
 await client.close();
+
+await test('`glyph-compress mcp` (the registry-invocable subcommand in server.json) starts the same server as the dedicated glyph-compress-mcp bin', async () => {
+  const subcommandTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [cliPath, 'mcp'],
+    cwd: root,
+  });
+  const subcommandClient = new Client({ name: 'glyph-compress-test-client-subcommand', version: '1.0.0' });
+  try {
+    await subcommandClient.connect(subcommandTransport);
+    const { tools } = await subcommandClient.listTools();
+    const names = tools.map((t) => t.name).sort();
+    assert.deepStrictEqual(names, ['compress_file', 'compress_text', 'get_codebook', 'route_context']);
+  } finally {
+    await subcommandClient.close();
+  }
+});
 
 console.log(`\nmcp-server: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

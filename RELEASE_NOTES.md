@@ -1,3 +1,23 @@
+## v1.31.0 — MCP Registry Manifest
+
+Adds `server.json` for [MCP registry](https://github.com/modelcontextprotocol/registry) auto-discovery, found while reviewing repository layout for professionalism gaps.
+
+### The Problem
+- The registry's `server.json` schema has no field to select a non-default bin when a package publishes more than one — it assumes `npx <identifier>` resolves to the right one. This package has two: `glyph-compress` (CLI) and `glyph-compress-mcp` (MCP server). A `server.json` naively pointing at the bare package identifier would make the registry invoke the CLI, not the MCP server.
+
+### The Fix — No Second Package
+- Added an `mcp` CLI subcommand: `npx glyph-compress mcp` starts the exact same stdio server as the dedicated `npx glyph-compress-mcp` bin (delegates via dynamic `import('./mcp-server.js')`), following the same recognized-subcommand pattern already used for `inspect`/`doctor`/`benchmark`/`route`/`team-codebook`.
+- `server.json`'s `packages[0].packageArguments` passes the `mcp` positional argument, matching the documented pattern for packages that need a fixed argument to reach MCP mode (the same convention the registry's own NuGet example uses).
+- `package.json` gained `"mcpName": "io.github.Neolambo/glyph-compress"`, matching `server.json`'s `name` field, for the registry's ownership-verification step.
+
+### Tests & Verification
+- `test/mcp-server.js` gained a real end-to-end check: `bin/cli.js mcp` spawned as a child process, driven through the official MCP SDK client, must expose the same four tools as the dedicated bin.
+- `test/metadata.js` gained drift guards: `package.json.mcpName` must match `server.json.name`; `server.json`'s npm package `identifier`/`version` must match `package.json`; `server.json` must be in the npm `files` allowlist; `packageArguments` must include the `mcp` positional.
+- **Complete Suite Validation**: 26 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run) — confirmed `server.json` is included in the published tarball.
+
+***
+
 ## v1.30.1 — Documentation & Repository Layout
 
 Documentation-only release, prompted by a repository-layout review against other mature open-source READMEs. No runtime/compressor behavior changed — `npm run benchmark` numbers are identical to v1.30.0.

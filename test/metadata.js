@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('..', import.meta.url));
 const pkg = require('../package.json');
 const extPkg = require('../vscode-ext/package.json');
+const serverJson = require('../server.json');
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const vscodeSettingsSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'vscode-settings.snapshot.json'), 'utf8'));
 const readmeLinksSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'readme-links.snapshot.json'), 'utf8'));
@@ -56,5 +57,17 @@ for (const link of readmeLinksSnapshot.mustExclude) {
 
 assert(readme.includes('~/.continue/config.yaml'), 'README should document Continue config.yaml');
 assert(!readme.includes('~/.continue/config.json'), 'README should not point to stale Continue config.json');
+
+assert(pkg.mcpName === serverJson.name, 'package.json mcpName must match server.json name (MCP registry ownership verification)');
+assert(serverJson.version === pkg.version, 'server.json version should track the current release');
+assert(pkg.files.includes('server.json'), 'server.json should be published in the npm package');
+const mcpPackageEntry = serverJson.packages?.find((p) => p.registryType === 'npm');
+assert(mcpPackageEntry, 'server.json should declare an npm package entry');
+assert(mcpPackageEntry.identifier === pkg.name, 'server.json npm package identifier must match package.json name');
+assert(mcpPackageEntry.version === pkg.version, 'server.json npm package version should track the current release');
+assert(
+  mcpPackageEntry.packageArguments?.some((a) => a.type === 'positional' && a.value === 'mcp'),
+  'server.json must pass the "mcp" positional argument — plain `npx glyph-compress` resolves to the CLI bin, not the MCP server, since both share the same package',
+);
 
 console.log('metadata suite ok');

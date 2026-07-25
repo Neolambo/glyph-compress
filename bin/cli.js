@@ -47,7 +47,7 @@ let logFile = null;
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
-  if (!command && ['inspect', 'doctor', 'benchmark', 'route', 'team-codebook'].includes(arg)) {
+  if (!command && ['inspect', 'doctor', 'benchmark', 'route', 'team-codebook', 'mcp'].includes(arg)) {
     command = arg;
   } else if (arg === '--level' || arg === '-l') {
     level = args[++i];
@@ -101,6 +101,7 @@ Commands:
   team-codebook show    Print the shared team codebook (glyphcompress.team.json), if any
   team-codebook sync    Promote this machine's locally-learned dynamic dictionary into
                         glyphcompress.team.json for the whole team (commit it to git)
+  mcp                   Start the MCP stdio server (same as npx glyph-compress-mcp)
 
 Options:
   -l, --level <level>   Compression level: light, standard, aggressive, ultra, auto (default: standard)
@@ -129,7 +130,16 @@ Options:
   }
 }
 
-if (command) {
+if (command === 'mcp') {
+  // Delegates to bin/mcp-server.js so both `npx glyph-compress-mcp` (the
+  // dedicated bin) and `npx glyph-compress mcp` (a single-bin-resolvable
+  // subcommand, needed for MCP registry auto-discovery — see server.json)
+  // start the exact same stdio server.
+  import('./mcp-server.js').catch((err) => {
+    console.error('Failed to start MCP server:', err);
+    process.exit(1);
+  });
+} else if (command) {
   runCommand(command, args, { jsonOutput, level, provider, trustPolicy, tokenBudget, maxFiles, gitDiffOnly });
 } else if (startProxy) {
   import('../src/proxy.js').then(({ startProxyServer }) => {

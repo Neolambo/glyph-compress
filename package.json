@@ -1,7 +1,8 @@
 {
   "name": "glyph-compress",
-  "version": "1.30.1",
+  "version": "1.31.0",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs — CLI, MCP server, and VS Code extension, with a Context Router, team-shared dictionaries, and compression calibrated against real provider tokenizers.",
+  "mcpName": "io.github.Neolambo/glyph-compress",
   "type": "module",
   "bin": {
     "glyph-compress": "bin/cli.js",
@@ -35,6 +36,7 @@
     "vscode-ext/package.json",
     "README.md",
     "ROADMAP.md",
+    "server.json",
     "LICENSE",
     "COMMERCIAL_LICENSE.md",
     "NOTICE",
