@@ -3,7 +3,16 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.30.0`: Token Estimator Accuracy Fix.
+`v1.30.1`: Documentation & Repository Layout.
+
+## Delivered in v1.30.1
+
+- Documentation-only release, prompted by a repository-layout review against other mature open-source READMEs. No runtime/compressor behavior changed.
+- Removed the long per-version changelog archive from `README.md` (history now lives only in GitHub Releases/`RELEASE_NOTES.md`).
+- Added a quick-nav link row, a "When to Use / When to Skip" section, a "Compared to Alternatives" table (backed by real `benchmark:alternatives` numbers), and a comprehension-check "Proof" table.
+- Wrapped Advanced Features, Project Structure, and Theory in collapsible `<details>` blocks.
+- Added a root-level `llms.txt` for AI-agent discoverability and `CODE_OF_CONDUCT.md`.
+- 25 suites total, all passing (unchanged).
 
 ## Delivered in v1.30.0
 

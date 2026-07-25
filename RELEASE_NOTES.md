@@ -1,3 +1,25 @@
+## v1.30.1 — Documentation & Repository Layout
+
+Documentation-only release, prompted by a repository-layout review against other mature open-source READMEs. No runtime/compressor behavior changed — `npm run benchmark` numbers are identical to v1.30.0.
+
+### README Cleanup
+- Removed the ~260-line per-version "New in vX.Y.Z" changelog archive (v0.6.0 → v1.29.0) that duplicated GitHub Releases/`RELEASE_NOTES.md`. README now keeps only the current release's entry with a pointer to full history.
+
+### Professionalism Improvements (Gap Analysis vs. Other Mature OSS READMEs)
+- Quick-nav link row under the badges (Quick Start · CLI · MCP Server · When to Use/Skip · Benchmarks · Releases · Roadmap · llms.txt · License).
+- New "🧭 When to Use GlyphCompress (and When to Skip It)" section — an honest, direct statement of good-fit and weak-fit scenarios, not just best-case marketing.
+- New "🆚 Compared to Alternatives" table (no compression, naive truncation, provider-side caching, LLMLingua, GlyphCompress) backed by real `npm run benchmark:alternatives` numbers.
+- New "🔎 Proof: Comprehension Preserved on Real Models" table, surfacing the real Gemini/OpenAI/Anthropic comprehension-check results (v1.26.0-v1.28.0) that were previously only in `RELEASE_NOTES.md`.
+- Collapsible `<details>` blocks for Advanced Features, Project Structure, and Theory — keeps the main scroll scannable while preserving depth.
+- New root-level `llms.txt` for AI-agent discoverability, and `CODE_OF_CONDUCT.md` (linked from `CONTRIBUTING.md` and README, included in the npm package).
+
+### Tests & Verification
+- `test/metadata.js` extended to guard the existence of `llms.txt` and `CODE_OF_CONDUCT.md`.
+- **Complete Suite Validation**: 25 suites, all passing (unchanged — no compressor behavior changed).
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.30.0 — Token Estimator Accuracy Fix
 
 Fixes the `src/token-estimator.js` bug found while building v1.29.0's benchmark — it turned out to be two compounding issues, not one.
