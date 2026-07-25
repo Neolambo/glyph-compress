@@ -186,10 +186,14 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
+### New in v1.30.0 (Token Estimator Accuracy Fix)
+
+Fixes the `src/token-estimator.js` bug found while building v1.29.0's benchmark below — it turned out to be two compounding issues. **(1)** An uncalibrated, double-counting Unicode penalty (fixed with codepoint-aware counting and class-calibrated costs). **(2)** The larger issue: OpenAI's base `charsPerToken` was only accurate for code, not prose — recalibrated to `4.2`, the char-weighted blended average across five real repository files, measured with real `js-tiktoken`. **(3)** Even recalibrated, a single heuristic number wasn't reliable enough on marginal content, so the net-negative fallback now requires a real 10% measured improvement, not just any nonzero one. Also found and fixed a third, unrelated bug while verifying this: `src/token-estimator.cjs` (used by the root package's CJS entry point) was never rebuilt by the build script at all. All three files that previously showed a masked real-token regression (`README.md`, `ROADMAP.md`, `docs/architecture.md`) now correctly fall back instead. New `test/token-estimator-accuracy.js` (13 tests). Full writeup in [docs/benchmark-methodology.md](docs/benchmark-methodology.md) and `RELEASE_NOTES.md`.
+
 ### New in v1.29.0 (Benchmark vs. Alternatives)
 
 1. **`npm run benchmark:alternatives`**: a reproducible public comparison against no-compression and naive truncation — the two realistic alternatives available without a specialized dependency — using real `js-tiktoken` token counts across five real repository files at four token budgets. Metric: at a fixed budget, what fraction of the *original* content survives? Naive truncation permanently deletes whatever's cut; GlyphCompress shrinks the same information so more of it fits, when compression actually reduces real tokens for that content. Full methodology, including what is and isn't claimed, in [docs/benchmark-methodology.md](docs/benchmark-methodology.md). **LLMLingua is intentionally excluded** — a Python library, a separate dependency decision, documented rather than approximated.
-2. **Found while building it, not yet fixed**: `src/token-estimator.js`'s flat per-non-ASCII-character penalty overestimates Unicode-heavy prose (emoji headers, em-dashes) badly enough that the compressor's own net-negative fallback can miss a genuine real-token regression — confirmed on this repository's own README and ROADMAP. See the methodology doc and ROADMAP.md for the full root-cause writeup; tracked as an open, scoped fix.
+2. **Found while building it, fixed in v1.30.0 above**: `src/token-estimator.js`'s flat per-non-ASCII-character penalty overestimated Unicode-heavy prose badly enough that the compressor's own net-negative fallback could miss a genuine real-token regression — confirmed on this repository's own README and ROADMAP.
 
 ### New in v1.28.0 (Anthropic Tokenizer Calibration & Comprehension Spot-Check)
 
@@ -437,7 +441,7 @@ This release fixes real correctness gaps found during an audit of the compressio
 
 For future release planning and repository improvement priorities, see the [GlyphCompress Roadmap](ROADMAP.md). For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.29.0)
+### 📏 Benchmark Snapshot (v1.30.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 

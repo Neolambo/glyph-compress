@@ -322,6 +322,11 @@ function selectCompressionLevel(text) {
   if (codeRatio >= 0.3) return "aggressive";
   return "standard";
 }
+var FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
+function isCompressionTrusted(compTokens, origTokens, provider) {
+  if (provider === "raw") return true;
+  return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
+}
 var ERROR_PATTERNS = [
   [/Property '(\w+)' does not exist on type '(\w+)'/g, "'$1'\u2209$2"],
   [/Type '(\w+)' is not assignable to type '(\w+)'/g, "$1\u2209\u2192$2"],
@@ -716,11 +721,11 @@ var GlyphCompressor = class {
     };
     let finalMessages = buildWithCodebook(false);
     let compTokens = this._estimateTokens(finalMessages, provider);
-    let fallback = this.provider !== "raw" && compTokens >= origTokens;
+    let fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
     if (fallback) {
       const filteredMessages = buildWithCodebook(true);
       const filteredTokens = this._estimateTokens(filteredMessages, provider);
-      if (filteredTokens < origTokens) {
+      if (isCompressionTrusted(filteredTokens, origTokens, this.provider)) {
         finalMessages = filteredMessages;
         compTokens = filteredTokens;
         fallback = false;
@@ -811,7 +816,7 @@ var GlyphCompressor = class {
     const origTokens = this._estimateTokens([{ content: text }], this.provider);
     const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
     this.level = configuredLevel;
-    const fallback = this.provider !== "raw" && compTokens >= origTokens;
+    const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
     const finalCompressed = fallback ? text : compressed;
     const finalCompTokens = fallback ? origTokens : compTokens;
     this.stats.totalOriginalTokens += origTokens;
@@ -1195,7 +1200,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.29.0",
+      version: "1.30.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1459,20 +1464,16 @@ ${dynLine}` : "";
       }
     }
   }
-  // Non-ASCII penalty applies per non-ASCII character, not per glyph
-  // character overall — a glyph like §₍12₎ mixes one non-ASCII marker with
-  // ASCII digits, and blanket-penalizing every character in it (the
-  // previous formula) overstated its cost.
+  // Delegates to the shared, measured implementation in
+  // src/token-estimator.js (see estimateGlyphTokenCost there for the real
+  // per-character-class calibration) rather than a second, independently
+  // drifting copy of the same heuristic.
   _estimateGlyphTokenCost(glyph, charsPerToken) {
-    let nonAsciiCount = 0;
-    for (let i = 0; i < glyph.length; i++) {
-      if (glyph.charCodeAt(i) > 127) nonAsciiCount++;
-    }
-    return glyph.length / charsPerToken + 1.5 * nonAsciiCount;
+    return (0, import_token_estimator.estimateGlyphTokenCost)(glyph, charsPerToken);
   }
   _applyDynamicDictionary(text) {
     let result = text;
-    const charsPerToken = { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4;
+    const charsPerToken = import_token_estimator.PROVIDER_TOKEN_PROFILES[(0, import_token_estimator.normalizeProvider)(this.provider)].charsPerToken;
     for (const [word, glyph] of this.dynamicDict) {
       const origTokenCost = word.length / charsPerToken;
       const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
@@ -1516,7 +1517,7 @@ ${dynLine}` : "";
   _compressTechNames(text) {
     let result = text;
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
-    const charsPerToken = this.providerProfile ? { raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4 : 4;
+    const charsPerToken = import_token_estimator.PROVIDER_TOKEN_PROFILES[(0, import_token_estimator.normalizeProvider)(this.provider)].charsPerToken;
     for (const [name, glyph] of entries) {
       let skip;
       if (this.provider === "openai" && MEASURED_TECH_GLYPH_TOKENS_OPENAI[name]) {

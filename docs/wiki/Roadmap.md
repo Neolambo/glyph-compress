@@ -3,7 +3,16 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.29.0`: Benchmark vs. Alternatives.
+`v1.30.0`: Token Estimator Accuracy Fix.
+
+## Delivered in v1.30.0
+
+- Fixed two compounding bugs in `src/token-estimator.js` found while validating v1.29.0's benchmark: an uncalibrated, double-counting Unicode-glyph penalty, and — the larger issue — a base `charsPerToken` ratio only accurate for code, not prose (some affected files have zero non-ASCII characters at all, so the Unicode bug alone couldn't explain the overestimate). Both recalibrated against real `js-tiktoken` measurement.
+- Added a fallback safety margin: even fully recalibrated, the heuristic's before/after ratio still overstated real improvement by ~10-14%, so compression now needs a real 10% measured improvement to be trusted, not just any nonzero one.
+- Found and fixed a third, unrelated bug while verifying the fix reached the built output: `src/token-estimator.cjs` (used by the root package's CJS entry point) was never rebuilt by the build script at all — same class of drift bug as earlier packaging issues in this project's history.
+- All three previously-affected files (`README.md`, `ROADMAP.md`, `docs/architecture.md`) now correctly fall back instead of silently sending real-token-worse output.
+- New `test/token-estimator-accuracy.js` (13 tests); verified every fix actually fails without it before trusting it.
+- 25 suites total, all passing.
 
 ## Delivered in v1.29.0
 

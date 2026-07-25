@@ -27,6 +27,7 @@ const suites = [
   ['npm-pack-smoke', 'test/npm-pack-smoke.js'],
   ['adaptive-workspace-memory', 'test/adaptive-workspace-memory.js'],
   ['anthropic-bridge', 'test/anthropic-bridge.js'],
+  ['token-estimator-accuracy', 'test/token-estimator-accuracy.js'],
 ];
 
 for (const [name, file] of suites) {

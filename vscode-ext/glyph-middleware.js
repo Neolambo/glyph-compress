@@ -23,7 +23,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { estimateProviderTokens, normalizeProvider } from '../src/token-estimator.js';
+import { estimateProviderTokens, normalizeProvider, estimateGlyphTokenCost, PROVIDER_TOKEN_PROFILES } from '../src/token-estimator.js';
 import { routeContext, recordFileUsage } from '../src/workspace-intelligence.js';
 import { loadTeamCodebook } from '../src/team-codebook.js';
 
@@ -210,6 +210,28 @@ function selectCompressionLevel(text) {
   if (codeRatio >= 0.55 && trimmed.length > 600) return 'ultra';
   if (codeRatio >= 0.3) return 'aggressive';
   return 'standard';
+}
+
+// No runtime heuristic (no live tokenizer call is made at compression
+// time — see src/token-estimator.js) can be exactly right for every
+// content type. Even after recalibrating that estimator against real
+// js-tiktoken measurements (docs/benchmark-methodology.md), the
+// ORIGINAL-vs-COMPRESSED *ratio* it reports still overstated real
+// improvement by roughly 10-14% across five representative repository
+// files — three of which the heuristic reported as a net improvement
+// while the real, js-tiktoken-measured token count was actually worse.
+// A bare `compressed < original` comparison isn't a reliable enough
+// signal on marginal content to back the "never net-negative, fallback
+// protects this" guarantee documented throughout this project (see
+// test/tech-glyph-economics.js, test/code-minify-economics.js). Requiring
+// a real margin — not just any nonzero heuristic improvement — rejects
+// marginal "wins" that fall inside the estimator's own measured noise
+// band, while still accepting compressions with a comfortable margin.
+const FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
+
+function isCompressionTrusted(compTokens, origTokens, provider) {
+  if (provider === 'raw') return true;
+  return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
 }
 
 const ERROR_PATTERNS = [
@@ -619,7 +641,7 @@ class GlyphCompressor {
 
     let finalMessages = buildWithCodebook(false);
     let compTokens = this._estimateTokens(finalMessages, provider);
-    let fallback = this.provider !== 'raw' && compTokens >= origTokens;
+    let fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
 
     // The cache-stable codebook (see _injectCodebook) trades a larger,
     // fixed header for a byte-identical prefix a provider can cache across
@@ -632,7 +654,7 @@ class GlyphCompressor {
     if (fallback) {
       const filteredMessages = buildWithCodebook(true);
       const filteredTokens = this._estimateTokens(filteredMessages, provider);
-      if (filteredTokens < origTokens) {
+      if (isCompressionTrusted(filteredTokens, origTokens, this.provider)) {
         finalMessages = filteredMessages;
         compTokens = filteredTokens;
         fallback = false;
@@ -747,7 +769,7 @@ class GlyphCompressor {
     // always-compress behavior (it exists specifically to report raw
     // character-level deltas), matching the same provider guard already
     // used for the messages path and per-glyph breakeven checks.
-    const fallback = this.provider !== 'raw' && compTokens >= origTokens;
+    const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
     const finalCompressed = fallback ? text : compressed;
     const finalCompTokens = fallback ? origTokens : compTokens;
 
@@ -1208,7 +1230,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.29.0',
+      version: '1.30.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1623,21 +1645,17 @@ class GlyphCompressor {
     }
   }
 
-  // Non-ASCII penalty applies per non-ASCII character, not per glyph
-  // character overall — a glyph like §₍12₎ mixes one non-ASCII marker with
-  // ASCII digits, and blanket-penalizing every character in it (the
-  // previous formula) overstated its cost.
+  // Delegates to the shared, measured implementation in
+  // src/token-estimator.js (see estimateGlyphTokenCost there for the real
+  // per-character-class calibration) rather than a second, independently
+  // drifting copy of the same heuristic.
   _estimateGlyphTokenCost(glyph, charsPerToken) {
-    let nonAsciiCount = 0;
-    for (let i = 0; i < glyph.length; i++) {
-      if (glyph.charCodeAt(i) > 127) nonAsciiCount++;
-    }
-    return glyph.length / charsPerToken + 1.5 * nonAsciiCount;
+    return estimateGlyphTokenCost(glyph, charsPerToken);
   }
 
   _applyDynamicDictionary(text) {
     let result = text;
-    const charsPerToken = ({ raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4);
+    const charsPerToken = PROVIDER_TOKEN_PROFILES[normalizeProvider(this.provider)].charsPerToken;
     for (const [word, glyph] of this.dynamicDict) {
       const origTokenCost = word.length / charsPerToken;
       const glyphTokenCost = this._estimateGlyphTokenCost(glyph, charsPerToken);
@@ -1683,7 +1701,7 @@ class GlyphCompressor {
   _compressTechNames(text) {
     let result = text;
     const entries = Object.entries(TECH_GLYPHS).sort((a, b) => b[0].length - a[0].length);
-    const charsPerToken = this.providerProfile ? ({ raw: 4, openai: 3.8, anthropic: 3.5, gemini: 4, local: 4 }[this.provider] || 4) : 4;
+    const charsPerToken = PROVIDER_TOKEN_PROFILES[normalizeProvider(this.provider)].charsPerToken;
     for (const [name, glyph] of entries) {
       let skip;
       if (this.provider === 'openai' && MEASURED_TECH_GLYPH_TOKENS_OPENAI[name]) {

@@ -11,6 +11,7 @@ const middlewareJs = path.join(rootDir, 'vscode-ext', 'glyph-middleware.js');
 const middlewareCjs = path.join(rootDir, 'vscode-ext', 'glyph-middleware.cjs');
 const estimatorJs = path.join(rootDir, 'src', 'token-estimator.js');
 const estimatorCjs = path.join(rootDir, 'vscode-ext', 'token-estimator.cjs');
+const estimatorCjsSrc = path.join(rootDir, 'src', 'token-estimator.cjs');
 const alphabetJs = path.join(rootDir, 'src', 'radical-alphabet.js');
 const alphabetCjs = path.join(rootDir, 'src', 'radical-alphabet.cjs');
 const compressorJs = path.join(rootDir, 'src', 'compressor.js');
@@ -29,8 +30,17 @@ const proxyCjs = path.join(rootDir, 'vscode-ext', 'proxy.js');
 console.log('Building middleware & core (CJS & ESM)...');
 
 try {
-  // 1. Build token-estimator.cjs
+  // 1. Build token-estimator.cjs — both the vscode-ext/ copy the packaged
+  // VSIX needs and src/token-estimator.cjs, which src/index.cjs (the root
+  // package's CJS entry point) requires directly. The src/ copy was never
+  // rebuilt by this script at all until this was found: a real drift bug
+  // where src/token-estimator.cjs could silently fall out of sync with
+  // src/token-estimator.js, the same class of issue as the vscode-ext/
+  // proxy.js and CJS-export-shim drift bugs found earlier — caught while
+  // verifying the Unicode token-estimation fix actually took effect in the
+  // built CJS output, not just the ESM source.
   execSync(`npx esbuild "${estimatorJs}" --platform=node --format=cjs --outfile="${estimatorCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${estimatorJs}" --platform=node --format=cjs --outfile="${estimatorCjsSrc}"`, { stdio: 'inherit' });
 
   // 2. Build core files to CJS
   execSync(`npx esbuild "${alphabetJs}" --platform=node --format=cjs --bundle --outfile="${alphabetCjs}"`, { stdio: 'inherit' });

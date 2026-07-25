@@ -1,3 +1,29 @@
+## v1.30.0 — Token Estimator Accuracy Fix
+
+Fixes the `src/token-estimator.js` bug found while building v1.29.0's benchmark — it turned out to be two compounding issues, not one.
+
+### Two Compounding Bugs, Both Fixed
+- **An uncalibrated, double-counting Unicode penalty.** `estimateProviderTokens()` added a flat `+1.5` penalty per non-ASCII *UTF-16 code unit*, calibrated for the compressor's own rare multi-token substitution glyphs but applied to any non-ASCII character (including cheap, common prose punctuation), and double-counted every astral-plane character (surrogate pairs are 2 UTF-16 units but 1 codepoint). Fixed with codepoint-aware counting and separately calibrated penalties for BMP vs. astral-plane characters, measured live against real `js-tiktoken` output.
+- **The larger issue: a base `charsPerToken` constant only accurate for code.** OpenAI's `3.8` matched real code (measured: ~3.8-3.9) but badly underestimated real tokenizer efficiency on prose (measured: ~4.2-5.3). `docs/architecture.md` has *zero* non-ASCII characters, so the Unicode bug alone couldn't explain its ~40% overestimate — the base ratio itself was wrong. Recalibrated to `4.2`, the character-weighted blended average across five real repository files.
+
+### A Third, Structural Fix
+- Even fully recalibrated, the heuristic's ORIGINAL-vs-COMPRESSED *ratio* still overstated real improvement by ~10-14% across the same five files — no flat, no-live-tokenizer heuristic can be exactly right for every content type. `compressText()`/`compressMessages()`'s net-negative fallback now requires a real 10% heuristic-measured improvement (not just any nonzero one) before trusting a compression, closing the gap a single point comparison couldn't.
+
+### Found While Fixing This
+- **A third, unrelated bug**, found while verifying the fix actually reached the built CJS output: `src/token-estimator.cjs` (which `src/index.cjs`, the root package's CJS entry point, requires directly) was never rebuilt by `scripts/build-middleware.js` at all — only the separate `vscode-ext/token-estimator.cjs` copy was. Same class of drift bug as `vscode-ext/proxy.js` and the CJS export shim found earlier in this project's history. Fixed: both copies now build from the same source every time.
+- Also deduplicated two more independently-drifted hardcoded `charsPerToken` lookup tables inside `GlyphCompressor` itself, both already out of sync with the canonical values — now delegate to the single source of truth instead of maintaining their own copies.
+
+### Real-World Effect
+All three fixtures that previously showed a masked real-token regression (`README.md`, `ROADMAP.md`, `docs/architecture.md`) now correctly trigger `fallback: true`, sending the original unchanged instead of silently sending something worse. `npm run benchmark:alternatives`'s reported aggregate advantage dropped slightly — from partially reporting fake wins to a smaller, now fully honest number.
+
+### Tests & Verification
+- New `test/token-estimator-accuracy.js` (13 tests): Unicode codepoint-counting correctness, real-`js-tiktoken` cross-checks against a 30%-error ceiling (down from ~40%+ pre-fix), end-to-end checks that `GlyphCompressor` never sends real-token-worse output for the three previously-affected files, confirmation genuinely good code compressions still pass through unaffected, and a build-pipeline consistency guard.
+- Verified every fix has real bite: reverted each change (the estimator/margin logic, and separately the build-pipeline fix) and confirmed the new tests fail without it, before restoring and re-verifying.
+- **Complete Suite Validation**: 25 suites, all passing.
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.29.0 — Benchmark vs. Alternatives
 
 A reproducible public benchmark comparing GlyphCompress against realistic alternatives, with open methodology.
