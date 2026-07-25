@@ -171,6 +171,9 @@ Here is what a typical compressed session telemetry looks like:
 
 GlyphCompress includes state-of-the-art context optimization layers designed for large, multi-turn, and multi-file developer workflows.
 
+<details>
+<summary><strong>Show all 4 advanced features in detail</strong> (Holographic Folding, Intent Diffs, Attentional Decay, Team Codebook Registry)</summary>
+
 ### 1. Holographic Context Folding (v1.15.0)
 Holographic Folding analyzes import relationships across multiple files in your prompt. Instead of sending repetitive, boilerplated imports for each file, it extracts them into a single `Base` shared header and presents the files as structured overlays:
 * **How it works**: Detects mutual dependencies and group-folds files that share imports.
@@ -212,6 +215,8 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 * **How it works**: `glyphcompress.team.json` — a small, git-committable file at the workspace root (unlike the gitignored `.glyphcompress/` cache dir) — lists dictionary entries in priority order. Every `GlyphCompressor` instance seeds its `§N` indices from it before any per-session learning happens.
 * **Workflow**: `glyph-compress team-codebook sync` promotes this machine's locally-learned dictionary into the shared file; commit it to git so the whole team (and every CLI/MCP/proxy entry point) assigns the same glyph to the same word.
 * **Activation**: Automatic once `glyphcompress.team.json` exists at the workspace root — no flag needed. Inspect with `glyph-compress team-codebook show`.
+
+</details>
 
 ***
 
@@ -276,6 +281,18 @@ Honest positioning, not a sales table — reproduce these numbers yourself with 
 | **Provider-side prompt caching** (Anthropic `cache_control`, OpenAI/Gemini implicit) | Yes | None | Complementary, not a substitute — reduces *cost* on repeated prefixes across turns, not the *token count* of new content. GlyphCompress stacks with it (see the Anthropic hybrid wrapper below). |
 | [**LLMLingua**](https://github.com/microsoft/LLMLingua) | No — model-based, lossy by design | Python runtime | Intentionally not benchmarked here — a genuinely relevant comparison, but a separate dependency decision for a Node.js project's tooling, documented rather than approximated. |
 | **GlyphCompress** | Yes — source-map decodable, trust-policy gated | None (pure JS/Node) | Ties naive truncation exactly on Unicode-light prose (correctly falls back rather than risking a real-token loss) and beats it by a measured margin on code-heavy files — e.g. 83% vs. 78% retained at a 4,000-token budget on `src/compressor.js`. |
+
+### 🔎 Proof: Comprehension Preserved on Real Models
+
+Token savings are meaningless if the model can no longer understand the compressed context. The same bug-fix scenario — compressed exactly as the CLI actually sends it (full codebook + dynamic dictionary, not a simplified version) — was sent to a real model from each of the three primary providers and checked for whether it could still name the actual function/class (decoded from `§N` glyphs) and correctly describe the bug, without hallucinating:
+
+| Provider | Model | Named the function/class correctly | Identified the actual bug | Fix quality |
+|---|---|---|---|---|
+| Gemini | `gemini-2.5-flash-lite` | ✅ `calculateTotal`/`OrderProcessor` | ✅ | *(comprehension check only, no fix requested)* |
+| OpenAI | `gpt-4o-mini` | ✅ `calculateTotal`/`OrderProcessor` | ✅ | Reproduced the original code verbatim plus a working fix — OpenAI's measured-loss gating means compression barely touches identifiers on this provider. |
+| Anthropic | `claude-haiku-4-5` | ✅ `calculateTotal`/`OrderProcessor` | ✅ | Most complete of the three: correct percentage-based discount logic, not just a flat subtraction. |
+
+**Honest scope**: one scenario, one comprehension check per provider — a first, honestly-scoped step, not a statistical benchmark. These scripts (`npm run check:comprehension:gemini|openai|anthropic`) are dev-only/manual: they need a real, live API key and are deliberately excluded from `npm test`. Broader task coverage and real-repository evaluation remain open in [ROADMAP.md](ROADMAP.md)'s "Real Task Evaluation" item.
 
 ## 🚀 Usage: Command Line (CLI)
 
@@ -700,6 +717,9 @@ The **codebook** (~150 tokens) is injected once into the system prompt. The LLM 
 
 ## 📦 Project Structure
 
+<details>
+<summary><strong>Show the full directory layout</strong></summary>
+
 ```
 glyph-compress/
 ├── bin/
@@ -732,6 +752,8 @@ glyph-compress/
 ├── ROADMAP.md, RELEASE_NOTES.md
 └── README.md
 ```
+
+</details>
 
 ## 🧪 Tests
 
@@ -779,6 +801,9 @@ npm run demo
 
 ## 🔬 Theory
 
+<details>
+<summary><strong>Show the theoretical background</strong></summary>
+
 GlyphCompress is grounded in information theory:
 
 - **Shannon entropy** tells us the theoretical compression limit for character-level encoding
@@ -788,6 +813,8 @@ GlyphCompress is grounded in information theory:
 The key insight: development communication is **highly structured** — the same patterns (`fix error`, `deploy to`, `create component`) repeat thousands of times with different parameters. By encoding these patterns as composable radicals, we achieve compression ratios far beyond what byte-level algorithms can reach.
 
 > **Fundamental Law**: Perfect compression is equivalent to perfect understanding. Information is redistributed — not lost — among the message, the codebook, and the receiver's context.
+
+</details>
 
 ## ⚖️ Dual Licensing Model
 
@@ -808,4 +835,4 @@ Contributions welcome! Areas of interest:
 - **Benchmark data** from real-world IDE sessions
 - **LLM comprehension tests** with different models
 
-By submitting a contribution, you confirm that it can be used under the project dual-license model described in [CONTRIBUTING.md](CONTRIBUTING.md).
+By submitting a contribution, you confirm that it can be used under the project dual-license model described in [CONTRIBUTING.md](CONTRIBUTING.md). Participation in issues, pull requests, and discussions is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).

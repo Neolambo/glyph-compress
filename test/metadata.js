@@ -28,6 +28,7 @@ assert(!pkg.files.includes('scripts/'), 'package should not publish the entire s
 
 for (const file of [
   'llms.txt',
+  'CODE_OF_CONDUCT.md',
   'NOTICE',
   'docs/licensing.md',
   'COMMERCIAL_LICENSE.md',

@@ -2,6 +2,8 @@
 
 Thanks for helping improve GlyphCompress. The project is now on the stable `1.x` line, so changes should preserve the public API unless a future major release explicitly says otherwise.
 
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Local Setup
 
 ```bash
