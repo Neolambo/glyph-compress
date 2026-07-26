@@ -71,7 +71,17 @@ assert(decayed[8].content.includes('code7'), 'Warm zone should preserve code blo
 
 // 3. Verify Cold Zone (d = 4-6) has replaced code blocks with signature summaries
 assert(!decayed[3].content.includes('code2'), 'Cold zone should strip raw code blocks');
-assert(decayed[3].content.includes('Summary'), 'Cold zone should insert a placeholder summary for code blocks');
+// Two mechanisms can produce the cold-zone summary: 'ultra' collapses a
+// fenced block to its own structural form (e.g. `[ʲˢ1L]` — language tag +
+// line count), and a regex fallback rewrites any fence that survives into
+// `// [Summary: lang, N lines]`. Before v1.32.2 the forced 'ultra' was
+// vetoed by the derived trust policy, so only the regex ever fired and this
+// assertion could match the literal word "Summary". Assert the actual
+// contract instead — the code is gone, replaced by something describing it.
+assert(
+  /\[Summary|\[\S*\d+L\]/.test(decayed[3].content),
+  `Cold zone should replace code blocks with a summary marker, got: ${decayed[3].content}`,
+);
 
 // 4. Verify Deep Freeze Zone (d > 6) has episodic summaries and zero code blocks
 assert(!decayed[1].content.includes('code0'), 'Deep Freeze zone should completely discard code blocks');

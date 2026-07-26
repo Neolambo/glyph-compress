@@ -616,16 +616,29 @@ class GlyphCompressor {
             content: this._compressUserMessage(msg.content, safeText),
           };
         } else if (d <= 3) {
+          // Warm zone: 'aggressive', not 'ultra'. Both the documented decay
+          // contract ("Warm Zone: light minification") and test/unit.js
+          // require warm turns to *keep* their code blocks, only minified —
+          // 'ultra' replaces them with structural summaries outright, which
+          // is the cold zone's job below. This previously read 'ultra' and
+          // went unnoticed only because the derived trust policy vetoed it
+          // into a no-op; once the veto is lifted the wrong level becomes
+          // visible, so it is corrected here rather than preserved.
+          //
+          // _applyEffectiveLevel both ways: forcing a level without the
+          // trust policy that permits it is exactly the veto described
+          // above. Restoring symmetrically re-derives the policy for
+          // prevLevel; an explicitly pinned policy is untouched by both.
           const prevLevel = this.level;
-          this.level = 'ultra';
+          this._applyEffectiveLevel('aggressive');
           const result = this._compressUserMessage(msg.content, safeText);
-          this.level = prevLevel;
+          this._applyEffectiveLevel(prevLevel);
           return { ...msg, content: result };
         } else if (d <= 6) {
           const prevLevel = this.level;
-          this.level = 'ultra';
+          this._applyEffectiveLevel('ultra');
           const compressedText = this._compressUserMessage(msg.content, safeText);
-          this.level = prevLevel;
+          this._applyEffectiveLevel(prevLevel);
           const decayed = compressedText.replace(/```([^\n\r]*?)[\r\n]+([\s\S]*?)[\r\n]+\s*```/g, (match, lang, code) => {
             const lines = code.split('\n').length;
             const language = lang || 'code';
@@ -1396,7 +1409,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.32.1',
+      version: '1.32.2',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

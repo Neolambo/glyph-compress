@@ -124,6 +124,54 @@ test('compressMessages honors an explicitly pinned trust policy', () => {
   assert(tokens > unpinned, 'a pinned reversible policy must still block ultra transforms in the chat path');
 });
 
+// Attentional Decay Compaction is the third site of the same coupling: it
+// explicitly forces `level = 'ultra'` for older turns, which the derived
+// policy then vetoed. This one bit the *default* configuration — ADC's
+// entire purpose is to stop chat history exploding, and at `level:
+// 'standard'` it silently did not.
+function buildDecayThread() {
+  const snippet = codeSample.slice(0, 3000);
+  const messages = [];
+  for (let i = 0; i < 4; i++) {
+    messages.push({ role: 'user', content: `Turn ${i}: review this\n\n\`\`\`js\n${snippet}\n\`\`\`` });
+    messages.push({ role: 'assistant', content: `Reply ${i}: here is my analysis of the code.` });
+  }
+  return messages;
+}
+
+function decayTokens(options) {
+  const gc = new GlyphCompressor({ provider: 'openai', attentionalDecay: true, ...options });
+  return gc.compressMessages(buildDecayThread(), 'openai').stats.thisMessage.compressedTokens;
+}
+
+test('attentional decay actually compacts old turns at the default level', () => {
+  const atDefault = decayTokens({ level: 'standard' });
+  const atUltra = decayTokens({ level: 'ultra' });
+
+  assert.strictEqual(
+    atDefault,
+    atUltra,
+    `decay forces 'ultra' for old turns, so the default level must reach the same result (${atDefault} vs ${atUltra}) — otherwise the derived trust policy is vetoing the forced level`,
+  );
+});
+
+test('attentional decay measurably beats no decay', () => {
+  const withDecay = decayTokens({ level: 'standard' });
+  const withoutDecay = new GlyphCompressor({ level: 'standard', provider: 'openai' })
+    .compressMessages(buildDecayThread(), 'openai').stats.thisMessage.compressedTokens;
+
+  assert(
+    withDecay < withoutDecay * 0.5,
+    `decay produced ${withDecay} vs ${withoutDecay} without it — less than a 2x reduction means old-turn compaction is not really running`,
+  );
+});
+
+test('attentional decay still respects an explicitly pinned trust policy', () => {
+  const pinned = decayTokens({ level: 'standard', trustPolicy: 'reversible' });
+  const derived = decayTokens({ level: 'standard' });
+  assert(pinned > derived, 'a pinned reversible policy must keep blocking ultra transforms even under decay');
+});
+
 // ─── Budget planning behavior ──────────────────────────────────
 
 test('a generous budget spends no fidelity it does not need', () => {

@@ -682,15 +682,15 @@ var GlyphCompressor = class {
           };
         } else if (d <= 3) {
           const prevLevel = this.level;
-          this.level = "ultra";
+          this._applyEffectiveLevel("aggressive");
           const result = this._compressUserMessage(msg.content, safeText);
-          this.level = prevLevel;
+          this._applyEffectiveLevel(prevLevel);
           return { ...msg, content: result };
         } else if (d <= 6) {
           const prevLevel = this.level;
-          this.level = "ultra";
+          this._applyEffectiveLevel("ultra");
           const compressedText = this._compressUserMessage(msg.content, safeText);
-          this.level = prevLevel;
+          this._applyEffectiveLevel(prevLevel);
           const decayed = compressedText.replace(/```([^\n\r]*?)[\r\n]+([\s\S]*?)[\r\n]+\s*```/g, (match, lang, code) => {
             const lines = code.split("\n").length;
             const language = lang || "code";
@@ -1320,7 +1320,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.32.1",
+      version: "1.32.2",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

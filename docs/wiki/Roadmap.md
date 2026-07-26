@@ -3,7 +3,13 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.1`: Chat-Path Trust Fix.
+`v1.32.2`: Attentional Decay Fix.
+
+## Delivered in v1.32.2
+
+- Third and final site of the level/trust coupling bug: Attentional Decay Compaction forced `ultra` for old turns without re-deriving the trust policy, leaving decay near-inert at the default level. End-to-end history reduction went from ~36% to 66%.
+- Lifting the veto exposed a wrong level it had been hiding: the warm zone forced `ultra` (which summarizes code away) where the documented contract requires code preserved and only minified. Corrected to `aggressive`.
+- 27 suites total, all passing.
 
 ## Delivered in v1.32.1
 

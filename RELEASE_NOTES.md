@@ -1,3 +1,23 @@
+## v1.32.2 — Attentional Decay Fix (third and final site of the trust-coupling bug)
+
+Chasing v1.32.1's fix through the remaining `this.level =` assignments found the third and last site of the same root cause — this one hitting the **default configuration**, and hiding a genuinely wrong compression level behind it.
+
+### Decay Was Silently Disabled at the Default Level
+- Attentional Decay Compaction explicitly forces `ultra` for older turns, then restores. Like the two sites before it, it did so without re-deriving the trust policy — so at the default `level: 'standard'` (→ `reversible`) the forced level was vetoed and decay barely did anything. Measured on an 8-turn thread over this repository's own `src/compressor.js`: **2141 tokens with the veto, 408 without**.
+- ADC's whole purpose is stopping chat history from exploding on long conversations. End-to-end, it now reduces that thread by **66%** instead of ~36%.
+
+### A Wrong Level the Bug Was Hiding
+- With the veto lifted, `test/unit.js` immediately failed: the **warm zone** (`d <= 3`) forced `ultra`, which replaces code blocks with structural summaries — but both the documented decay contract ("Warm Zone: light minification") and that test require warm turns to *keep* their code, only minified. The forced level was simply wrong, and had been invisible for as long as the trust policy neutered it into a no-op.
+- Corrected to `aggressive`, which minifies and strips comments while preserving the code itself. The cold zone keeps `ultra`, where removing code is the intent.
+- A second, smaller consequence: the cold zone's regex fallback (rewriting surviving fences into `// [Summary: ...]`) no longer fires, because `ultra` now collapses those fences itself into its native `[ʲˢ1L]` form first. Both mechanisms satisfy the same contract — code gone, replaced by a description — so `test/unit.js`'s assertion was retargeted from the literal string `Summary` to the actual contract, rather than being weakened to pass.
+
+### Tests & Verification
+- Three new tests in `test/context-budget-planner.js` (now 19), all verified to fail against the reverted fix.
+- `test/unit.js`'s decay assertions updated as described above — one now genuinely stronger (it previously passed only because the forced level was a no-op).
+- **Complete Suite Validation**: 27 suites, all passing. `npm run benchmark` unchanged (1.3x / 22%) — it does not exercise decay.
+
+***
+
 ## v1.32.1 — Chat-Path Trust Fix (the other half of v1.32.0's bug)
 
 v1.32.0 fixed the `level: 'auto'` trust-policy coupling in `compressText()`. That fix deliberately scoped out `compressMessages()`, whose candidate-strategy machinery has its own state capture/restore. Following up on that scoping decision found the same bug live there — and considerably worse.
