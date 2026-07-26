@@ -329,6 +329,13 @@ function planCompressionForBudget(text, options = {}) {
   return compressor.compressToBudget(text, { budget, provider, levels, includeCodebook });
 }
 var FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
+var COMPRESSION_LEVELS = ["light", "standard", "aggressive", "ultra"];
+function normalizeCompressionLevel(level) {
+  if (typeof level !== "string") return "standard";
+  const cleaned = level.trim().toLowerCase();
+  if (cleaned === "auto") return "auto";
+  return COMPRESSION_LEVELS.includes(cleaned) ? cleaned : "standard";
+}
 function isCompressionTrusted(compTokens, origTokens, provider) {
   if (provider === "raw") return true;
   return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
@@ -581,7 +588,7 @@ var COMPACT_CODEBOOK_FILE_LINE = "\u208DN\u208E=file_index :L=line [NL]=line_cou
 var GlyphCompressor = class {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    this.level = options.level || "standard";
+    this.level = normalizeCompressionLevel(options.level);
     this.provider = (0, import_token_estimator.normalizeProvider)(options.provider || "raw");
     this.providerProfile = this._resolveProviderProfile(this.provider);
     this.requestedPrivacyFirewall = options.privacyFirewall === true || options.privacy === true;
@@ -1320,7 +1327,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.32.7",
+      version: "1.32.8",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1374,7 +1381,7 @@ ${parsed.dynamicLine}`
    * buildTrustWarnings()/`sourceMap.trustWarnings` surface.
    */
   _applyEffectiveLevel(level) {
-    this.level = level;
+    this.level = normalizeCompressionLevel(level);
     if (!this.trustPolicyExplicit) {
       this.trustPolicy = this._resolveTrustPolicy("auto");
       this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];

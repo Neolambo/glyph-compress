@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.7`: Cache-Stability Coverage for Dictionary Growth.
+`v1.32.8`: Compression Level Never Validated (Silent Degradation).
+
+## Delivered in v1.32.8
+
+- The compression level was never validated or normalized, unlike provider and trustPolicy which both resolve their input and report the resolved value.
+- `Ultra` (one capital letter) matched none of the exact-string level checks: 11.0% real-token saving became 6.3%, and the derived trust policy dropped from lossy to reversible.
+- Every diagnostic echoed the invalid value back as applied — sourceMap.level, stats.selectedLevel, and the CLI --explain.
+- Fixed with resolve-and-report normalization; the CLI now exits 1 on an unrecognized level.
+- 30 suites, all passing.
 
 ## Delivered in v1.32.7
 

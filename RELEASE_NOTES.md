@@ -1,3 +1,25 @@
+## v1.32.8 — Compression Level Was Never Validated (Silent Degradation)
+
+**`--level Ultra` — a single capital letter — silently cost 4.7 percentage points of real compression, and every diagnostic reported the level as applied.**
+
+### The Bug
+- `provider` and `trustPolicy` have always *resolved* their input and reported the resolved value: an unknown provider becomes `raw`, an unknown policy becomes `reversible`, and `--explain` shows you that. `level` did neither — it was stored verbatim, straight from `options.level`.
+- Every level check in the compressor is an exact string comparison (`this.level === 'ultra'`). `'Ultra'` matches none of them, so the payload silently degrades to light-level output. Measured on this repository's own `src/compressor.js` with real `js-tiktoken`: **`'ultra'` saves 11.0%, `'Ultra'` saves 6.3%**. The derived trust policy degrades with it (`lossy` → `reversible`), compounding the loss.
+- The reporting is what makes it a trap rather than an inconvenience: `sourceMap.level`, `stats.selectedLevel`, and the CLI's `--explain` all echo the invalid string back. `--level ULTRAA` printed `Level: ULTRAA` and `Mode: Custom compression level.` — inventing a category that does not exist, for a value that did nothing.
+- Same class as v1.32.0-v1.32.2 (a level selected but not applied, while the stats claim otherwise), reached from the opposite direction: there the level was valid and the policy blocked it; here the level never existed.
+
+### The Fix
+- `normalizeCompressionLevel()` trims and lowercases, preserves `'auto'`, and resolves anything unrecognized to the documented default — then stores the **resolved** value, so the diagnostics stop lying. Applied at both assignment sites: the constructor and `_applyEffectiveLevel()` (which also receives levels from `_resolveBaseLevel` and `compressToBudget`'s caller-supplied ladder).
+- Deliberately resolve-and-report rather than throw, matching the existing `normalizeProvider` convention — a library that starts throwing on input it used to accept is a breaking change, and the honest reporting is what actually fixes the trap.
+- The **CLI** does reject: an unrecognized `--level` now exits 1 with the valid list, because at the command line a value matching nothing is a typo, not a programmatic choice.
+
+### Tests & Verification
+- Three new tests in `test/context-budget-planner.js` (now 22): case/whitespace variants must produce byte-identical output and the same derived trust policy as the canonical level; an unknown level must resolve to the default *and report it*; and `'auto'` must survive normalization (a regression guard — over-normalizing would collapse `'auto'` into `'standard'` and silently disable per-content selection entirely).
+- Verified they fail with normalization removed.
+- **Complete Suite Validation**: 30 suites, all passing.
+
+***
+
 ## v1.32.7 — Cache-Stability Coverage for Dictionary Growth
 
 Tests only; no runtime behavior changed. Came out of an architectural review that produced a specific bug hypothesis — and then refuted it.

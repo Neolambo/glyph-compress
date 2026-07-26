@@ -138,6 +138,18 @@ Options:
   }
 }
 
+// Validate enum-valued flags before doing any work. The library resolves an
+// unrecognized level to the default (mirroring how an unknown provider
+// resolves to 'raw'), but at the command line a value that matches nothing is
+// a typo, not a choice — and silently degrading it is how `--level Ultra`
+// used to cost 4.7 percentage points of real compression without saying so.
+const VALID_LEVELS = ['light', 'standard', 'aggressive', 'ultra', 'auto'];
+if (level !== undefined && !VALID_LEVELS.includes(String(level).trim().toLowerCase())) {
+  console.error(`Error: unknown compression level "${level}". Valid levels: ${VALID_LEVELS.join(', ')}.`);
+  process.exit(1);
+}
+level = String(level ?? 'standard').trim().toLowerCase();
+
 if (command === 'mcp') {
   // Delegates to bin/mcp-server.js so both `npx glyph-compress-mcp` (the
   // dedicated bin) and `npx glyph-compress mcp` (a single-bin-resolvable

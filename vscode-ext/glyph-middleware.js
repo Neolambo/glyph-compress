@@ -244,6 +244,34 @@ function planCompressionForBudget(text, options = {}) {
 // band, while still accepting compressions with a comfortable margin.
 const FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
 
+const COMPRESSION_LEVELS = ['light', 'standard', 'aggressive', 'ultra'];
+
+/**
+ * Resolve a caller-supplied compression level to a real one.
+ *
+ * `provider` and `trustPolicy` have always resolved their input and then
+ * reported the *resolved* value (normalizeProvider, _resolveTrustPolicy).
+ * `level` did neither: it was stored verbatim, so `'Ultra'` — a capital
+ * letter, nothing more — matched none of the `level === 'ultra'` checks and
+ * silently degraded to light-level output, while `sourceMap.level`, the CLI's
+ * `--explain`, and `stats.selectedLevel` all echoed `'Ultra'` back as though
+ * it had been applied. Measured on this repository's own src/compressor.js:
+ * 11.0% real-token saving for 'ultra' versus 6.3% for 'Ultra'.
+ *
+ * Case and surrounding whitespace are normalized. An unrecognized level falls
+ * back to the documented default rather than throwing, matching how an
+ * unknown provider resolves to 'raw' — but the *resolved* value is what gets
+ * stored and reported, so the diagnostics stop lying. The CLI rejects unknown
+ * levels outright, where a typo is unambiguously a mistake rather than a
+ * programmatic choice.
+ */
+function normalizeCompressionLevel(level) {
+  if (typeof level !== 'string') return 'standard';
+  const cleaned = level.trim().toLowerCase();
+  if (cleaned === 'auto') return 'auto';
+  return COMPRESSION_LEVELS.includes(cleaned) ? cleaned : 'standard';
+}
+
 function isCompressionTrusted(compTokens, origTokens, provider) {
   if (provider === 'raw') return true;
   return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
@@ -490,7 +518,7 @@ const COMPACT_CODEBOOK_FILE_LINE = '₍N₎=file_index :L=line [NL]=line_count i
 class GlyphCompressor {
   constructor(options = {}) {
     this.enabled = options.enabled !== false;
-    this.level = options.level || 'standard'; // light | standard | aggressive | ultra
+    this.level = normalizeCompressionLevel(options.level); // light | standard | aggressive | ultra | auto
     this.provider = normalizeProvider(options.provider || 'raw');
     this.providerProfile = this._resolveProviderProfile(this.provider);
     this.requestedPrivacyFirewall = options.privacyFirewall === true || options.privacy === true;
@@ -1409,7 +1437,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.32.7',
+      version: '1.32.8',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1467,7 +1495,9 @@ class GlyphCompressor {
    * buildTrustWarnings()/`sourceMap.trustWarnings` surface.
    */
   _applyEffectiveLevel(level) {
-    this.level = level;
+    // Normalized here too: candidate levels also arrive from _resolveBaseLevel
+    // and compressToBudget's caller-supplied ladder, not just the constructor.
+    this.level = normalizeCompressionLevel(level);
     if (!this.trustPolicyExplicit) {
       this.trustPolicy = this._resolveTrustPolicy('auto');
       this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];

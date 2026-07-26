@@ -172,6 +172,55 @@ test('attentional decay still respects an explicitly pinned trust policy', () =>
   assert(pinned > derived, 'a pinned reversible policy must keep blocking ultra transforms even under decay');
 });
 
+// ─── Compression level normalization ───────────────────────────
+// `provider` and `trustPolicy` have always resolved their input and reported
+// the resolved value. `level` was stored verbatim, so a capital letter was
+// enough to miss every `level === 'ultra'` check while sourceMap.level,
+// stats.selectedLevel, and the CLI's --explain all echoed the typo back as
+// though it had been applied.
+
+function realSavingFor(level) {
+  const gc = new GlyphCompressor({ level, provider: 'openai' });
+  const out = gc.compressText(codeSample, 'openai');
+  return { resolved: gc.level, trust: gc.trustPolicy, tokens: out.stats.compressedTokens };
+}
+
+test("a differently-cased level resolves to the real one, not to silent degradation", () => {
+  const canonical = realSavingFor('ultra');
+  const shouty = realSavingFor('Ultra');
+  const padded = realSavingFor('  ULTRA  ');
+
+  assert.strictEqual(shouty.resolved, 'ultra', "'Ultra' must resolve to 'ultra', not be stored verbatim");
+  assert.strictEqual(padded.resolved, 'ultra', "surrounding whitespace must not change the level");
+  assert.strictEqual(
+    shouty.tokens,
+    canonical.tokens,
+    `'Ultra' produced ${shouty.tokens} real tokens vs 'ultra' at ${canonical.tokens} — a capitalization difference is silently costing compression`,
+  );
+  assert.strictEqual(shouty.trust, canonical.trust, 'the derived trust policy must follow the resolved level');
+});
+
+test('an unrecognized level resolves to the default and reports that, rather than echoing the input', () => {
+  const bogus = realSavingFor('totally-bogus');
+  const standard = realSavingFor('standard');
+  assert.strictEqual(bogus.resolved, 'standard', 'an unknown level must resolve to the documented default');
+  assert.strictEqual(
+    bogus.tokens,
+    standard.tokens,
+    'an unknown level must behave exactly like the default it resolved to',
+  );
+});
+
+test("'auto' survives normalization", () => {
+  // Regression guard: normalizing too aggressively would collapse 'auto' into
+  // 'standard' and silently disable per-content level selection entirely.
+  const gc = new GlyphCompressor({ level: 'auto', provider: 'openai' });
+  assert.strictEqual(gc.level, 'auto', "'auto' must not be normalized away");
+  const auto = gc.compressText(codeSample, 'openai').stats.compressedTokens;
+  const ultra = realSavingFor('ultra').tokens;
+  assert.strictEqual(auto, ultra, 'auto should still select ultra for this code-heavy sample');
+});
+
 // ─── Budget planning behavior ──────────────────────────────────
 
 test('a generous budget spends no fidelity it does not need', () => {
