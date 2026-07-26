@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.3`: Privacy Redaction Coverage.
+`v1.32.4`: Proxy & Dashboard Coverage.
+
+## Delivered in v1.32.4
+
+- Mutation testing round two on the two highest-risk untested files. `inferProviderFromTarget()` had zero coverage despite gating every provider-specific decision; the proxy's error-body redaction was never verified to still be called.
+- `context-router.js`'s `gitDiffOnly` test passed with the filter fully disabled — strengthened with a relevance-winning decoy plus a control.
+- Fixed two real dashboard defects: `escapeHtml()` threw on numeric fields (silently freezing updates inside a try/catch), and the history render path interpolated six fields unescaped. Latent risk, not exploitable XSS.
+- 30 suites total, all passing.
 
 ## Delivered in v1.32.3
 

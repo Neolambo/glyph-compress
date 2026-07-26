@@ -1409,7 +1409,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.32.3',
+      version: '1.32.4',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

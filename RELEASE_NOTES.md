@@ -1,3 +1,28 @@
+## v1.32.4 — Proxy & Dashboard Coverage (mutation testing, round two)
+
+Continued the audit into the two highest-risk untested files: `src/proxy.js` (handles real provider API keys) and `src/dashboard.js` (755 lines, the largest completely untested file in the repo). Seven mutations; three survived, and one previously "passing" test turned out to prove nothing.
+
+### `inferProviderFromTarget()` Had No Coverage At All
+- This function turns the proxy's default `provider: 'auto'` into a concrete provider, and every provider-specific decision depends on it: measured tokenizer gating (v1.17.0/v1.21.0/v1.26.0/v1.28.0), the Anthropic `cache_control` strategy, and the net-negative fallback. Breaking Anthropic detection left the suite green — an Anthropic target would silently be compressed with OpenAI's calibration.
+- New `test/proxy-provider-inference.js` covers every documented target plus realistic variants (trailing slash, `/v1` suffix, mixed case), asserts the function genuinely discriminates rather than returning a constant, and pins the unknown-target fallback: it must never be `raw`, which deliberately skips both the fallback and the measured-loss gating and would make an unrecognised upstream the *least* safe configuration.
+
+### The Proxy's Error-Body Redaction Was Unverified
+- Provider error responses routinely echo request context back, which is why v1.19.0's logger refactor exists. `test/logger.js` covers `redactForLog()` itself, but nothing checked that the proxy still *calls* it at that site — swapping it for a bare `String()` survived the whole suite. Now guarded, along with a check that no bare `console.*` call bypasses the structured logger.
+
+### A Test That Proved Nothing
+- `context-router.js`'s `gitDiffOnly` test passed with the filter **completely disabled**. Its fixture's only unchanged file scored zero on the query, and workspace intelligence already boosts git-dirty files during ranking — so the filter made no observable difference. Added a committed, unmodified decoy that *wins* on relevance and must still be excluded, plus a control asserting the decoy IS selected without the flag. The assertion now discriminates; verified it fails when the filter is disabled.
+
+### Two Real Defects in the Dashboard
+- `escapeHtml()` called `.replace()` directly on its argument, but the render loop passes numbers and possibly-absent fields. Because that loop sits inside a `try/catch`, the resulting `TypeError` would not surface — the dashboard would simply stop updating, silently. It now coerces.
+- The **logs** render path escaped its data; the **history** path interpolated six fields raw. Stated precisely: those fields are all internally generated (counters, formatted numbers, closed enums), so this was **latent risk and an undocumented inconsistency, not an exploitable XSS**. Fixed as defence in depth rather than reported as a vulnerability.
+- New `test/dashboard.js` extracts and evaluates the real `escapeHtml` from the template (so it cannot drift from what the browser runs), checks ampersand-first ordering, and asserts *both* render paths escape every interpolation.
+
+### Tests & Verification
+- Every mutation re-run after the fixes; all three survivors are now caught. One mutation was mislabelled on inspection — it broke provider inference rather than the Anthropic bridge it claimed to disable — and is reported here as what it actually was.
+- **Complete Suite Validation**: 30 suites, all passing. No compressor behavior changed; the only runtime edits are in the dashboard template.
+
+***
+
 ## v1.32.3 — Privacy Redaction Coverage (found by mutation testing)
 
 A deliberate pause on features to audit the test suite instead, by mutation testing: introduce a realistic bug, run `npm test`, and see whether anything catches it. A mutation that survives means the tests covering that behavior are weaker than their names suggest — a failure mode this project has hit twice before (`cache-prefix-stability` in v1.25.0, and a guard written earlier in this same session).

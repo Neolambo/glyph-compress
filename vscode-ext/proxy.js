@@ -731,17 +731,17 @@ function getDashboardHTML() {
               <div class="request-item">
                 <div class="req-meta">
                   <div class="req-title">
-                    Request #\${item.id}
-                    <span class="req-level">\${item.selectedLevel || 'Aggressive'}</span>
+                    Request #\${escapeHtml(item.id)}
+                    <span class="req-level">\${escapeHtml(item.selectedLevel || 'Aggressive')}</span>
                   </div>
-                  <span class="req-time">Processed at \${item.timestamp}</span>
+                  <span class="req-time">Processed at \${escapeHtml(item.timestamp)}</span>
                 </div>
                 <div class="req-stats">
                   <div class="req-tokens">
-                    Original: <span>\${item.originalTokens}</span><br>
-                    Optimized: <span style="color: var(--accent-cyan)">\${item.compressedTokens}</span>
+                    Original: <span>\${escapeHtml(item.originalTokens)}</span><br>
+                    Optimized: <span style="color: var(--accent-cyan)">\${escapeHtml(item.compressedTokens)}</span>
                   </div>
-                  <div class="req-badge">\${item.savedPct} Saved</div>
+                  <div class="req-badge">\${escapeHtml(item.savedPct)} Saved</div>
                 </div>
               </div>
             \`;
@@ -777,8 +777,18 @@ function getDashboardHTML() {
       }
     }
     
-    function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    // Coerces before escaping: callers pass numbers and possibly-undefined
+    // stats fields as well as log strings, and a bare str.replace() throws on
+    // those. The render loop is inside a try/catch, so such a throw would not
+    // surface as an error \u2014 the dashboard would just silently stop updating.
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     // Initial and periodic update

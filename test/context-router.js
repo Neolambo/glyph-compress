@@ -95,6 +95,17 @@ try {
       git('config', 'user.name', 'Test');
       fs.writeFileSync(path.join(gitDir, 'committed.ts'), 'export const committed = 1;\n', 'utf8');
       fs.writeFileSync(path.join(gitDir, 'changed.ts'), 'export const original = 1;\n', 'utf8');
+      // A committed, *unmodified* decoy that scores high on the query. Without
+      // it this test passed even with the gitDiffOnly filter fully disabled:
+      // the only other unchanged file scored zero, and workspace intelligence
+      // already boosts git-dirty files during ranking, so the filter made no
+      // observable difference. The decoy is what forces the two paths apart —
+      // it wins on relevance and must still be excluded.
+      fs.writeFileSync(
+        path.join(gitDir, 'authentication-review.ts'),
+        'export function reviewAuthentication() { /* review authentication changes */ }\n',
+        'utf8',
+      );
       git('add', '.');
       git('commit', '-q', '-m', 'initial');
       // Modify one tracked file (unstaged) and add a brand-new one (staged) —
@@ -104,9 +115,18 @@ try {
       git('add', 'new-staged.ts');
 
       const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
-      const result = gc.routeAndCompress('review my changes please', { rootDir: gitDir, tokenBudget: 5000, maxFiles: 10, gitDiffOnly: true });
+      const query = 'review authentication changes';
+      const result = gc.routeAndCompress(query, { rootDir: gitDir, tokenBudget: 5000, maxFiles: 10, gitDiffOnly: true });
       const paths = result.selectedFiles.map((f) => f.path).sort();
       assert.deepStrictEqual(paths, ['changed.ts', 'new-staged.ts'], `gitDiffOnly should only include changed files, got: ${JSON.stringify(paths)}`);
+
+      // Same query without the flag must reach the decoy, proving the
+      // assertion above is discriminating rather than incidental.
+      const unfiltered = gc.routeAndCompress(query, { rootDir: gitDir, tokenBudget: 5000, maxFiles: 10 });
+      assert(
+        unfiltered.selectedFiles.some((f) => f.path === 'authentication-review.ts'),
+        'control: without gitDiffOnly the relevant unchanged file must be selected, otherwise the filtered assertion proves nothing',
+      );
     } finally {
       fs.rmSync(gitDir, { recursive: true, force: true });
     }

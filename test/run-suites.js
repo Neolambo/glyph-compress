@@ -20,6 +20,8 @@ const suites = [
   ['context-router', 'test/context-router.js'],
   ['mcp-server', 'test/mcp-server.js'],
   ['privacy-redaction', 'test/privacy-redaction.js'],
+  ['dashboard', 'test/dashboard.js'],
+  ['proxy-provider-inference', 'test/proxy-provider-inference.js'],
   ['context-budget-planner', 'test/context-budget-planner.js'],
   ['team-codebook', 'test/team-codebook.js'],
   ['logger', 'test/logger.js'],
