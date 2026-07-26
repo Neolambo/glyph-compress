@@ -19,6 +19,7 @@ const suites = [
   ['tech-glyph-economics', 'test/tech-glyph-economics.js'],
   ['context-router', 'test/context-router.js'],
   ['mcp-server', 'test/mcp-server.js'],
+  ['privacy-redaction', 'test/privacy-redaction.js'],
   ['context-budget-planner', 'test/context-budget-planner.js'],
   ['team-codebook', 'test/team-codebook.js'],
   ['logger', 'test/logger.js'],

@@ -1,3 +1,31 @@
+## v1.32.3 — Privacy Redaction Coverage (found by mutation testing)
+
+A deliberate pause on features to audit the test suite instead, by mutation testing: introduce a realistic bug, run `npm test`, and see whether anything catches it. A mutation that survives means the tests covering that behavior are weaker than their names suggest — a failure mode this project has hit twice before (`cache-prefix-stability` in v1.25.0, and a guard written earlier in this same session).
+
+### The Gap: 6 of 9 Redaction Patterns Were Untested
+- `PRIVACY_REDACTION_PATTERNS` defines nine kinds of secret the privacy firewall strips before a payload reaches a provider. Exactly **three** had coverage (`secret_assignment`, `email`, `ipv4`), all via a single combined assertion in `test/integration.js`.
+- Disabling **OpenAI key**, **GitHub token**, **AWS access key**, **JWT**, or **Bearer token** redaction entirely left the whole suite green — while `README.md`/`PRIVACY.md` advertise all of them. A regression in any of those would have shipped silently and sent a real credential to a third-party model in plaintext.
+- `test/logger.js` was actively misleading here: it *does* test AWS keys and bearer tokens, but against `redactForLog()` — the log-sink redactor, a separate code path from payload redaction. Its presence made the area look covered.
+
+### New `test/privacy-redaction.js` (14 tests)
+- One test per pattern kind, so a regression names the exact credential type that started leaking rather than failing one shared assertion.
+- A check that no raw secret appears anywhere in the **source map** — redacting the payload but recording the secret in an audit trail that gets written to disk and returned to CLI/MCP callers would just relocate the leak.
+- A guard that redaction stays **opt-in**.
+- A data-driven guard that parses `PRIVACY_REDACTION_PATTERNS` from the source: adding a tenth pattern without a sample now fails the suite. Its absence is precisely why six kinds went uncovered.
+
+### Also Covered: Dynamic Dictionary Economics
+- The v1.16.0 fix requiring a word to repeat before earning a `§N` entry — the change that moved this project's headline benchmark from a reported 25% to an honest 22% — had no direct test.
+- Worth stating precisely rather than overclaiming: the explicit `freq >= 2` filter turns out to be **defensive redundancy, not the load-bearing mechanism**. The savings formula yields exactly `-4` for any single-occurrence word regardless of length, so the `save` threshold already excludes it. Mutating `freq >= 2` to `freq >= 1` is therefore an *equivalent mutation* that no test can catch, because behavior does not change. The new tests lock the observable contract instead of either filter.
+
+### One Real Bug in the New Tests, Caught Before Shipping
+- The first version of the placeholder-leak test used four *different* email addresses, each producing a placeholder seen once — which the economics filter rejects anyway, so it never exercised the guard it claimed to test. It passed with the guard fully removed. Rewritten to repeat a single address (producing `EMAIL_1` six times, economically attractive), it now fails correctly when the guard is removed. Same class of falsely-passing test this release set out to hunt.
+
+### Tests & Verification
+- Every mutation re-run after the fix: the five privacy mutations are now caught by `privacy-redaction.js`; the two survivors were analysed and one proved equivalent (documented above) rather than papered over.
+- **Complete Suite Validation**: 28 suites, all passing. No runtime behavior changed in this release — tests only.
+
+***
+
 ## v1.32.2 — Attentional Decay Fix (third and final site of the trust-coupling bug)
 
 Chasing v1.32.1's fix through the remaining `this.level =` assignments found the third and last site of the same root cause — this one hitting the **default configuration**, and hiding a genuinely wrong compression level behind it.

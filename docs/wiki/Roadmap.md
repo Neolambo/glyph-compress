@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.2`: Attentional Decay Fix.
+`v1.32.3`: Privacy Redaction Coverage.
+
+## Delivered in v1.32.3
+
+- Paused feature work to mutation-test the suite: only 3 of 9 privacy redaction patterns had coverage. Disabling OpenAI-key, GitHub-token, AWS-key, JWT or Bearer-token redaction left the whole suite green.
+- New `test/privacy-redaction.js` (14 tests): one per pattern kind, no secret in the source map, redaction stays opt-in, plus a data-driven guard so a new pattern without a test fails.
+- Documented that the `freq >= 2` dictionary filter is redundant rather than load-bearing (an equivalent mutation), instead of overclaiming a fix.
+- 28 suites total, all passing. No runtime behavior changed.
 
 ## Delivered in v1.32.2
 
