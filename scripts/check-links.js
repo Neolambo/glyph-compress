@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const root = process.cwd();
-const files = ['README.md', 'ROADMAP.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md', 'ENTERPRISE.md'];
+const files = ['README.md', 'ROADMAP.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md', 'ENTERPRISE.md', 'CASE_STUDY.md', 'CODE_OF_CONDUCT.md', 'llms.txt'];
 const docsDir = path.join(root, 'docs');
 if (fs.existsSync(docsDir)) {
   for (const entry of fs.readdirSync(docsDir)) {

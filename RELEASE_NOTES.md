@@ -1,3 +1,22 @@
+## v1.31.1 — Case Study Refresh
+
+Documentation-only release. No runtime/compressor behavior changed.
+
+### The Problem
+- `CASE_STUDY.md` dated back to v1.14.0 — stale numbers from before the token-estimator accuracy fix (v1.30.0) and the real tokenizer calibration work (v1.16.0-v1.28.0), plus hype-toned language ("straight to the bottom line!") inconsistent with the honest-reporting standard the rest of the project now holds. It was also an orphan: not linked from README or `llms.txt`, not checked by `scripts/check-links.js`, and not included in the npm package's `files` allowlist.
+
+### The Fix
+- Rewrote `CASE_STUDY.md` end to end using fresh `npm run benchmark:realistic` and `npm run benchmark:alternatives` output from this version. Structure: static file compression, vs. naive truncation, chat payloads and multi-turn cache-adjusted Anthropic estimates, enterprise nominal usage, throughput/latency — each section states plainly what it measures and what it doesn't claim, matching `docs/benchmark-methodology.md`'s tone. No fabricated dollar-ROI figures.
+- Linked from the README nav row, the version-pointer paragraph, and `llms.txt`. Added to `scripts/check-links.js` (along with `CODE_OF_CONDUCT.md`, which had the same gap) and `package.json`'s `files` allowlist.
+- Marked ROADMAP.md's "Publish honest case studies" and "public comparison table against alternatives" go-to-market items done; the comparison table itself shipped earlier in README (v1.30.1) but hadn't been checked off.
+
+### Tests & Verification
+- `test/metadata.js` extended to guard the existence of `CASE_STUDY.md` and `server.json` (the latter was missing this same file-existence check from v1.31.0).
+- **Complete Suite Validation**: 26 suites, all passing (unchanged — no compressor behavior changed).
+- **Validation**: `npm run check` (build, link validation, snapshots, tests, benchmarks, npm pack dry-run).
+
+***
+
 ## v1.31.0 — MCP Registry Manifest
 
 Adds `server.json` for [MCP registry](https://github.com/modelcontextprotocol/registry) auto-discovery, found while reviewing repository layout for professionalism gaps.

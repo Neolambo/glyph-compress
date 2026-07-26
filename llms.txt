@@ -13,11 +13,12 @@ Dual-licensed: AGPL-3.0-only for open-source use, commercial license required fo
 - [docs/benchmark-methodology.md](docs/benchmark-methodology.md): how the token-savings numbers are measured, what is and isn't claimed, and comparison methodology against naive truncation.
 - [docs/licensing.md](docs/licensing.md): dual-license (AGPL-3.0 / commercial) policy details.
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup, testing, and contribution expectations.
+- [CASE_STUDY.md](CASE_STUDY.md): real, reproducible measurements of where compression helps and where it honestly doesn't — not a synthetic-demo pitch.
 
 ## Entry points (for an agent integrating this library)
 
 - CLI: `npx glyph-compress <file> [--level ...] [--provider ...] [--copy] [--explain] [--source-map]` — see `bin/cli.js`.
-- MCP server: `npx glyph-compress-mcp` exposes `compress_text`, `compress_file`, `route_context`, `get_codebook` tools — see `bin/mcp-server.js`.
+- MCP server: `npx glyph-compress-mcp` (or `npx glyph-compress mcp`) exposes `compress_text`, `compress_file`, `route_context`, `get_codebook` tools — see `bin/mcp-server.js`. [server.json](server.json) is the MCP registry manifest for auto-discovery.
 - Node.js library: `import { GlyphCompressor } from 'glyph-compress/middleware'` — see `src/glyph-middleware.js` and `src/index.d.ts` for the typed public API.
 - Token estimation: `src/token-estimator.js` exports `estimateProviderTokens`, `PROVIDER_TOKEN_PROFILES`, `estimateGlyphTokenCost` for real, calibrated per-provider token math.
 

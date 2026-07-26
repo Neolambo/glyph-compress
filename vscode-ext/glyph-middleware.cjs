@@ -1200,7 +1200,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.31.0",
+      version: "1.31.1",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.31.0`: MCP Registry Manifest.
+`v1.31.1`: Case Study Refresh.
+
+## Delivered in v1.31.1
+
+- Documentation-only release. No runtime/compressor behavior changed.
+- Rewrote `CASE_STUDY.md` (previously stale, v1.14.0-era, hype-toned, and orphaned) with real, current `benchmark:realistic`/`benchmark:alternatives` numbers and an honest "where it helps / where it's break-even by design" framing.
+- Wired into README (nav row + pointer paragraph), `llms.txt`, `scripts/check-links.js`, and the npm package's `files` allowlist.
+- 26 suites total, all passing.
 
 ## Delivered in v1.31.0
 
