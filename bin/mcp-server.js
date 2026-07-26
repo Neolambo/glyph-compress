@@ -18,11 +18,13 @@
  * different distribution channel.
  *
  * Tools:
- *   - compress_text:    compress an arbitrary text/context blob
- *   - compress_file:    compress a file's content by path
- *   - route_context:    rank + compress relevant workspace files for a query
- *                        within a token budget (Context Router, v1.17.0)
- *   - get_codebook:     return the glyph codebook prompt for manual injection
+ *   - compress_text:       compress an arbitrary text/context blob
+ *   - compress_file:       compress a file's content by path
+ *   - compress_to_budget:  compress with the least destructive level that fits
+ *                           a hard token budget (Context Budget Planner, v1.32.0)
+ *   - route_context:       rank + compress relevant workspace files for a query
+ *                           within a token budget (Context Router, v1.17.0)
+ *   - get_codebook:        return the glyph codebook prompt for manual injection
  *
  * Run directly: `npx glyph-compress-mcp` (see package.json "bin").
  * Add to an MCP client config, e.g. Claude Code:
@@ -36,7 +38,7 @@ import fs from 'fs';
 import path from 'path';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 
-const server = new McpServer({ name: 'glyph-compress', version: '1.31.1' });
+const server = new McpServer({ name: 'glyph-compress', version: '1.32.0' });
 
 const LEVEL_ENUM = z.enum(['light', 'standard', 'aggressive', 'ultra', 'auto']);
 const PROVIDER_ENUM = z.enum(['raw', 'openai', 'anthropic', 'gemini', 'local']);
@@ -93,6 +95,38 @@ server.registerTool(
       codebook: gc.getCodebookPrompt(),
       compressed: result.compressed,
       stats: result.stats,
+    });
+  },
+);
+
+server.registerTool(
+  'compress_to_budget',
+  {
+    title: 'Compress text to fit a token budget',
+    description: 'Compress text with the least destructive compression level whose payload (compressed body + decoding codebook) fits a hard token budget. Escalates light -> standard -> aggressive -> ultra and stops at the first level that fits, so it never spends fidelity on space it does not need. Returns the level chosen, every level tried, and whether the budget was actually met — if no level fits it returns the smallest candidate with withinBudget=false rather than silently overflowing. Note that reaching "ultra" replaces code with structural summaries; check the returned trustWarnings.',
+    inputSchema: {
+      text: z.string().describe('The text/context to compress'),
+      budget: z.number().int().positive().describe('Hard token budget for the transmitted payload (body + codebook)'),
+      provider: PROVIDER_ENUM.optional().describe("Target LLM provider for token estimation (default 'raw')"),
+      includeCodebook: z.boolean().optional().describe('Count the injected codebook against the budget (default true)'),
+    },
+  },
+  async ({ text, budget, provider, includeCodebook }) => {
+    const gc = new GlyphCompressor({ provider: provider || 'raw' });
+    const plan = gc.compressToBudget(text, { budget, provider: provider || 'raw', includeCodebook });
+    return textResult({
+      codebook: plan.codebook,
+      compressed: plan.compressed,
+      level: plan.level,
+      withinBudget: plan.withinBudget,
+      budget: plan.budget,
+      tokens: plan.tokens,
+      bodyTokens: plan.bodyTokens,
+      codebookTokens: plan.codebookTokens,
+      overflowTokens: plan.overflowTokens,
+      fallback: plan.fallback,
+      trials: plan.trials,
+      trustWarnings: plan.sourceMap?.trustWarnings || [],
     });
   },
 );

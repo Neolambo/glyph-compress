@@ -212,6 +212,21 @@ function selectCompressionLevel(text) {
   return 'standard';
 }
 
+// Standalone entry point for the Context Budget Planner, for callers that
+// just want "fit this text in N tokens" without managing a compressor
+// instance themselves. Uses a throwaway GlyphCompressor so it never
+// touches a caller's warm dynamic dictionary, lifetime stats, or cache —
+// GlyphCompressor.compressToBudget() is the method to use when that
+// session state should be preserved. Deliberately passes no
+// `workspacePath`, which is what leaves the on-disk cross-session cache
+// disabled (see _initCache): a one-shot planning call should neither read
+// a warm dictionary it did not build nor write one back.
+function planCompressionForBudget(text, options = {}) {
+  const { budget, provider = 'raw', levels, includeCodebook, trustPolicy } = options;
+  const compressor = new GlyphCompressor({ provider, trustPolicy });
+  return compressor.compressToBudget(text, { budget, provider, levels, includeCodebook });
+}
+
 // No runtime heuristic (no live tokenizer call is made at compression
 // time — see src/token-estimator.js) can be exactly right for every
 // content type. Even after recalibrating that estimator against real
@@ -479,6 +494,14 @@ class GlyphCompressor {
     this.provider = normalizeProvider(options.provider || 'raw');
     this.providerProfile = this._resolveProviderProfile(this.provider);
     this.requestedPrivacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    // Whether the caller pinned a trust policy explicitly, as opposed to
+    // letting _resolveTrustPolicy() derive one from the level. Needed
+    // because the derived ("auto") policy has to be re-derived whenever
+    // the *effective* level changes after construction — see
+    // _applyEffectiveLevel() — while an explicitly requested policy must
+    // never be silently escalated out from under the caller.
+    const requestedPolicy = String(options.trustPolicy || options.policy || '').toLowerCase();
+    this.trustPolicyExplicit = Boolean(TRUST_POLICY_PROFILES[requestedPolicy]);
     this.trustPolicy = this._resolveTrustPolicy(options.trustPolicy || options.policy);
     this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
     this.fileIndex = new Map();
@@ -751,8 +774,9 @@ class GlyphCompressor {
     this.resetSourceMap();
 
     const configuredLevel = this.level;
+    const configuredTrustPolicy = this.trustPolicy;
     const resolvedLevel = configuredLevel === 'auto' ? selectCompressionLevel(text) : configuredLevel;
-    this.level = resolvedLevel;
+    this._applyEffectiveLevel(resolvedLevel);
 
     const safeText = this._applyPrivacyFirewall(text, false);
     this._buildDynamicDictionary(safeText);
@@ -760,6 +784,8 @@ class GlyphCompressor {
     const origTokens = this._estimateTokens([{ content: text }], this.provider);
     const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
     this.level = configuredLevel;
+    this.trustPolicy = configuredTrustPolicy;
+    this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
 
     // compressMessages() already falls back to the original payload when
     // compression is net-negative (see the `fallback` logic below), but
@@ -796,6 +822,131 @@ class GlyphCompressor {
         ratio: (origTokens / Math.max(1, finalCompTokens)).toFixed(1) + 'x',
         savedPct: ((1 - finalCompTokens / Math.max(1, origTokens)) * 100).toFixed(0) + '%',
       },
+    };
+  }
+
+  /**
+   * Context Budget Planner: given a hard token budget, compress `text`
+   * with the *least destructive* level that actually fits, instead of
+   * making the caller guess a level and hope.
+   *
+   * This is the budget-driven counterpart to selectCompressionLevel(),
+   * which picks a level from content signals alone and is completely
+   * budget-blind — it cannot know whether its choice fits in the space
+   * the caller actually has. routeAndCompress()'s `tokenBudget` is a
+   * different axis again: it decides *which files* to send, not how hard
+   * to compress each one.
+   *
+   * Escalation is lightest-first (light -> standard -> aggressive ->
+   * ultra) and stops at the first level that fits, because heavier levels
+   * trade real fidelity (comment stripping, code summarization, and at
+   * `ultra` irreversibly so) for space. Buying space that is not needed
+   * is a pure loss, so this deliberately does not return the smallest
+   * possible output — it returns the cheapest one that clears the bar.
+   *
+   * Budget is measured against what is actually transmitted, which
+   * includes the injected codebook (~400 tokens), not just the compressed
+   * body — budgeting on the body alone would under-report the real cost
+   * on exactly the short payloads where the codebook dominates. Pass
+   * `{ includeCodebook: false }` to budget the body only.
+   *
+   * When no level fits, this reports `withinBudget: false` and returns
+   * the smallest candidate rather than silently pretending it succeeded;
+   * the caller still needs to send something, and hiding an overflow is
+   * how a budget check becomes worse than no check at all.
+   *
+   * @param {string} text - Raw context text
+   * @param {Object} [options]
+   * @param {number} options.budget - hard token budget for the transmitted payload
+   * @param {string} [options.provider] - provider for token estimation, defaults to this.provider
+   * @param {string[]} [options.levels] - escalation order, defaults to light/standard/aggressive/ultra
+   * @param {boolean} [options.includeCodebook=true] - count the injected codebook against the budget
+   * @returns {Object} { compressed, codebook, level, withinBudget, tokens, trials, ... }
+   */
+  compressToBudget(text, options = {}) {
+    const budget = Number(options.budget);
+    if (!Number.isFinite(budget) || budget <= 0) {
+      throw new Error('compressToBudget requires a positive numeric `budget`');
+    }
+    const provider = options.provider || this.provider;
+    const includeCodebook = options.includeCodebook !== false;
+    const levels = Array.isArray(options.levels) && options.levels.length
+      ? options.levels
+      : ['light', 'standard', 'aggressive', 'ultra'];
+
+    // Every trial is a full compressText() call, which accumulates
+    // lifetime telemetry and rewrites the on-disk cache. Counting three
+    // discarded trials as if they were real traffic would corrupt the
+    // very savings numbers this project reports, so snapshot around the
+    // whole search and re-apply only the winner exactly once.
+    const statsSnapshot = { ...this.stats };
+    const configuredLevel = this.level;
+    const configuredTrustPolicy = this.trustPolicy;
+
+    const trials = [];
+    let chosen = null;
+    let smallest = null;
+
+    for (const level of levels) {
+      // _applyEffectiveLevel, not a bare `this.level = level`: the derived
+      // trust policy gates whether a level's defining transforms are even
+      // allowed to run, so without it every trial would measure the same
+      // conservative output and the escalation below would be meaningless.
+      this._applyEffectiveLevel(level);
+      const result = this.compressText(text, provider);
+      const codebook = includeCodebook ? this.getCodebookPrompt() : '';
+      const codebookTokens = includeCodebook
+        ? estimateProviderTokens([{ content: codebook }], normalizeProvider(provider))
+        : 0;
+      const totalTokens = result.stats.compressedTokens + codebookTokens;
+
+      const trial = {
+        level,
+        bodyTokens: result.stats.compressedTokens,
+        codebookTokens,
+        totalTokens,
+        fallback: result.fallback,
+        withinBudget: totalTokens <= budget,
+      };
+      trials.push(trial);
+
+      if (!smallest || totalTokens < smallest.trial.totalTokens) {
+        smallest = { trial, result, codebook };
+      }
+      if (trial.withinBudget) {
+        chosen = { trial, result, codebook };
+        break;
+      }
+    }
+
+    this.level = configuredLevel;
+    this.trustPolicy = configuredTrustPolicy;
+    this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
+    this.stats = statsSnapshot;
+
+    const winner = chosen || smallest;
+
+    // Re-apply the winner's cost once, so lifetime telemetry reflects a
+    // single logical compression rather than the search that found it.
+    this.stats.totalOriginalTokens += winner.result.stats.originalTokens;
+    this.stats.totalCompressedTokens += winner.trial.bodyTokens;
+    this.stats.messagesProcessed++;
+
+    return {
+      compressed: winner.result.compressed,
+      original: text,
+      codebook: winner.codebook,
+      level: winner.trial.level,
+      withinBudget: Boolean(chosen),
+      budget,
+      tokens: winner.trial.totalTokens,
+      bodyTokens: winner.trial.bodyTokens,
+      codebookTokens: winner.trial.codebookTokens,
+      overflowTokens: chosen ? 0 : winner.trial.totalTokens - budget,
+      fallback: winner.result.fallback,
+      sourceMap: winner.result.sourceMap,
+      trials,
+      stats: winner.result.stats,
     };
   }
 
@@ -1230,7 +1381,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.31.1',
+      version: '1.32.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1264,6 +1415,35 @@ class GlyphCompressor {
     if (this?.requestedPrivacyFirewall) return 'privacy';
     if (this?.level === 'aggressive' || this?.level === 'ultra') return 'lossy';
     return 'reversible';
+  }
+
+  /**
+   * Set the effective compression level, re-deriving the trust policy when
+   * it was not pinned explicitly by the caller.
+   *
+   * _resolveTrustPolicy() reads `this.level`, but only ever ran once, in
+   * the constructor. That silently broke `level: 'auto'`: the constructor
+   * sees 'auto' (neither 'aggressive' nor 'ultra'), derives the
+   * conservative 'reversible' policy, and then compressText() resolves the
+   * level to 'ultra' for code-heavy content — with a trust profile that
+   * forbids exactly the code summarization 'ultra' is defined by. The
+   * result was reported as `selectedLevel: 'ultra'` while delivering
+   * standard-level output, so the savings were lost *and* misreported.
+   *
+   * An explicitly requested policy is never touched: choosing a level is
+   * delegation of the level decision, not permission to quietly widen what
+   * transformations are allowed. When the policy is derived, it tracks the
+   * level exactly as it would have had that level been passed to the
+   * constructor, keeping `auto` consistent with explicit construction.
+   * Irreversibility remains visible to callers through the existing
+   * buildTrustWarnings()/`sourceMap.trustWarnings` surface.
+   */
+  _applyEffectiveLevel(level) {
+    this.level = level;
+    if (!this.trustPolicyExplicit) {
+      this.trustPolicy = this._resolveTrustPolicy('auto');
+      this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
+    }
   }
 
   _allows(capability) {
@@ -2583,9 +2763,10 @@ if (typeof module !== 'undefined' && module.exports) {
     PROVIDER_COMPRESSION_PROFILES,
     TRUST_POLICY_PROFILES,
     selectCompressionLevel,
+    planCompressionForBudget,
     buildTrustWarnings,
   };
 }
 
 // ESM export for modern usage
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel, buildTrustWarnings };
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel, planCompressionForBudget, buildTrustWarnings };

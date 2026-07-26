@@ -17,6 +17,8 @@
  * unit-testing the underlying GlyphCompressor calls.
  */
 import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -43,10 +45,36 @@ const transport = new StdioClientTransport({ command: process.execPath, args: [s
 const client = new Client({ name: 'glyph-compress-test-client', version: '1.0.0' });
 await client.connect(transport);
 
-await test('lists all four expected tools', async () => {
+await test('lists all five expected tools', async () => {
   const { tools } = await client.listTools();
   const names = tools.map((t) => t.name).sort();
-  assert.deepStrictEqual(names, ['compress_file', 'compress_text', 'get_codebook', 'route_context']);
+  assert.deepStrictEqual(names, ['compress_file', 'compress_text', 'compress_to_budget', 'get_codebook', 'route_context']);
+});
+
+await test('compress_to_budget reports the level chosen and whether the budget was met', async () => {
+  const source = fs.readFileSync(path.join(root, 'src', 'compressor.js'), 'utf8');
+  const result = await client.callTool({
+    name: 'compress_to_budget',
+    arguments: { text: source, budget: 100000, provider: 'raw' },
+  });
+  assert(!result.isError, 'should not be an error result');
+  const payload = JSON.parse(result.content[0].text);
+  assert.strictEqual(payload.withinBudget, true, 'a huge budget should be met');
+  assert.strictEqual(payload.level, 'light', 'a huge budget should not spend fidelity it does not need');
+  assert(payload.tokens <= 100000, 'reported tokens should respect the budget');
+  assert(Array.isArray(payload.trials) && payload.trials.length >= 1, 'should report the levels it tried');
+});
+
+await test('compress_to_budget reports withinBudget=false instead of silently overflowing', async () => {
+  const source = fs.readFileSync(path.join(root, 'src', 'compressor.js'), 'utf8');
+  const result = await client.callTool({
+    name: 'compress_to_budget',
+    arguments: { text: source, budget: 10, provider: 'raw' },
+  });
+  const payload = JSON.parse(result.content[0].text);
+  assert.strictEqual(payload.withinBudget, false, 'an impossible budget must be reported as unmet');
+  assert(payload.overflowTokens > 0, 'should quantify the overflow');
+  assert.strictEqual(payload.trials.length, 4, 'should have exhausted every level trying');
 });
 
 await test('compress_text returns compressed output, codebook, and stats', async () => {
@@ -115,7 +143,7 @@ await test('`glyph-compress mcp` (the registry-invocable subcommand in server.js
     await subcommandClient.connect(subcommandTransport);
     const { tools } = await subcommandClient.listTools();
     const names = tools.map((t) => t.name).sort();
-    assert.deepStrictEqual(names, ['compress_file', 'compress_text', 'get_codebook', 'route_context']);
+    assert.deepStrictEqual(names, ['compress_file', 'compress_text', 'compress_to_budget', 'get_codebook', 'route_context']);
   } finally {
     await subcommandClient.close();
   }

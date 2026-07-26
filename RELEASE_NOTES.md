@@ -1,3 +1,30 @@
+## v1.32.0 — Context Budget Planner (and a real `level: 'auto'` bug it exposed)
+
+### Context Budget Planner
+- `GlyphCompressor.compressToBudget(text, { budget })` and the standalone `planCompressionForBudget(text, { budget })` answer a question nothing in the API could before: *"I have N tokens — give me the least destructive compression that fits."* `selectCompressionLevel()` picks a level from content signals but is budget-blind; `routeAndCompress()`'s `tokenBudget` decides which *files* to send, not how hard to compress each one; `compressText()` applies one level, once.
+- Escalates **lightest-first** (light → standard → aggressive → ultra) and stops at the first level that fits. It deliberately does **not** return the smallest possible output: heavier levels trade real fidelity for space, and buying space you do not need is a pure loss.
+- Budgets against what is **actually transmitted** — compressed body *plus* the injected codebook. Budgeting on the body alone under-reports the real cost on exactly the short payloads where the ~400-token codebook dominates. `{ includeCodebook: false }` opts out.
+- When no level fits, returns `withinBudget: false` with `overflowTokens` quantified and the smallest candidate still usable, rather than silently overflowing a budget the caller asked to be held to.
+- Returns the full `trials` table (every level tried, body/codebook/total tokens, fallback state) so the choice is auditable, consistent with `routeAndCompress()`'s `selectedFiles`/`excludedFiles`.
+- Discarded trials do not pollute lifetime telemetry: a single logical compression counts once, not once per level tried.
+- CLI: `glyph-compress <file> --budget <tokens>`. MCP: new `compress_to_budget` tool. Because the planner — not the user — chooses the level, the CLI surfaces the chosen level's `trustWarnings`, so escalating all the way to `ultra` (which replaces a file with a structural summary) can never happen silently.
+
+### Found While Building It: `level: 'auto'` Never Delivered What It Selected
+- `_resolveTrustPolicy()` reads `this.level`, but only ever ran **once, in the constructor**. With `level: 'auto'` the constructor sees `'auto'` — neither `'aggressive'` nor `'ultra'` — and derives the conservative `reversible` policy. `compressText()` then resolves the level to `ultra` for code-heavy content, but with a trust profile that **forbids exactly the code summarization `ultra` is defined by**.
+- Net effect: `auto` reported `selectedLevel: 'ultra'` while delivering standard-level output. Measured on this repository's own `src/compressor.js`: explicit `ultra` → **3913** tokens, `auto` → **4420** tokens, a silent **11.5%** loss *and* a misreported level. Shipped since `v1.16.0`.
+- Fixed with `_applyEffectiveLevel()`, which re-derives the trust policy whenever the effective level changes. An **explicitly requested** policy is never touched — delegating the level choice is not permission to quietly widen what transformations are allowed. Verified: `trustPolicy: 'reversible'` pinned alongside `level: 'auto'` still blocks ultra's transforms.
+- Behavior change to be aware of: `level: 'auto'` on code-heavy content now genuinely applies `ultra`, which is lossy and irreversible by design. That was always what it claimed to do; it now actually does it. Pin `trustPolicy: 'reversible'` to keep the previous conservative behavior.
+
+### Stale Roadmap Entries Corrected
+- Two `ROADMAP.md` items were still listed as missing/partial despite having shipped: structured log sinks with ISO timestamps and redaction (`src/logger.js`, delivered `v1.19.0`) and incremental/usage-decay-weighted workspace memory (delivered `v1.23.0`). Both are covered by existing suites; the roadmap simply never got updated.
+
+### Tests & Verification
+- New `test/context-budget-planner.js` (14 tests): the level/trust coupling, budget escalation, codebook accounting, overflow reporting, input validation, custom ladders, telemetry isolation, and state restoration.
+- Verified the new guards actually bite by reverting the fix — **which caught a falsely-passing test**: the escalation guard originally compared `ultra` against `light`, and under the bug `ultra` collapses to exactly `standard` while `light` still differs by two tokens for unrelated reasons, so it passed with the bug fully present. Retargeted to require a real margin of `ultra` over `standard`; it now fails correctly when the fix is removed.
+- **Complete Suite Validation**: 27 suites, all passing. `npm run benchmark` is unchanged (1.3x / 22%) — its fixtures construct levels explicitly and were never affected by the `auto` path.
+
+***
+
 ## v1.31.1 — Case Study Refresh
 
 Documentation-only release. No runtime/compressor behavior changed.

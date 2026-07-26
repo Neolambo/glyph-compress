@@ -154,10 +154,51 @@ export interface RouteAndCompressResult {
   tokensUsed: number;
 }
 
+export interface CompressToBudgetOptions {
+  /** Hard token budget for the transmitted payload. Required, must be > 0. */
+  budget: number;
+  provider?: Provider | string;
+  /** Escalation order; defaults to light -> standard -> aggressive -> ultra. */
+  levels?: Array<CompressionLevel | string>;
+  /** Count the injected codebook against the budget. Defaults to true. */
+  includeCodebook?: boolean;
+}
+
+export interface BudgetTrial {
+  level: CompressionLevel | string;
+  bodyTokens: number;
+  codebookTokens: number;
+  totalTokens: number;
+  fallback: boolean;
+  withinBudget: boolean;
+}
+
+export interface CompressToBudgetResult {
+  compressed: string;
+  original: string;
+  codebook: string;
+  /** The level actually applied — the lightest one that fit the budget. */
+  level: CompressionLevel | string;
+  /** False when no level fit; `compressed` is then the smallest candidate. */
+  withinBudget: boolean;
+  budget: number;
+  tokens: number;
+  bodyTokens: number;
+  codebookTokens: number;
+  /** Tokens over budget when withinBudget is false, otherwise 0. */
+  overflowTokens: number;
+  fallback: boolean;
+  sourceMap: GlyphSourceMap;
+  /** Every level tried, in escalation order, for auditability. */
+  trials: BudgetTrial[];
+  stats: CompressTextResult['stats'];
+}
+
 export class GlyphCompressor {
   constructor(options?: GlyphCompressorOptions);
   compressText(text: string, provider?: Provider | string): CompressTextResult;
   compressMessages<TMessage extends { role: string; content: unknown }>(messages: TMessage[], provider?: Provider): CompressMessagesResult<TMessage>;
+  compressToBudget(text: string, options: CompressToBudgetOptions): CompressToBudgetResult;
   routeAndCompress(query: string, options?: RouteAndCompressOptions): RouteAndCompressResult;
   getCodebookPrompt(): string;
   getStats(): SessionStats;
@@ -202,6 +243,16 @@ export interface ProviderTokenProfile {
 
 export const PROVIDER_TOKEN_PROFILES: Record<string, ProviderTokenProfile>;
 export function selectCompressionLevel(text: string): CompressionLevel;
+
+/**
+ * Compress `text` with the least destructive level that fits `budget`,
+ * using a throwaway compressor (no shared dictionary, stats, or cache).
+ * Use GlyphCompressor.compressToBudget() to keep session state.
+ */
+export function planCompressionForBudget(
+  text: string,
+  options: CompressToBudgetOptions & { trustPolicy?: TrustPolicy | string },
+): CompressToBudgetResult;
 export function buildTrustWarnings(trustProfile: TrustPolicyProfile | undefined, level: CompressionLevel | string): string[];
 export function normalizeProvider(provider?: string): string;
 export function estimateProviderTokens(value: unknown, provider?: Provider | string): number;

@@ -36,6 +36,7 @@ __export(glyph_middleware_exports, {
   TECH_GLYPHS: () => TECH_GLYPHS,
   TRUST_POLICY_PROFILES: () => TRUST_POLICY_PROFILES,
   buildTrustWarnings: () => buildTrustWarnings,
+  planCompressionForBudget: () => planCompressionForBudget,
   selectCompressionLevel: () => selectCompressionLevel,
   wrapAnthropic: () => wrapAnthropic,
   wrapOpenAI: () => wrapOpenAI
@@ -322,6 +323,11 @@ function selectCompressionLevel(text) {
   if (codeRatio >= 0.3) return "aggressive";
   return "standard";
 }
+function planCompressionForBudget(text, options = {}) {
+  const { budget, provider = "raw", levels, includeCodebook, trustPolicy } = options;
+  const compressor = new GlyphCompressor({ provider, trustPolicy });
+  return compressor.compressToBudget(text, { budget, provider, levels, includeCodebook });
+}
 var FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
 function isCompressionTrusted(compTokens, origTokens, provider) {
   if (provider === "raw") return true;
@@ -579,6 +585,8 @@ var GlyphCompressor = class {
     this.provider = (0, import_token_estimator.normalizeProvider)(options.provider || "raw");
     this.providerProfile = this._resolveProviderProfile(this.provider);
     this.requestedPrivacyFirewall = options.privacyFirewall === true || options.privacy === true;
+    const requestedPolicy = String(options.trustPolicy || options.policy || "").toLowerCase();
+    this.trustPolicyExplicit = Boolean(TRUST_POLICY_PROFILES[requestedPolicy]);
     this.trustPolicy = this._resolveTrustPolicy(options.trustPolicy || options.policy);
     this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
     this.fileIndex = /* @__PURE__ */ new Map();
@@ -808,14 +816,17 @@ var GlyphCompressor = class {
     this._setProvider(provider);
     this.resetSourceMap();
     const configuredLevel = this.level;
+    const configuredTrustPolicy = this.trustPolicy;
     const resolvedLevel = configuredLevel === "auto" ? selectCompressionLevel(text) : configuredLevel;
-    this.level = resolvedLevel;
+    this._applyEffectiveLevel(resolvedLevel);
     const safeText = this._applyPrivacyFirewall(text, false);
     this._buildDynamicDictionary(safeText);
     const compressed = this._compressUserMessage(text, safeText);
     const origTokens = this._estimateTokens([{ content: text }], this.provider);
     const compTokens = this._estimateTokens([{ content: compressed }], this.provider);
     this.level = configuredLevel;
+    this.trustPolicy = configuredTrustPolicy;
+    this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
     const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
     const finalCompressed = fallback ? text : compressed;
     const finalCompTokens = fallback ? origTokens : compTokens;
@@ -839,6 +850,106 @@ var GlyphCompressor = class {
         ratio: (origTokens / Math.max(1, finalCompTokens)).toFixed(1) + "x",
         savedPct: ((1 - finalCompTokens / Math.max(1, origTokens)) * 100).toFixed(0) + "%"
       }
+    };
+  }
+  /**
+   * Context Budget Planner: given a hard token budget, compress `text`
+   * with the *least destructive* level that actually fits, instead of
+   * making the caller guess a level and hope.
+   *
+   * This is the budget-driven counterpart to selectCompressionLevel(),
+   * which picks a level from content signals alone and is completely
+   * budget-blind — it cannot know whether its choice fits in the space
+   * the caller actually has. routeAndCompress()'s `tokenBudget` is a
+   * different axis again: it decides *which files* to send, not how hard
+   * to compress each one.
+   *
+   * Escalation is lightest-first (light -> standard -> aggressive ->
+   * ultra) and stops at the first level that fits, because heavier levels
+   * trade real fidelity (comment stripping, code summarization, and at
+   * `ultra` irreversibly so) for space. Buying space that is not needed
+   * is a pure loss, so this deliberately does not return the smallest
+   * possible output — it returns the cheapest one that clears the bar.
+   *
+   * Budget is measured against what is actually transmitted, which
+   * includes the injected codebook (~400 tokens), not just the compressed
+   * body — budgeting on the body alone would under-report the real cost
+   * on exactly the short payloads where the codebook dominates. Pass
+   * `{ includeCodebook: false }` to budget the body only.
+   *
+   * When no level fits, this reports `withinBudget: false` and returns
+   * the smallest candidate rather than silently pretending it succeeded;
+   * the caller still needs to send something, and hiding an overflow is
+   * how a budget check becomes worse than no check at all.
+   *
+   * @param {string} text - Raw context text
+   * @param {Object} [options]
+   * @param {number} options.budget - hard token budget for the transmitted payload
+   * @param {string} [options.provider] - provider for token estimation, defaults to this.provider
+   * @param {string[]} [options.levels] - escalation order, defaults to light/standard/aggressive/ultra
+   * @param {boolean} [options.includeCodebook=true] - count the injected codebook against the budget
+   * @returns {Object} { compressed, codebook, level, withinBudget, tokens, trials, ... }
+   */
+  compressToBudget(text, options = {}) {
+    const budget = Number(options.budget);
+    if (!Number.isFinite(budget) || budget <= 0) {
+      throw new Error("compressToBudget requires a positive numeric `budget`");
+    }
+    const provider = options.provider || this.provider;
+    const includeCodebook = options.includeCodebook !== false;
+    const levels = Array.isArray(options.levels) && options.levels.length ? options.levels : ["light", "standard", "aggressive", "ultra"];
+    const statsSnapshot = { ...this.stats };
+    const configuredLevel = this.level;
+    const configuredTrustPolicy = this.trustPolicy;
+    const trials = [];
+    let chosen = null;
+    let smallest = null;
+    for (const level of levels) {
+      this._applyEffectiveLevel(level);
+      const result = this.compressText(text, provider);
+      const codebook = includeCodebook ? this.getCodebookPrompt() : "";
+      const codebookTokens = includeCodebook ? (0, import_token_estimator.estimateProviderTokens)([{ content: codebook }], (0, import_token_estimator.normalizeProvider)(provider)) : 0;
+      const totalTokens = result.stats.compressedTokens + codebookTokens;
+      const trial = {
+        level,
+        bodyTokens: result.stats.compressedTokens,
+        codebookTokens,
+        totalTokens,
+        fallback: result.fallback,
+        withinBudget: totalTokens <= budget
+      };
+      trials.push(trial);
+      if (!smallest || totalTokens < smallest.trial.totalTokens) {
+        smallest = { trial, result, codebook };
+      }
+      if (trial.withinBudget) {
+        chosen = { trial, result, codebook };
+        break;
+      }
+    }
+    this.level = configuredLevel;
+    this.trustPolicy = configuredTrustPolicy;
+    this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
+    this.stats = statsSnapshot;
+    const winner = chosen || smallest;
+    this.stats.totalOriginalTokens += winner.result.stats.originalTokens;
+    this.stats.totalCompressedTokens += winner.trial.bodyTokens;
+    this.stats.messagesProcessed++;
+    return {
+      compressed: winner.result.compressed,
+      original: text,
+      codebook: winner.codebook,
+      level: winner.trial.level,
+      withinBudget: Boolean(chosen),
+      budget,
+      tokens: winner.trial.totalTokens,
+      bodyTokens: winner.trial.bodyTokens,
+      codebookTokens: winner.trial.codebookTokens,
+      overflowTokens: chosen ? 0 : winner.trial.totalTokens - budget,
+      fallback: winner.result.fallback,
+      sourceMap: winner.result.sourceMap,
+      trials,
+      stats: winner.result.stats
     };
   }
   /**
@@ -1200,7 +1311,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.31.1",
+      version: "1.32.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1231,6 +1342,34 @@ ${parsed.dynamicLine}`
     if (this?.requestedPrivacyFirewall) return "privacy";
     if (this?.level === "aggressive" || this?.level === "ultra") return "lossy";
     return "reversible";
+  }
+  /**
+   * Set the effective compression level, re-deriving the trust policy when
+   * it was not pinned explicitly by the caller.
+   *
+   * _resolveTrustPolicy() reads `this.level`, but only ever ran once, in
+   * the constructor. That silently broke `level: 'auto'`: the constructor
+   * sees 'auto' (neither 'aggressive' nor 'ultra'), derives the
+   * conservative 'reversible' policy, and then compressText() resolves the
+   * level to 'ultra' for code-heavy content — with a trust profile that
+   * forbids exactly the code summarization 'ultra' is defined by. The
+   * result was reported as `selectedLevel: 'ultra'` while delivering
+   * standard-level output, so the savings were lost *and* misreported.
+   *
+   * An explicitly requested policy is never touched: choosing a level is
+   * delegation of the level decision, not permission to quietly widen what
+   * transformations are allowed. When the policy is derived, it tracks the
+   * level exactly as it would have had that level been passed to the
+   * constructor, keeping `auto` consistent with explicit construction.
+   * Irreversibility remains visible to callers through the existing
+   * buildTrustWarnings()/`sourceMap.trustWarnings` surface.
+   */
+  _applyEffectiveLevel(level) {
+    this.level = level;
+    if (!this.trustPolicyExplicit) {
+      this.trustPolicy = this._resolveTrustPolicy("auto");
+      this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
+    }
   }
   _allows(capability) {
     return Boolean(this.trustProfile?.allows?.[capability]);
@@ -2231,6 +2370,7 @@ if (typeof module !== "undefined" && module.exports) {
     PROVIDER_COMPRESSION_PROFILES,
     TRUST_POLICY_PROFILES,
     selectCompressionLevel,
+    planCompressionForBudget,
     buildTrustWarnings
   };
 }
@@ -2243,6 +2383,7 @@ if (typeof module !== "undefined" && module.exports) {
   TECH_GLYPHS,
   TRUST_POLICY_PROFILES,
   buildTrustWarnings,
+  planCompressionForBudget,
   selectCompressionLevel,
   wrapAnthropic,
   wrapOpenAI

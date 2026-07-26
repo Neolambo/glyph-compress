@@ -54,6 +54,7 @@ Watch the latest YouTube video to see how GlyphCompress achieves 90% token savin
 - [🚀 Quick Start (Code & Extension)](#-quick-start)
 - [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy-v050)
 - [🔌 MCP Server (Claude Code, Claude Desktop & other MCP clients)](#-mcp-server-claude-code-claude-desktop--other-mcp-clients)
+- [🎯 Context Budget Planner](#-context-budget-planner)
 - [🔤 The Glyph Protocol](#-the-glyph-protocol)
 - [👥 Contributing](#-contributing)
 - [⚖️ Dual Licensing Model](#%EF%B8%8F-dual-licensing-model)
@@ -97,7 +98,7 @@ AFTER (137 chars):
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1311) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1320) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -222,17 +223,19 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
-### New in v1.31.1 (Case Study Refresh)
+### New in v1.32.0 (Context Budget Planner)
 
-Rewrote `CASE_STUDY.md`, which was previously a stale, hype-toned v1.14.0 document — orphaned (not linked from README/llms.txt), not checked by `scripts/check-links.js`, and not shipped in the npm package. Now uses real `npm run benchmark:realistic`/`benchmark:alternatives` numbers from the current version, an honest "where it helps / where it's break-even by design" framing instead of a flat savings pitch, and no fabricated dollar-ROI figures. No runtime/compressor behavior changed.
+**[🎯 Context Budget Planner](#-context-budget-planner)**: give a hard token budget, get the *least destructive* compression level that fits — `glyph-compress <file> --budget 4000`, `compressToBudget()`, or the `compress_to_budget` MCP tool. It escalates light→standard→aggressive→ultra, stops at the first level that fits (buying space you don't need is a pure fidelity loss), budgets against the codebook-inclusive payload that's actually transmitted, and reports `withinBudget: false` with the overflow quantified rather than silently blowing through the limit.
 
-> **Full version history** (v0.5.0 → v1.31.0, 37+ releases) lives in [GitHub Releases](https://github.com/Neolambo/glyph-compress/releases) and [RELEASE_NOTES.md](RELEASE_NOTES.md) — not duplicated here. See [ROADMAP.md](ROADMAP.md) for what's planned next.
+**Fixed a real bug it exposed**: `level: 'auto'` has, since v1.16.0, correctly *selected* `ultra` for code-heavy content and then been unable to *apply* it — `_resolveTrustPolicy()` reads the level but only ran once in the constructor, where the level is still the literal `'auto'`, yielding a conservative policy that forbids exactly the summarization `ultra` is defined by. It reported `selectedLevel: 'ultra'` while delivering standard-level output: **4420 vs 3913 tokens on this repo's own `src/compressor.js`, an 11.5% silent loss.** An explicitly pinned `trustPolicy` is still never escalated.
+
+> **Full version history** (v0.5.0 → v1.31.1, 38+ releases) lives in [GitHub Releases](https://github.com/Neolambo/glyph-compress/releases) and [RELEASE_NOTES.md](RELEASE_NOTES.md) — not duplicated here. See [ROADMAP.md](ROADMAP.md) for what's planned next.
 
 **[📄 CASE_STUDY.md](CASE_STUDY.md)** — where GlyphCompress actually helps (and where it honestly doesn't), with real numbers from `npm run benchmark:realistic`/`benchmark:alternatives`, reproducible on your own machine.
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.31.1)
+### 📏 Benchmark Snapshot (v1.32.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -262,7 +265,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1311) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1320) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
@@ -674,6 +677,52 @@ The server communicates over stdio using the official `@modelcontextprotocol/sdk
 ### MCP registry manifest
 
 [`server.json`](server.json) declares this server for [MCP registry](https://github.com/modelcontextprotocol/registry) auto-discovery. Since the npm package has two bins (`glyph-compress` for the CLI, `glyph-compress-mcp` for this server), and the registry's `server.json` schema has no field to select a non-default bin, it invokes `npx glyph-compress mcp` — the `mcp` subcommand shown above — rather than the bare package name, which would otherwise resolve to the CLI.
+
+## 🎯 Context Budget Planner
+
+You have a hard token budget. Which compression level should you use? Before v1.32.0 you had to guess. Now you state the budget and GlyphCompress picks the **least destructive level that fits**:
+
+```bash
+# Escalates light → standard → aggressive → ultra, stops at the first level that fits
+npx glyph-compress src/compressor.js --budget 6000 --provider openai
+```
+
+```
+Token budget:      6000
+Level chosen:      aggressive  (lightest that fits)
+Payload sent:      ~5757 (body ~3684 + codebook ~2073)
+Budget:            ✅ within budget
+Levels tried:      light=7188  standard=7186  aggressive=5757✓
+```
+
+Programmatically:
+
+```javascript
+import { GlyphCompressor, planCompressionForBudget } from 'glyph-compress/middleware';
+
+// Standalone — throwaway compressor, no shared dictionary/stats/cache
+const plan = planCompressionForBudget(sourceCode, { budget: 4000, provider: 'openai' });
+console.log(plan.level, plan.withinBudget, plan.tokens, plan.trials);
+
+// Or on an existing session, preserving its warm dynamic dictionary
+const gc = new GlyphCompressor({ provider: 'openai', workspacePath: process.cwd() });
+const result = gc.compressToBudget(sourceCode, { budget: 4000 });
+```
+
+Three design decisions worth knowing:
+
+1. **It stops at the first level that fits — it does not minimize.** Heavier levels trade real fidelity for space (`ultra` replaces code with a structural summary). Buying space you don't need is a pure loss.
+2. **The budget covers what's actually transmitted**, compressed body *plus* the injected codebook. Budgeting the body alone under-reports the real cost on exactly the short payloads where the codebook dominates. Pass `includeCodebook: false` to opt out.
+3. **It never silently overflows.** If no level fits, you get `withinBudget: false`, the overflow quantified in `overflowTokens`, and the smallest candidate — plus the chosen level's trust warnings, since the planner picked the level, not you.
+
+| Field | Meaning |
+|---|---|
+| `level` | The level actually applied |
+| `withinBudget` | `false` means nothing fit — check `overflowTokens` |
+| `tokens` / `bodyTokens` / `codebookTokens` | Transmitted total, and its two parts |
+| `trials[]` | Every level tried, with its own token breakdown — auditable |
+
+MCP clients get the same thing via the `compress_to_budget` tool.
 
 ## 🔤 The Glyph Protocol
 

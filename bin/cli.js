@@ -40,6 +40,10 @@ let attentionalDecay = false;
 let holographicFolding = false;
 let intentDiffs = false;
 let tokenBudget = 2000;
+// `route` has always defaulted to 2000, so the value alone cannot tell us
+// whether the user asked for a budget. Plain file compression only engages
+// the Context Budget Planner when they explicitly did.
+let budgetSet = false;
 let maxFiles = 8;
 let gitDiffOnly = false;
 let logFile = null;
@@ -57,6 +61,7 @@ for (let i = 0; i < args.length; i++) {
     explain = true;
   } else if (arg === '--budget') {
     tokenBudget = parseInt(args[++i], 10) || tokenBudget;
+    budgetSet = true;
   } else if (arg === '--max-files') {
     maxFiles = parseInt(args[++i], 10) || maxFiles;
   } else if (arg === '--git-diff-only') {
@@ -108,7 +113,10 @@ Options:
                         'auto' picks a level from content signals (length, code density)
   -c, --copy            Copy compressed output to clipboard
   -x, --explain         Explain what changed during compression
-  --budget <tokens>     Token budget for the 'route' command (default: 2000)
+  --budget <tokens>     Token budget. For 'route': how many tokens of file context to
+                        select. For a single file: engage the Context Budget Planner —
+                        escalate light→standard→aggressive→ultra and use the lightest
+                        level whose payload (codebook included) fits the budget.
   --max-files <n>       Max candidate files to rank for the 'route' command (default: 8)
   --git-diff-only       Restrict 'route' to git staged/unstaged files ("review what I changed")
   --source-map          Print the reversible source map JSON
@@ -174,7 +182,13 @@ const ext = path.extname(targetPath).substring(1);
 
 const gc = new GlyphCompressor({ level, privacyFirewall, provider, trustPolicy, workspacePath: process.cwd(), attentionalDecay, holographicFolding, intentDiffs });
 // Wrap in backticks to trigger full semantic code block compression if in aggressive/ultra mode
-const { compressed, stats, sourceMap } = gc.compressText(`File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``, provider);
+const payload = `File: ${fileToCompress}\n\n\`\`\`${ext}\n${content}\n\`\`\``;
+
+// --budget engages the Context Budget Planner: instead of applying the
+// configured level once, escalate until the transmitted payload (codebook
+// included) fits, and report which level that turned out to be.
+const budgetPlan = budgetSet ? gc.compressToBudget(payload, { budget: tokenBudget, provider }) : null;
+const { compressed, stats, sourceMap } = budgetPlan || gc.compressText(payload, provider);
 
 const output = `${gc.getCodebookPrompt()}\n\n${compressed}`;
 const explanation = explain ? buildExplanation({
@@ -196,6 +210,27 @@ console.log(`Original tokens:   ~${stats.originalTokens}`);
 console.log(`Compressed tokens: ~${stats.compressedTokens}`);
 console.log(`Compression ratio: ${stats.ratio}`);
 console.log(`Saved:             ${stats.savedPct}`);
+if (budgetPlan) {
+  console.log('----------------------------------------------------');
+  console.log(`Token budget:      ${budgetPlan.budget}`);
+  console.log(`Level chosen:      ${budgetPlan.level}  (${budgetPlan.withinBudget ? 'lightest that fits' : 'smallest available'})`);
+  console.log(`Payload sent:      ~${budgetPlan.tokens} (body ~${budgetPlan.bodyTokens} + codebook ~${budgetPlan.codebookTokens})`);
+  if (budgetPlan.withinBudget) {
+    console.log('Budget:            ✅ within budget');
+  } else {
+    console.log(`Budget:            ⚠️  OVER by ~${budgetPlan.overflowTokens} tokens — no level fits; sending the smallest.`);
+    console.log('                   Consider splitting the file or raising --budget.');
+  }
+  console.log('Levels tried:      ' + budgetPlan.trials.map((t) => `${t.level}=${t.totalTokens}${t.withinBudget ? '✓' : ''}`).join('  '));
+  // Escalating to meet a budget can reach 'ultra', which replaces a whole
+  // file with a structural summary. That is a real fidelity cliff, and the
+  // user did not pick the level here — the planner did — so surface what
+  // the chosen level actually permits rather than letting it pass silently.
+  const budgetWarnings = budgetPlan.sourceMap?.trustWarnings || [];
+  if (budgetWarnings.length) {
+    console.log('Fidelity:          ⚠️  ' + budgetWarnings.join('\n                   ⚠️  '));
+  }
+}
 console.log('----------------------------------------------------\n');
 
 if (explanation) {

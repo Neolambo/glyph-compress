@@ -3,7 +3,16 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.31.1`: Case Study Refresh.
+`v1.32.0`: Context Budget Planner.
+
+## Delivered in v1.32.0
+
+- **Context Budget Planner**: `compressToBudget()` / `planCompressionForBudget()` apply the least destructive compression level whose transmitted payload (codebook included) fits a hard token budget, escalating light→standard→aggressive→ultra and stopping at the first level that fits.
+- Reports every level tried, and `withinBudget: false` with the overflow quantified when nothing fits — never a silent overflow.
+- CLI `glyph-compress <file> --budget <tokens>` and MCP tool `compress_to_budget`. The CLI surfaces the chosen level's trust warnings, since the planner (not the user) picked it.
+- **Fixed a real shipped bug found while building it**: `level: 'auto'` selected `ultra` but had its defining transforms blocked by a trust policy derived once at construction — delivering standard-level output while reporting `selectedLevel: 'ultra'` (4420 vs 3913 tokens, an 11.5% silent loss). An explicitly pinned trust policy is still never escalated.
+- Corrected two stale roadmap entries that had shipped in v1.19.0 (structured log sinks) and v1.23.0 (adaptive workspace memory).
+- 27 suites total, all passing.
 
 ## Delivered in v1.31.1
 
