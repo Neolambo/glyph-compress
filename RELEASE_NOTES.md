@@ -1,3 +1,28 @@
+## v1.32.5 — Native Anthropic Clients (Critical Fix)
+
+**Pointing a native Anthropic client at the GlyphProxy silently destroyed its request.** Found while answering a direct user question — "how do I use this in my Claude Code session?" — rather than by the mutation sweep, which had not thought to ask what happens when the client is not OpenAI-shaped.
+
+### The Bug
+- v1.24.0 fixed the mirror-image problem: the proxy forwarding an OpenAI-shaped request unmodified to `api.anthropic.com`. Its fix rests on a premise stated explicitly in the code — *"every documented IDE integration sends OpenAI-shaped chat/completions requests regardless of the upstream target"* — which is true for Cursor, Cline, and Continue, all of which use "OpenAI Compatible" mode.
+- That premise does not hold for a **native** Anthropic client: Claude Code, Claude Desktop, or the Anthropic SDK pointed at the proxy via `ANTHROPIC_BASE_URL`. Those already speak the Messages API.
+- Running the OpenAI→Anthropic translator over an already-native body rebuilds it from a field allowlist. Measured on a real Claude Code-shaped payload: the top-level **`system` prompt was dropped** (native clients put it at the top level, not in `messages`, so the translator found nothing to lift) and the **entire `tools` array was lost** (`mapOpenAITools` looks for OpenAI's nested `function` object and finds Anthropic's `input_schema` instead). `tool_choice`, `metadata`, and `thinking` were dropped too.
+- For an agentic client this is the worst kind of failure: stripped of every tool and its system prompt, it still receives a valid `200`, so nothing surfaces as an error — the assistant just quietly becomes incapable.
+
+### The Fix
+- `isNativeAnthropicRequest()` detects the native shape using signals OpenAI's chat/completions body cannot produce: a top-level `system` field, or tools declared with `input_schema` rather than a nested `function`.
+- `compressNativeAnthropicRequest()` compresses such a request **in place**, spreading the original body and replacing only `system` and `messages`. Deliberately not an allowlist rebuild — that is precisely what caused the bug, and a native client may send fields this bridge has never heard of, including ones the API gains later.
+- The OpenAI translation path is untouched for the shape it was written for.
+
+### Tests & Verification
+- Seven new tests in `test/anthropic-bridge.js` (now 25): detection in both directions including explicit false-positive guards (a false positive would skip a translation an OpenAI request genuinely needs, reintroducing the v1.24.0 corruption), preservation of `system`/`tools`/`tool_choice`/`metadata`/`thinking`/`max_tokens`, and a control asserting the OpenAI path still behaves exactly as before.
+- Verified the new tests fail when detection is disabled.
+- **Complete Suite Validation**: 30 suites, all passing.
+
+### Practical Note
+Using the transparent proxy with Claude Code also requires the client to be started against it (`ANTHROPIC_BASE_URL`), which no running session can adopt retroactively. The MCP server (`claude mcp add glyph-compress -- npx glyph-compress-mcp`) remains the tool-based route, and does not transparently compress a conversation.
+
+***
+
 ## v1.32.4 — Proxy & Dashboard Coverage (mutation testing, round two)
 
 Continued the audit into the two highest-risk untested files: `src/proxy.js` (handles real provider API keys) and `src/dashboard.js` (755 lines, the largest completely untested file in the repo). Seven mutations; three survived, and one previously "passing" test turned out to prove nothing.

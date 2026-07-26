@@ -5,6 +5,8 @@ import { getDashboardHTML } from './dashboard.js';
 import { createStructuredLogger, redactForLog } from './logger.js';
 import {
   isAnthropicNativeTarget,
+  isNativeAnthropicRequest,
+  compressNativeAnthropicRequest,
   openaiRequestToAnthropic,
   anthropicHeadersFromOpenAI,
   anthropicResponseToOpenAI,
@@ -101,7 +103,19 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
             log(`[Proxy] Intercepted ${req.method} ${req.url}`, { requestId: messagesProcessed + 1 });
 
             let stats;
-            if (anthropicBridge) {
+            if (anthropicBridge && isNativeAnthropicRequest(payload)) {
+              // A native Anthropic client (Claude Code / Claude Desktop / the
+              // SDK via ANTHROPIC_BASE_URL) already speaks the Messages API.
+              // Running the OpenAI translator over it would rebuild the body
+              // from an allowlist and silently drop the top-level `system`
+              // prompt and the whole `tools` array — which for an agentic
+              // client means losing every tool it has. Compress in place.
+              const compressedNative = compressNativeAnthropicRequest(payload, compressor);
+              stats = compressedNative.stats;
+              forwardBody = JSON.stringify(compressedNative.body);
+              bridgeInfo = { requestedModel: payload.model, isStreaming: payload.stream === true, native: true };
+              log(`[Proxy] Anthropic native request compressed in place (model=${payload.model})`);
+            } else if (anthropicBridge) {
               // Every documented IDE integration sends OpenAI-shaped chat/
               // completions requests regardless of the upstream target, but
               // api.anthropic.com only understands its own Messages API

@@ -70,6 +70,67 @@ function mapOpenAITools(tools) {
 }
 
 /**
+ * Does this request already speak Anthropic's Messages API natively?
+ *
+ * v1.24.0 fixed the proxy corrupting OpenAI-shaped requests sent to an
+ * Anthropic target. It assumed the *only* thing reaching the proxy would be
+ * OpenAI-shaped, which held for the documented IDE integrations (they all
+ * configure "OpenAI Compatible" mode). It does not hold for a native
+ * Anthropic client — Claude Code, Claude Desktop, or the Anthropic SDK
+ * pointed at the proxy via ANTHROPIC_BASE_URL — and translating an
+ * already-native body drops everything outside the translator's allowlist:
+ * the top-level `system` prompt and the entire `tools` array, because those
+ * live in different places and shapes than their OpenAI equivalents.
+ *
+ * Detection uses signals OpenAI's chat/completions shape cannot produce:
+ * a top-level `system` field, or tools declared with `input_schema` rather
+ * than a nested `function` object.
+ *
+ * @param {object} payload - parsed request body
+ * @returns {boolean}
+ */
+export function isNativeAnthropicRequest(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+  if (payload.system !== undefined) return true;
+  if (Array.isArray(payload.tools) && payload.tools.length > 0) {
+    return payload.tools.some((tool) => tool && tool.input_schema !== undefined && tool.function === undefined);
+  }
+  return false;
+}
+
+/**
+ * Compress a request that is *already* in Anthropic Messages API shape,
+ * without translating it.
+ *
+ * Deliberately mutates a copy of the original body rather than rebuilding
+ * it from an allowlist: a native client may send fields this bridge has
+ * never heard of (`thinking`, `tool_choice`, `metadata`, `service_tier`,
+ * future additions), and silently dropping them is exactly the failure this
+ * function exists to prevent. Only `system` and `messages` are replaced.
+ *
+ * @param {object} payload - parsed native Anthropic request body
+ * @param {import('./glyph-middleware.js').GlyphCompressor} compressor
+ * @returns {{ body: object, stats: object|undefined }}
+ */
+export function compressNativeAnthropicRequest(payload, compressor) {
+  const messages = Array.isArray(payload.messages) ? payload.messages : [];
+  const { system, messages: compressedMessages, stats } = compressor._prepareAnthropicPayload(
+    payload.system,
+    messages.map((message) => ({ role: message.role, content: markUntranslatableParts(message.content) })),
+  );
+
+  const body = { ...payload, messages: compressedMessages };
+  if (system) {
+    body.system = system;
+  } else if (payload.system !== undefined) {
+    // Compression produced no system block but the client sent one: keep the
+    // original rather than dropping it, which is the bug being fixed here.
+    body.system = payload.system;
+  }
+  return { body, stats };
+}
+
+/**
  * Translate an OpenAI chat/completions request body into an Anthropic
  * Messages API request body, running it through the compressor's existing
  * Anthropic-specific compression + cache_control logic on the way.

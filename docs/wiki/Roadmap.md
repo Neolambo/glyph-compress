@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.4`: Proxy & Dashboard Coverage.
+`v1.32.5`: Native Anthropic Clients (Critical Fix).
+
+## Delivered in v1.32.5
+
+- Critical fix: a native Anthropic client (Claude Code, Claude Desktop, SDK via ANTHROPIC_BASE_URL) pointed at the proxy had its top-level `system` prompt and entire `tools` array silently dropped — v1.24.0's translator assumed every client is OpenAI-shaped.
+- An agentic client stripped of its tools still receives a 200, so the breakage surfaced as nothing at all.
+- Fixed with `isNativeAnthropicRequest()` and in-place compression preserving every field, including ones the bridge does not know about.
+- 30 suites, all passing.
 
 ## Delivered in v1.32.4
 

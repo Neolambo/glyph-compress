@@ -38,6 +38,8 @@ import { EventEmitter, once } from 'events';
 import { Readable } from 'stream';
 import {
   isAnthropicNativeTarget,
+  isNativeAnthropicRequest,
+  compressNativeAnthropicRequest,
   openaiRequestToAnthropic,
   anthropicHeadersFromOpenAI,
   anthropicResponseToOpenAI,
@@ -415,6 +417,101 @@ await testAsync('end-to-end: OpenAI and Gemini targets are unaffected by the Ant
       }
     },
   );
+});
+
+// ─── Native Anthropic clients (v1.32.5) ────────────────────────
+// v1.24.0 fixed the proxy corrupting OpenAI-shaped requests sent to an
+// Anthropic target, on the premise that every documented IDE integration
+// speaks "OpenAI Compatible" mode. That premise breaks for a *native*
+// Anthropic client — Claude Code, Claude Desktop, or the SDK pointed at the
+// proxy via ANTHROPIC_BASE_URL — where re-running the OpenAI translator
+// rebuilds the body from an allowlist and drops the top-level `system`
+// prompt and the whole `tools` array. For an agentic client that means
+// losing every tool it has.
+
+function nativeAnthropicPayload() {
+  return {
+    model: 'claude-sonnet-4-5',
+    max_tokens: 4096,
+    system: [{ type: 'text', text: 'You are Claude Code.' }],
+    messages: [{ role: 'user', content: 'Fix the bug in src/app.ts' }],
+    tools: [{ name: 'Read', description: 'read a file', input_schema: { type: 'object', properties: {} } }],
+    tool_choice: { type: 'auto' },
+    metadata: { user_id: 'abc' },
+    thinking: { type: 'enabled', budget_tokens: 1024 },
+  };
+}
+
+test('isNativeAnthropicRequest recognises a top-level system field', () => {
+  assert.strictEqual(isNativeAnthropicRequest(nativeAnthropicPayload()), true);
+  assert.strictEqual(isNativeAnthropicRequest({ system: 'plain string', messages: [] }), true);
+});
+
+test('isNativeAnthropicRequest recognises Anthropic-shaped tools without a system field', () => {
+  assert.strictEqual(
+    isNativeAnthropicRequest({ model: 'x', messages: [], tools: [{ name: 't', input_schema: { type: 'object' } }] }),
+    true,
+  );
+});
+
+test('isNativeAnthropicRequest does not misfire on OpenAI-shaped requests', () => {
+  // A false positive here would skip the translation an OpenAI-shaped
+  // request genuinely needs, reintroducing the v1.24.0 corruption.
+  const openaiShaped = {
+    model: 'gpt-4o',
+    messages: [{ role: 'system', content: 'You are helpful.' }, { role: 'user', content: 'hi' }],
+    tools: [{ type: 'function', function: { name: 'f', parameters: { type: 'object' } } }],
+  };
+  assert.strictEqual(isNativeAnthropicRequest(openaiShaped), false);
+  assert.strictEqual(isNativeAnthropicRequest({ model: 'gpt-4o', messages: [] }), false);
+  assert.strictEqual(isNativeAnthropicRequest(null), false);
+  assert.strictEqual(isNativeAnthropicRequest(undefined), false);
+});
+
+test('a native Anthropic request keeps its system prompt', () => {
+  const compressor = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+  const { body } = compressNativeAnthropicRequest(nativeAnthropicPayload(), compressor);
+  assert(body.system, 'the top-level system prompt must survive — dropping it silently changes model behavior');
+});
+
+test('a native Anthropic request keeps its tools', () => {
+  // The failure that matters most: an agentic client stripped of its tools
+  // still gets a 200 back, so the breakage is silent rather than loud.
+  const compressor = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+  const { body } = compressNativeAnthropicRequest(nativeAnthropicPayload(), compressor);
+  assert(Array.isArray(body.tools) && body.tools.length === 1, 'tools must survive');
+  assert.strictEqual(body.tools[0].name, 'Read');
+  assert(body.tools[0].input_schema, 'Anthropic tool schema must not be reshaped');
+});
+
+test('a native Anthropic request keeps fields this bridge does not know about', () => {
+  // Rebuilding from an allowlist is what caused the bug; anything the API
+  // gains later must pass through untouched rather than silently vanish.
+  const compressor = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+  const { body } = compressNativeAnthropicRequest(nativeAnthropicPayload(), compressor);
+  assert.deepStrictEqual(body.tool_choice, { type: 'auto' }, 'tool_choice must pass through');
+  assert.deepStrictEqual(body.metadata, { user_id: 'abc' }, 'metadata must pass through');
+  assert.deepStrictEqual(body.thinking, { type: 'enabled', budget_tokens: 1024 }, 'thinking must pass through');
+  assert.strictEqual(body.max_tokens, 4096, 'max_tokens must not be replaced by the bridge default');
+  assert.strictEqual(body.model, 'claude-sonnet-4-5');
+});
+
+test('the OpenAI translation path is unchanged by the native path', () => {
+  // Control: the v1.24.0 behavior must be exactly as before for the shape it
+  // was written for.
+  const compressor = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+  const { body } = openaiRequestToAnthropic(
+    {
+      model: 'gpt-4o',
+      messages: [{ role: 'system', content: 'You are helpful.' }, { role: 'user', content: 'hello there' }],
+      tools: [{ type: 'function', function: { name: 'f', description: 'd', parameters: { type: 'object' } } }],
+    },
+    compressor,
+  );
+  assert(body.system, 'OpenAI system message must still be lifted to the top level');
+  assert.strictEqual(body.tools.length, 1, 'OpenAI tools must still be mapped');
+  assert.strictEqual(body.tools[0].name, 'f');
+  assert(!body.messages.some((m) => m.role === 'system'), 'no illegal role:system may remain in messages');
 });
 
 console.log(`\nanthropic-bridge: ${passed} passed, ${failed} failed`);

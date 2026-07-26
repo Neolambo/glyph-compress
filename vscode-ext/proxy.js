@@ -895,6 +895,28 @@ function mapOpenAITools(tools) {
     input_schema: tool.function.parameters || { type: "object", properties: {} }
   }));
 }
+function isNativeAnthropicRequest(payload) {
+  if (!payload || typeof payload !== "object") return false;
+  if (payload.system !== void 0) return true;
+  if (Array.isArray(payload.tools) && payload.tools.length > 0) {
+    return payload.tools.some((tool) => tool && tool.input_schema !== void 0 && tool.function === void 0);
+  }
+  return false;
+}
+function compressNativeAnthropicRequest(payload, compressor) {
+  const messages = Array.isArray(payload.messages) ? payload.messages : [];
+  const { system, messages: compressedMessages, stats } = compressor._prepareAnthropicPayload(
+    payload.system,
+    messages.map((message) => ({ role: message.role, content: markUntranslatableParts(message.content) }))
+  );
+  const body = { ...payload, messages: compressedMessages };
+  if (system) {
+    body.system = system;
+  } else if (payload.system !== void 0) {
+    body.system = payload.system;
+  }
+  return { body, stats };
+}
 function openaiRequestToAnthropic(payload, compressor) {
   const messages = Array.isArray(payload.messages) ? payload.messages : [];
   const systemMessages = messages.filter((message) => message.role === "system");
@@ -1142,7 +1164,13 @@ function startProxyServer(port = 8080, targetApiUrl = "https://api.openai.com", 
           if (payload.messages && Array.isArray(payload.messages)) {
             log(`[Proxy] Intercepted ${req.method} ${req.url}`, { requestId: messagesProcessed + 1 });
             let stats;
-            if (anthropicBridge) {
+            if (anthropicBridge && isNativeAnthropicRequest(payload)) {
+              const compressedNative = compressNativeAnthropicRequest(payload, compressor);
+              stats = compressedNative.stats;
+              forwardBody = JSON.stringify(compressedNative.body);
+              bridgeInfo = { requestedModel: payload.model, isStreaming: payload.stream === true, native: true };
+              log(`[Proxy] Anthropic native request compressed in place (model=${payload.model})`);
+            } else if (anthropicBridge) {
               const translated = openaiRequestToAnthropic(payload, compressor);
               stats = translated.stats;
               forwardBody = JSON.stringify(translated.body);
