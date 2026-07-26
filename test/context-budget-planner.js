@@ -130,9 +130,14 @@ test('compressMessages honors an explicitly pinned trust policy', () => {
 // entire purpose is to stop chat history exploding, and at `level:
 // 'standard'` it silently did not.
 function buildDecayThread() {
-  const snippet = codeSample.slice(0, 3000);
   const messages = [];
   for (let i = 0; i < 4; i++) {
+    // A *different* slice per turn, deliberately. An identical snippet in
+    // every turn is now removed by _elideRepeatedBlocks before decay ever
+    // runs, which would conflate the two mechanisms and make this assert on
+    // their combined effect rather than on decay. Distinct content isolates
+    // decay, which is what this test is about.
+    const snippet = codeSample.slice(i * 3000, i * 3000 + 3000);
     messages.push({ role: 'user', content: `Turn ${i}: review this\n\n\`\`\`js\n${snippet}\n\`\`\`` });
     messages.push({ role: 'assistant', content: `Reply ${i}: here is my analysis of the code.` });
   }
@@ -160,9 +165,15 @@ test('attentional decay measurably beats no decay', () => {
   const withoutDecay = new GlyphCompressor({ level: 'standard', provider: 'openai' })
     .compressMessages(buildDecayThread(), 'openai').stats.thisMessage.compressedTokens;
 
+  // Threshold measured, not chosen. On the distinct-content fixture the
+  // ratio is 0.53 with decay working and exactly 1.00 with it disabled, so
+  // 0.7 sits clear of both. The previous 0.5 was calibrated against a
+  // fixture that repeated one identical snippet, where decay's cold-zone
+  // summarization was partly just deduplicating — work _elideRepeatedBlocks
+  // now does earlier, which is why that threshold stopped reflecting decay.
   assert(
-    withDecay < withoutDecay * 0.5,
-    `decay produced ${withDecay} vs ${withoutDecay} without it — less than a 2x reduction means old-turn compaction is not really running`,
+    withDecay < withoutDecay * 0.7,
+    `decay produced ${withDecay} vs ${withoutDecay} without it (ratio ${(withDecay / withoutDecay).toFixed(2)}) — a disabled decay measures 1.00, so anything near it means old-turn compaction is not running`,
   );
 });
 
@@ -170,6 +181,79 @@ test('attentional decay still respects an explicitly pinned trust policy', () =>
   const pinned = decayTokens({ level: 'standard', trustPolicy: 'reversible' });
   const derived = decayTokens({ level: 'standard' });
   assert(pinned > derived, 'a pinned reversible policy must keep blocking ultra transforms even under decay');
+});
+
+// ─── Differential transmission (repeated-block elision) ────────
+// IDEs re-attach open-file context every turn, so the same file arrives
+// unchanged turn after turn. Measured before this existed: the same file over
+// 5 turns emitted 1635|1635|1592|1592|1592 real tokens — full weight every
+// time, within a single request the model reads as a whole.
+
+function repeatedFileThread(turns) {
+  const messages = [];
+  for (let i = 1; i <= turns; i++) {
+    messages.push({ role: 'user', content: `Turn ${i}: reviewing the same file.\n\n\`\`\`js\n${codeSample}\n\`\`\`\nWhat changed?` });
+    if (i < turns) messages.push({ role: 'assistant', content: 'Noted.' });
+  }
+  return messages;
+}
+
+test('a file re-sent across turns is transmitted once, not once per turn', () => {
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+  const result = gc.compressMessages(repeatedFileThread(5), 'openai');
+  const body = JSON.stringify(result.messages);
+
+  // The fence survives exactly once — in the most recent turn.
+  const fences = body.match(/```/g) || [];
+  assert.strictEqual(
+    fences.length,
+    2,
+    `expected one surviving code block (two fence markers), found ${fences.length / 2} blocks — the file is still being re-sent per turn`,
+  );
+  // Asserted on the leading fragment, not the whole sentence: the dynamic
+  // dictionary legitimately substitutes words inside the marker ("…in this
+  // §69 — see the most recent copy"), and its definition ships in the same
+  // request's DYN line, so the marker stays decodable. Matching the full
+  // string would fail on a working system.
+  assert(body.includes('identical code block repeated'), 'earlier turns should carry the elision marker');
+});
+
+test('the surviving copy is the most recent one, so decay cannot orphan the marker', () => {
+  // Direction is the design: Attentional Decay compacts OLD turns. A marker
+  // pointing backwards would dangle once its referent decayed — the silent
+  // failure class of the ◈₍1₎ collision fixed in v1.32.6.
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+  const messages = gc.compressMessages(repeatedFileThread(4), 'openai').messages;
+  const users = messages.filter((m) => m.role === 'user');
+  const withFence = users.filter((m) => typeof m.content === 'string' && m.content.includes('```'));
+
+  assert.strictEqual(withFence.length, 1, 'exactly one turn should still carry the block');
+  assert.strictEqual(
+    withFence[0],
+    users[users.length - 1],
+    'the surviving copy must be the newest turn — eliding the newest and keeping an old one is what decay would later destroy',
+  );
+});
+
+test('elision holds up with attentional decay enabled', () => {
+  const plain = new GlyphCompressor({ level: 'standard', provider: 'openai' })
+    .compressMessages(repeatedFileThread(5), 'openai').stats.thisMessage.compressedTokens;
+  const decayed = new GlyphCompressor({ level: 'standard', provider: 'openai', attentionalDecay: true })
+    .compressMessages(repeatedFileThread(5), 'openai').stats.thisMessage.compressedTokens;
+  assert(decayed <= plain * 1.05, `decay must not undo the elision (${decayed} vs ${plain})`);
+});
+
+test('a block that appears only once is never elided', () => {
+  // The marker costs tokens; applying it to a non-repeated block would be a
+  // pure loss, and would also destroy content the model needs.
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+  const unique = [
+    { role: 'user', content: `First file:\n\n\`\`\`js\n${codeSample.slice(0, 3000)}\n\`\`\`` },
+    { role: 'assistant', content: 'ok' },
+    { role: 'user', content: `Different file:\n\n\`\`\`js\n${codeSample.slice(3000, 6000)}\n\`\`\`` },
+  ];
+  const body = JSON.stringify(gc.compressMessages(unique, 'openai').messages);
+  assert(!body.includes('identical code block repeated later'), 'distinct blocks must survive untouched');
 });
 
 // ─── Compression level normalization ───────────────────────────

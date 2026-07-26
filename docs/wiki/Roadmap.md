@@ -3,7 +3,16 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.9`: Legacy Engine Emitted Undocumented Glyphs (Again).
+`v1.33.0`: Differential Transmission (72% on Repeated Context).
+
+## Delivered in v1.33.0
+
+- Differential transmission: a file re-sent across turns is now transmitted once. Measured 10,515 -> 2,909 real tokens over 5 turns at `standard` (-72.4%), -67.9% at `aggressive`.
+- Composes with prompt caching (67% on the same repetition) rather than competing with it.
+- Direction is the design: decay compacts OLD turns, so the newest copy survives and an elided turn holds only a marker — no dangling reference by construction.
+- Marker is plain text (a new glyph would need a codebook entry) and excluded from the dynamic dictionary (otherwise it dissolves into a four-glyph lookup chain).
+- Corrected a decay test whose fixture conflated decay with deduplication; threshold re-grounded on measurement (0.53 working vs 1.00 disabled).
+- 30 suites, all passing.
 
 ## Delivered in v1.32.9
 

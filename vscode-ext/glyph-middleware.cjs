@@ -330,6 +330,7 @@ function planCompressionForBudget(text, options = {}) {
 }
 var FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
 var COMPRESSION_LEVELS = ["light", "standard", "aggressive", "ultra"];
+var ELISION_MARKER = "[identical code block repeated later in this conversation - see the most recent copy]";
 function normalizeCompressionLevel(level) {
   if (typeof level !== "string") return "standard";
   const cleaned = level.trim().toLowerCase();
@@ -672,10 +673,64 @@ var GlyphCompressor = class {
       }
     };
   }
+  /**
+   * Elide fenced code blocks that appear more than once across the turns,
+   * keeping only the most recent copy.
+   *
+   * IDEs re-attach open-file context on every turn, so the same file arrives
+   * unchanged turn after turn. Measured on a 5-turn thread re-sending
+   * src/token-estimator.js at 'standard': 1635 | 1635 | 1592 | 1592 | 1592
+   * real tokens — full weight every time, 8046 cumulative. The duplication is
+   * *within a single request*, so an earlier copy is redundant with a later
+   * one the model can already see.
+   *
+   * Direction is the whole design, not a detail. Attentional Decay compacts
+   * OLD turns, so a marker pointing backwards would dangle the moment its
+   * referent decayed — the same silent failure as the ◈₍1₎ collision fixed in
+   * v1.32.6. Keeping the newest copy intact and eliding the older ones is
+   * safe by construction: if decay later compacts those turns, they held only
+   * a marker anyway.
+   *
+   * The marker is plain text, deliberately. A new glyph would need a codebook
+   * entry, and a glyph emitted without one is exactly the drift v1.32.9 fixed.
+   */
+  _elideRepeatedBlocks(messages, rolesToCompress) {
+    const FENCE = /```[\s\S]*?```/g;
+    const occurrences = /* @__PURE__ */ new Map();
+    messages.forEach((msg, msgIndex) => {
+      if (!rolesToCompress.has(msg.role) || typeof msg.content !== "string") return;
+      for (const block of msg.content.match(FENCE) || []) {
+        if (!occurrences.has(block)) occurrences.set(block, []);
+        occurrences.get(block).push(msgIndex);
+      }
+    });
+    const elidable = /* @__PURE__ */ new Set();
+    for (const [block, at] of occurrences) {
+      if (at.length > 1 && block.length > 200) elidable.add(block);
+    }
+    if (elidable.size === 0) return messages;
+    const lastIndexOf = /* @__PURE__ */ new Map();
+    for (const block of elidable) lastIndexOf.set(block, Math.max(...occurrences.get(block)));
+    let elided = 0;
+    const out = messages.map((msg, msgIndex) => {
+      if (!rolesToCompress.has(msg.role) || typeof msg.content !== "string") return msg;
+      let changed = false;
+      const content = msg.content.replace(FENCE, (block) => {
+        if (!elidable.has(block) || lastIndexOf.get(block) === msgIndex) return block;
+        changed = true;
+        elided++;
+        return ELISION_MARKER;
+      });
+      return changed ? { ...msg, content } : msg;
+    });
+    if (elided > 0) this.sourceMap.repeatedBlocksElided = elided;
+    return out;
+  }
   _compressMessagesForStrategy(messages, provider, origTokens, baseState, candidate) {
     this.resetSourceMap();
     const rolesToCompress = this.attentionalDecay ? /* @__PURE__ */ new Set(["user", "assistant"]) : new Set(candidate.roles || ["user"]);
-    const allCompressibleText = messages.filter((m) => rolesToCompress.has(m.role)).map((m) => this._normalizeMessageContent(m.content)).join("\n");
+    messages = this._elideRepeatedBlocks(messages, rolesToCompress);
+    const allCompressibleText = messages.filter((m) => rolesToCompress.has(m.role)).map((m) => this._normalizeMessageContent(m.content)).map((text) => text.split(ELISION_MARKER).join(" ")).join("\n");
     const safeText = this._applyPrivacyFirewall(allCompressibleText, false);
     this._buildDynamicDictionary(safeText);
     const compressed = messages.map((msg, index) => {
@@ -1327,7 +1382,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.32.9",
+      version: "1.33.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

@@ -1,3 +1,46 @@
+## v1.33.0 — Differential Transmission (72% on Repeated Context)
+
+**The largest measured saving this project has shipped, and it comes from not sending things twice rather than from compressing them harder.**
+
+### The Observation
+IDEs re-attach open-file context on every turn, so the same file arrives unchanged turn after turn. Measured on a 5-turn thread re-sending `src/token-estimator.js`, real `js-tiktoken` tokens:
+
+```
+per-turn emitted: 1635 | 1635 | 1592 | 1592 | 1592
+```
+
+Full weight every time. Nothing in the compressor noticed it had already sent that content. The duplication is *within a single request* the model reads as a whole, so every copy after the first is redundant with one the model can already see.
+
+### The Result
+
+| level | before | after | reduction |
+|---|---:|---:|---:|
+| `standard` | 10,515 | 2,909 | **−72.4%** |
+| `aggressive` | 6,413 | 2,058 | **−67.9%** |
+
+For comparison, prompt caching recovers 67% of the same repetition — these compose rather than compete, because elision reduces what needs caching in the first place.
+
+### Direction Is the Design, Not a Detail
+Attentional Decay compacts **old** turns. A marker pointing backwards would dangle the moment its referent decayed, handing the model a pointer to nothing — the silent-failure class of the `◈₍1₎` collision fixed in v1.32.6. So the newest copy is kept intact and the *older* ones are elided: if decay later compacts those turns, they held only a marker anyway. Verified: with `attentionalDecay: true` the payload is unchanged (2,946 vs 2,942 before this release's marker fix).
+
+### Two Design Corrections Found by Measuring, Not by Testing Afterwards
+- **The marker is plain text, not a glyph.** A new glyph would need a codebook entry, and a glyph emitted without one is exactly the drift v1.32.9 fixed one release ago.
+- **The marker is excluded from the dynamic dictionary.** Left in, it repeats once per elided turn, its words clear the `freq >= 2` bar, and the instruction dissolves into `[§40 §41 later in this §34 — see the §60 copy]` — decodable in principle, a four-glyph lookup chain in practice, for a sentence the model must act on. Elision markers are metadata addressed to the model, the same category as the privacy placeholders `_buildDynamicDictionary` already skips. Excluding it also *lowered* the payload, 2,942 → 2,909.
+
+### A Test Assumption This Invalidated
+`attentional decay measurably beats no decay` asserted a ratio below 0.5 and started failing. Not a decay regression — both sides improved (1159→833 with decay, 3368→1276 without). Its fixture repeated one identical snippet per turn, so decay's cold-zone summarization was partly just deduplicating, work elision now does earlier. Fixed by giving each turn *distinct* content so the test isolates decay, and re-grounding the threshold on measurement: **0.53 with decay working, exactly 1.00 with it disabled**, so 0.7 sits clear of both. The old 0.5 was calibrated against a confound.
+
+### Tests & Verification
+- Four new tests: the file survives exactly once, the survivor is the newest turn, elision holds under decay, and a non-repeated block is never touched.
+- Verified they fail with elision disabled.
+- `npm run benchmark:alternatives` unchanged (+0/+0/+1/+1) — expected, it measures single-file compression, not multi-turn repetition.
+- **Complete Suite Validation**: 30 suites, all passing.
+
+### Known Flake, Reported Rather Than Buried
+One full-suite run in eight crashed in `test/proxy.js` with Windows `status: 3221226505` (`0xC0000409`, STATUS_STACK_BUFFER_OVERRUN) immediately after a server bind — a process-level crash, not a failed assertion. The suite passes 3/3 standalone, and the committed v1.32.9 baseline passed 8/8 in an isolated worktree. This release's change is pure string manipulation in JS and touches no networking, so it is very unlikely to be the cause, but 1/8 against 0/8 is too small a sample to *prove* that. Recorded here rather than dismissed; worth watching in CI.
+
+***
+
 ## v1.32.9 — The Legacy Engine Emitted Undocumented Glyphs (Again)
 
 **The `Compressor`/`Codebook` pair exported from the package root sent the model glyphs it was never given a definition for — including the `₍N₎` file-reference notation itself.**
