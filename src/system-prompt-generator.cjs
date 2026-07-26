@@ -95,6 +95,54 @@ var TECH_GLYPHS = {
   agent: "\u03B1",
   prompt: "\u03C0"
 };
+var STRUCTURE_GLYPHS = {
+  // File references
+  file: "\u{1F4C4}",
+  // file reference
+  dir: "\u{1F4C1}",
+  // directory reference
+  line: ":",
+  // line number prefix
+  range: "~",
+  // line range
+  // Diagnostics
+  error: "\u2717",
+  // error
+  warning: "\u26A0",
+  // warning  
+  info: "\u2139",
+  // info
+  hint: "\u{1F4A1}",
+  // hint/suggestion
+  // Type system
+  typeError: "\u2209",
+  // type mismatch
+  notFound: "\u2205",
+  // not found / undefined
+  duplicate: "\u2261",
+  // duplicate / identical
+  returns: "\u2192",
+  // returns / maps to
+  generic: "\u27E8\u27E9",
+  // generic type
+  // Code structure
+  func: "\u0192",
+  // function
+  cls: "\u{1D49E}",
+  // class
+  iface: "\u{1D4BE}",
+  // interface
+  component: "\u229E",
+  // component (React/Vue/etc)
+  hook: "\u27F3",
+  // hook / lifecycle
+  state: "\u25C7",
+  // state variable
+  effect: "\u27FF",
+  // side effect
+  render: "\u229E"
+  // render output
+};
 var ERROR_CODES = {
   // TypeScript
   "TS2339": "\u2209prop",
@@ -184,7 +232,12 @@ Context uses compressed glyphs. Decode with this codebook:`);
   parts.push(`ACT: ${actionStr}`);
   const techStr = Object.entries(TECH_GLYPHS).map(([name, glyph]) => `${glyph}=${name}`).join(" ");
   parts.push(`TECH: ${techStr}`);
-  parts.push(`SYM: \u2717=error \u26A0=warn \u2209=type_mismatch \u2205=not_found \u2192=returns \u0192=func \u{1D49E}=class \u25C7=state \u27FF=effect`);
+  const structureStr = Object.entries(STRUCTURE_GLYPHS).map(([name, glyph]) => `${glyph}=${name}`).join(" ");
+  parts.push(`SYM: ${structureStr}`);
+  const errorGlyphs = [...new Set(Object.values(ERROR_CODES))].join(" ");
+  parts.push(`ERR: ${errorGlyphs}`);
+  parts.push(`PAT: \u2E8C=fix \u2E8E=review/explain \u2E8F=deploy`);
+  parts.push(`FILE: \u25C8\u208DN\u208E=indexed file reference :L=line ~=range`);
   if (codebook && codebook.fileIndex.size > 0) {
     parts.push(codebook.getFileIndexHeader());
   }

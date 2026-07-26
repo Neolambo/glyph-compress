@@ -1,3 +1,27 @@
+## v1.32.9 — The Legacy Engine Emitted Undocumented Glyphs (Again)
+
+**The `Compressor`/`Codebook` pair exported from the package root sent the model glyphs it was never given a definition for — including the `₍N₎` file-reference notation itself.**
+
+### The Bug
+- `src/index.js` exports `Compressor` and `Codebook`, so `src/compressor.js` is public API, not demo-only code. `test/codebook-completeness.js` — the suite that exists specifically to catch "emitted glyph absent from the shipped codebook" — only ever checked the main engine.
+- Measured across the legacy engine's public surface: **6 distinct glyphs reached the model undefined** — `⺌` (fix), `⺎` (review/explain), `⺏` (deploy), `ℹ` (info), `⏱` (from `ETIMEDOUT`), and the `₍` `₎` subscript delimiters. The last is the worst: `◈₍1₎` is the single most load-bearing construct in the output, and a model never told what the subscripts mean cannot resolve a reference at all.
+- Root cause is three drifts in one 30-line function, all of the same shape:
+  - The `SYM:` line was a **hand-written string listing 9 of `STRUCTURE_GLYPHS`' 21 entries**, leaving `📄 📁 ~ ℹ 💡 ≡ ⟨⟩ 𝒾 ⟳` undefined — sitting directly beneath a comment explaining that exactly this drift had already been fixed once for `TECH_GLYPHS` in v1.16.0.
+  - `ERROR_CODES` was imported and never rendered, so composite diagnostic glyphs (`⏱timeout`, `○denied`) were undocumented.
+  - The `₍N₎` notation was only ever implied via `getFileIndexHeader()`, and only when a file happened to already be indexed.
+
+### The Fix
+- `SYM:` is now generated from `STRUCTURE_GLYPHS`, the same way `TECH:` is generated from `TECH_GLYPHS` — the hand-maintained-list-beside-a-table pattern is what drifted, so it is gone rather than extended.
+- New `ERR:` line renders the distinct `ERROR_CODES` glyphs, `PAT:` documents the `PROMPT_PATTERNS` action glyphs, and `FILE:` states the `◈₍N₎` / `:L` / `~` notation unconditionally.
+- Prompt grows 776 → 1083 characters. That cost is paid once per conversation; a reference the model cannot decode costs the whole payload.
+
+### Tests & Verification
+- `test/codebook-completeness.js` extended to the legacy engine (now 62): every non-ASCII glyph produced across its public surface must appear in the prompt it ships, and every `STRUCTURE_GLYPHS` value must be covered — asserted against the source-of-truth table rather than one sampled payload, since the sampling is precisely what let a subset drift.
+- Verified both fail against the original hand-written line, naming the exact missing glyphs.
+- **Complete Suite Validation**: 30 suites, all passing.
+
+***
+
 ## v1.32.8 — Compression Level Was Never Validated (Silent Degradation)
 
 **`--level Ultra` — a single capital letter — silently cost 4.7 percentage points of real compression, and every diagnostic reported the level as applied.**

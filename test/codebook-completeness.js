@@ -27,6 +27,9 @@
  */
 import assert from 'assert';
 import { GlyphCompressor, TECH_GLYPHS, DOMAIN_GLYPHS } from '../src/glyph-middleware.js';
+import { Compressor, Codebook } from '../src/compressor.js';
+import { generateSystemPrompt } from '../src/system-prompt-generator.js';
+import { STRUCTURE_GLYPHS } from '../src/radical-alphabet.js';
 
 let passed = 0;
 let failed = 0;
@@ -139,6 +142,58 @@ test('Dynamic dictionary never assigns a glyph that is also a reserved TECH_GLYP
   for (const entry of r.sourceMap.dynamic) {
     assert(!reserved.has(entry.glyph), `dynamic glyph "${entry.glyph}" collides with a reserved TECH_GLYPHS symbol`);
   }
+});
+
+// ─── The legacy engine (src/compressor.js) ─────────────────────
+// `Compressor` and `Codebook` are exported from the package root, so this is
+// public API, not demo-only code — but this suite only ever checked the main
+// engine. v1.16.0 fixed 19/33 undocumented TECH glyphs here once; by v1.32.8
+// the line directly beneath that fix had drifted the same way, leaving 12 of
+// STRUCTURE_GLYPHS' 21 entries, every ERROR_CODES symbol, the PROMPT_PATTERNS
+// action glyphs, and the ₍N₎ file-reference notation itself undefined in the
+// prompt the model receives.
+
+test('legacy engine: every glyph it emits is defined in the prompt it ships', () => {
+  const codebook = new Codebook();
+  const compressor = new Compressor(codebook);
+
+  // Exercise the whole public surface, including the diagnostic codes whose
+  // composite glyphs (⏱timeout, ○denied) appear in no other table.
+  const emitted = [
+    compressor.compressPrompt('Fix the error in the React component and deploy to Kubernetes'),
+    compressor.compressPrompt('review src/app.ts'),
+    compressor.compressPrompt('explain how the auth flow works'),
+    compressor.compressFile({ path: 'src/components/App.tsx', content: 'import React from "react";\nexport function App(){ return null; }' }),
+    compressor.compressDiagnostic({ code: 'TS2339', message: "Property 'x' does not exist on type 'Y'", file: 'src/a.ts', line: 42 }),
+    compressor.compressDiagnostic({ code: 'ETIMEDOUT', message: 'timed out', file: 'src/b.ts', line: 9 }),
+    compressor.compressDiagnostic({ code: 'EACCES', message: 'denied', file: 'src/c.ts', line: 1 }),
+    compressor.compressHistory([{ role: 'user', content: 'deploy the python service with docker' }]),
+    compressor.compress({
+      prompt: 'Review this Django backend and the Postgres schema',
+      files: [{ path: 'api/views.py', content: 'def index(): pass' }],
+      diagnostics: [{ code: 'E501', message: 'line too long', file: 'api/views.py', line: 3 }],
+    }),
+  ].map((out) => (typeof out === 'string' ? out : JSON.stringify(out))).join('\n');
+
+  const prompt = generateSystemPrompt(codebook);
+  const glyphs = [...new Set([...emitted].filter((ch) => ch.charCodeAt(0) > 127))];
+  assert(glyphs.length > 10, `precondition: the fixture must actually exercise the glyph vocabulary, got ${glyphs.length}`);
+
+  const undocumented = glyphs.filter((g) => !prompt.includes(g));
+  assert.deepStrictEqual(
+    undocumented,
+    [],
+    `the legacy engine emits ${undocumented.length} glyph(s) the model is never given a definition for: ${undocumented.join(' ')}`,
+  );
+});
+
+test('legacy engine: the SYM line covers STRUCTURE_GLYPHS, not a hand-picked subset', () => {
+  // The specific failure mode: a literal string listing a subset silently
+  // falls behind the table it is meant to describe. Assert against the source
+  // of truth rather than against one sampled payload.
+  const prompt = generateSystemPrompt(new Codebook());
+  const missing = Object.values(STRUCTURE_GLYPHS).filter((g) => !prompt.includes(g));
+  assert.deepStrictEqual(missing, [], `STRUCTURE_GLYPHS entries absent from the prompt: ${missing.join(' ')}`);
 });
 
 console.log(`\ncodebook-completeness: ${passed} passed, ${failed} failed`);

@@ -47,8 +47,32 @@ Context uses compressed glyphs. Decode with this codebook:`);
     .map(([name, glyph]) => `${glyph}=${name}`).join(' ');
   parts.push(`TECH: ${techStr}`);
 
-  // Structure glyphs
-  parts.push(`SYM: ✗=error ⚠=warn ∉=type_mismatch ∅=not_found →=returns ƒ=func 𝒞=class ◇=state ⟿=effect`);
+  // Structure glyphs: generated from STRUCTURE_GLYPHS for the same reason
+  // TECH is generated above. This line used to be a hand-written string
+  // listing 9 of the table's 21 entries, so `📄 📁 : ~ ℹ 💡 ≡ ⟨⟩ 𝒾 ⊞ ⟳` all
+  // reached the model with no definition — the identical drift the TECH
+  // comment above describes, in the line right beneath it.
+  const structureStr = Object.entries(STRUCTURE_GLYPHS)
+    .map(([name, glyph]) => `${glyph}=${name}`).join(' ');
+  parts.push(`SYM: ${structureStr}`);
+
+  // Diagnostic codes compress to composite glyphs (`∉prop`, `⏱timeout`,
+  // `○denied`), which introduce symbols that appear in no other table.
+  // ERROR_CODES was imported here but never rendered, so those were
+  // undocumented too.
+  const errorGlyphs = [...new Set(Object.values(ERROR_CODES))].join(' ');
+  parts.push(`ERR: ${errorGlyphs}`);
+
+  // The action glyphs PROMPT_PATTERNS emits in compressor.js. They are not
+  // part of ACTION_GLYPHS, so nothing above covers them.
+  parts.push(`PAT: ⺌=fix ⺎=review/explain ⺏=deploy`);
+
+  // The file-reference notation itself, stated unconditionally. It was only
+  // ever mentioned via getFileIndexHeader() when a file happened to be
+  // indexed — but the `₍N₎` subscript form is the single most load-bearing
+  // construct in the output, and a model that has not been told what the
+  // subscripts mean cannot resolve a reference even when the index is present.
+  parts.push(`FILE: ◈₍N₎=indexed file reference :L=line ~=range`);
 
   // File index if available
   if (codebook && codebook.fileIndex.size > 0) {

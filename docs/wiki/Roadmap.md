@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.8`: Compression Level Never Validated (Silent Degradation).
+`v1.32.9`: Legacy Engine Emitted Undocumented Glyphs (Again).
+
+## Delivered in v1.32.9
+
+- The `Compressor`/`Codebook` pair exported from the package root emitted 6 glyphs undefined in the prompt it ships — including the `₍N₎` file-reference delimiters.
+- Three drifts in one function: a hand-written `SYM:` line covering 9 of 21 `STRUCTURE_GLYPHS` entries, `ERROR_CODES` imported but never rendered, and the `₍N₎` notation only implied.
+- `test/codebook-completeness.js` had never covered this engine, despite existing for exactly this invariant. Extended, and the `SYM:` line is now generated from the table.
+- 30 suites, all passing.
 
 ## Delivered in v1.32.8
 
