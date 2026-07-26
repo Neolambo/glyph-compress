@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.6`: Warm-Start File Ref Collision Guard.
+`v1.32.7`: Cache-Stability Coverage for Dictionary Growth.
+
+## Delivered in v1.32.7
+
+- Tests only. An architecture review's bug hypothesis (session-order `§N` assignment invalidating the provider cache) was measured and refuted — the cacheable block is byte-identical while the dictionary grows 47 to 80 entries.
+- The real finding: that invariant had no test. None of the nine cache-prefix tests grew the dictionary.
+- The new test's first version was caught passing against a disabled cache-stable path, and strengthened to a three-part invariant before shipping.
+- 30 suites, all passing.
 
 ## Delivered in v1.32.6
 

@@ -143,6 +143,62 @@ async function run() {
     assert(sys3.includes(bigSystemPrompt), 'the original system text must still be present verbatim');
   });
 
+  await test('OpenAI multi-turn: the stable codebook survives the dynamic dictionary GROWING mid-session', () => {
+    // The test above varies content between turns, but a session that starts
+    // on a large payload saturates the dictionary on turn 1 — so it never
+    // exercises the case this whole feature exists for: new `§N` entries
+    // being learned while already in cache-stable mode. Learning is
+    // order-dependent, so a codebook that embedded dictionary state would
+    // change here and silently invalidate the provider's cached prefix on
+    // every turn that learns anything. Verified reachable: this sequence
+    // grows the dictionary from tens of entries to the cap between the two
+    // compared turns.
+    const gc = new GlyphCompressor({ level: 'ultra', provider: 'openai' });
+    const small = largeContent('Widget');
+    const big = small + '\n' + largeContent('KubernetesDeploy') + '\n' + largeContent('DjangoBackend');
+
+    const messages = [{ role: 'user', content: small }];
+    gc.compressMessages(messages, 'openai');                       // turn 1: filtered header, by design
+    messages.push({ role: 'assistant', content: 'ok' });
+
+    messages.push({ role: 'user', content: small });
+    const turnA = gc.compressMessages(messages, 'openai');          // turn 2: cache-stable mode begins
+    const dictAfterA = gc.dynamicDict.size;
+    messages.push({ role: 'assistant', content: 'ok' });
+
+    messages.push({ role: 'user', content: big });                  // turn 3: much more vocabulary
+    const turnB = gc.compressMessages(messages, 'openai');
+    const dictAfterB = gc.dynamicDict.size;
+
+    assert(!turnA.stats.thisMessage.fallback && !turnB.stats.thisMessage.fallback,
+      'precondition: both compared turns must actually compress');
+    assert(dictAfterB > dictAfterA,
+      `precondition: the dictionary must actually grow between the compared turns (${dictAfterA} -> ${dictAfterB}) or this test proves nothing`);
+
+    const sysA = turnA.messages.find((m) => m.role === 'system').content;
+    const sysB = turnB.messages.find((m) => m.role === 'system').content;
+    assert(sysA.includes('[/GLYPH]') && sysB.includes('[/GLYPH]'),
+      'both turns must emit a delimited codebook block, or the slicing below compares nothing');
+    const blockA = sysA.slice(0, sysA.indexOf('[/GLYPH]') + '[/GLYPH]'.length);
+    const blockB = sysB.slice(0, sysB.indexOf('[/GLYPH]') + '[/GLYPH]'.length);
+
+    // Three assertions together make the invariant unfalsifiable-by-luck.
+    // The block being equal is not enough on its own: a payload pair whose
+    // filtered codebooks happen to coincide would satisfy it even with the
+    // cache-stable path disabled. Requiring the growth to be *visible* in
+    // the DYN line proves the new vocabulary really did land outside the
+    // cacheable block rather than never existing.
+    assert(sysA.includes('DYN:') && sysB.includes('DYN:'),
+      'both turns should carry a dynamic-dictionary line');
+    assert.notStrictEqual(
+      sysA.slice(sysA.indexOf('DYN:')),
+      sysB.slice(sysB.indexOf('DYN:')),
+      `the DYN line is identical across turns even though the dictionary grew ${dictAfterA} -> ${dictAfterB} — the growth is not reaching the payload, so this test cannot prove anything about where it lands`,
+    );
+    assert.strictEqual(blockA, blockB,
+      `the cacheable codebook block changed while the dictionary grew ${dictAfterA} -> ${dictAfterB}; every provider cache read for this session would miss`);
+  });
+
   await test('OpenAI multi-turn: the request-specific DYN line lives outside the stable codebook block', () => {
     const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
     gc.compressMessages([

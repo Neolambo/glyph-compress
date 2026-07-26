@@ -1,3 +1,24 @@
+## v1.32.7 — Cache-Stability Coverage for Dictionary Growth
+
+Tests only; no runtime behavior changed. Came out of an architectural review that produced a specific bug hypothesis — and then refuted it.
+
+### The Hypothesis, and Why It Was Wrong
+- The dynamic dictionary assigns `§N` indices in **session learning order**, so the claim was that a session which learns new vocabulary mid-conversation would emit a different codebook each turn and silently invalidate the provider's cached prefix on every turn.
+- Measured directly: turn 1 emits the smaller filtered header (by design — there is no prior turn to cache against), turn 2 upgrades to the full unconditional codebook, and from there the cacheable block stays **byte-identical even as the dictionary grows from 47 to 80 entries**. v1.25.0's fix is complete, not the partial patch the review assumed. The growth lands entirely in the `DYN:` line, which lives outside the cacheable block exactly as designed.
+
+### The Real Finding: That Invariant Was Untested
+- `test/cache-prefix-stability.js` had nine tests and **none of them grew the dictionary**. The closest one varies *content* between turns, which a session starting on a large payload never exercises — the dictionary saturates on turn 1, so growth never happens. The mechanism the whole v1.25.0 release exists for had no direct coverage.
+- New test drives a session from a small payload (few entries) into a large one, asserting the dictionary genuinely grew between the two compared turns before comparing their cacheable blocks.
+
+### A Weak Test, Caught Before Shipping
+- The first version of that test passed against a mutation that disabled the cache-stable codebook entirely. Not vacuous — it really did compare two codebook blocks — but the chosen payloads produced coincidentally identical filtered headers, so it could not distinguish stable-by-design from stable-by-luck.
+- Strengthened to a three-part invariant: the block must be delimited (so the slicing compares something), the `DYN:` line must **differ** between turns (proving the new vocabulary reached the payload at all), and only then must the cacheable block match. It now fails correctly when the `DYN:` line is moved back inside the cacheable block, naming the dictionary growth in the failure message.
+
+### Tests & Verification
+- **Complete Suite Validation**: 30 suites, all passing; `npm run check` clean.
+
+***
+
 ## v1.32.6 — Warm-Start File Ref Collision Guard
 
 Closes the last surviving mutation from the audit that produced v1.32.3-v1.32.5.
