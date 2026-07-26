@@ -84,6 +84,46 @@ test('compressText restores the level and trust policy it was called with', () =
   assert.strictEqual(gc.trustPolicy, policyBefore, 'trust policy must be restored, not left at the resolved level');
 });
 
+// The chat path (proxy, wrapOpenAI/wrapAnthropic, VS Code extension) picks
+// its level through _resolveBaseLevel/_candidateMessageStrategies rather
+// than compressText(), so it needs its own coverage — the same coupling bug
+// was far more severe there (325 vs 4922 tokens on this fixture).
+function buildThread() {
+  return [
+    { role: 'system', content: 'You are a senior engineer.' },
+    { role: 'user', content: `Review this file:\n\n\`\`\`js\n${codeSample}\n\`\`\`` },
+    { role: 'assistant', content: 'Looks reasonable overall.' },
+    { role: 'user', content: 'Now find the performance bottleneck.' },
+  ];
+}
+
+function threadTokens(compressor) {
+  const result = compressor.compressMessages(buildThread(), 'openai');
+  return result.stats.thisMessage.compressedTokens;
+}
+
+test("compressMessages with level 'auto' applies the level it resolves", () => {
+  const explicit = threadTokens(new GlyphCompressor({ level: 'ultra', provider: 'openai' }));
+  const auto = threadTokens(new GlyphCompressor({ level: 'auto', provider: 'openai' }));
+  const standard = threadTokens(new GlyphCompressor({ level: 'standard', provider: 'openai' }));
+
+  assert(explicit < standard, 'precondition: ultra must beat standard on this thread');
+  assert.strictEqual(
+    auto,
+    explicit,
+    `auto resolved to ultra but delivered ${auto} tokens instead of ultra's ${explicit} — the level/trust coupling bug in the chat path`,
+  );
+});
+
+test('compressMessages honors an explicitly pinned trust policy', () => {
+  const pinned = new GlyphCompressor({ level: 'auto', provider: 'openai', trustPolicy: 'reversible' });
+  const tokens = threadTokens(pinned);
+  const unpinned = threadTokens(new GlyphCompressor({ level: 'auto', provider: 'openai' }));
+
+  assert.strictEqual(pinned.trustPolicy, 'reversible', 'pinned policy must survive candidate trials');
+  assert(tokens > unpinned, 'a pinned reversible policy must still block ultra transforms in the chat path');
+});
+
 // ─── Budget planning behavior ──────────────────────────────────
 
 test('a generous budget spends no fidelity it does not need', () => {

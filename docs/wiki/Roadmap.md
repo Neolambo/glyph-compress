@@ -3,7 +3,13 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.0`: Context Budget Planner.
+`v1.32.1`: Chat-Path Trust Fix.
+
+## Delivered in v1.32.1
+
+- Fixed the same `level: 'auto'` trust-policy bug from v1.32.0 in `compressMessages()`, the path used by the proxy, SDK wrappers, and VS Code extension. Severity there was 15x (325 vs 4922 tokens), not 11.5%.
+- `trustPolicy` is now captured and restored alongside the level in the candidate-strategy machinery.
+- 27 suites total, all passing.
 
 ## Delivered in v1.32.0
 

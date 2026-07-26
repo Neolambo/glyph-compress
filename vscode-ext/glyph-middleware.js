@@ -548,7 +548,13 @@ class GlyphCompressor {
 
     for (const candidate of candidates) {
       const trialState = this._captureCompressionState();
-      this.level = candidate.level;
+      // _applyEffectiveLevel, not a bare assignment: with `level: 'auto'`
+      // the candidate level is resolved from content (_resolveBaseLevel) and
+      // can be 'ultra', whose defining transforms a constructor-derived
+      // 'reversible' policy forbids outright. Measured on this repository's
+      // own src/compressor.js in a 4-message thread: 325 tokens with the
+      // policy tracking the level, 4922 without it.
+      this._applyEffectiveLevel(candidate.level);
       const result = this._compressMessagesForStrategy(messages, provider, origTokens, baseState, candidate);
       this._restoreCompressionState(trialState);
 
@@ -557,7 +563,7 @@ class GlyphCompressor {
       }
     }
 
-    this.level = bestResult.level;
+    this._applyEffectiveLevel(bestResult.level);
     this._restoreCompressionState(bestResult.state);
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += bestResult.compressedTokens;
@@ -722,6 +728,11 @@ class GlyphCompressor {
   _captureCompressionState() {
     return {
       level: this.level,
+      // Captured alongside the level because the two are coupled: a derived
+      // trust policy is a function of the level, so restoring one without
+      // the other leaves the compressor in a state it could never have
+      // reached on its own.
+      trustPolicy: this.trustPolicy,
       fileIndex: new Map(this.fileIndex),
       fileCounter: this.fileCounter,
       dynamicDict: new Map(this.dynamicDict),
@@ -744,6 +755,10 @@ class GlyphCompressor {
 
   _restoreCompressionState(state) {
     this.level = state.level;
+    if (state.trustPolicy) {
+      this.trustPolicy = state.trustPolicy;
+      this.trustProfile = TRUST_POLICY_PROFILES[state.trustPolicy];
+    }
     this.fileIndex = new Map(state.fileIndex);
     this.fileCounter = state.fileCounter;
     this.dynamicDict = new Map(state.dynamicDict);
@@ -1381,7 +1396,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.32.0',
+      version: '1.32.1',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

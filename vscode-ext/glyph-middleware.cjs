@@ -630,14 +630,14 @@ var GlyphCompressor = class {
     let bestResult = null;
     for (const candidate of candidates) {
       const trialState = this._captureCompressionState();
-      this.level = candidate.level;
+      this._applyEffectiveLevel(candidate.level);
       const result = this._compressMessagesForStrategy(messages, provider, origTokens, baseState, candidate);
       this._restoreCompressionState(trialState);
       if (!bestResult || result.compressedTokens < bestResult.compressedTokens) {
         bestResult = result;
       }
     }
-    this.level = bestResult.level;
+    this._applyEffectiveLevel(bestResult.level);
     this._restoreCompressionState(bestResult.state);
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += bestResult.compressedTokens;
@@ -767,6 +767,11 @@ var GlyphCompressor = class {
   _captureCompressionState() {
     return {
       level: this.level,
+      // Captured alongside the level because the two are coupled: a derived
+      // trust policy is a function of the level, so restoring one without
+      // the other leaves the compressor in a state it could never have
+      // reached on its own.
+      trustPolicy: this.trustPolicy,
       fileIndex: new Map(this.fileIndex),
       fileCounter: this.fileCounter,
       dynamicDict: new Map(this.dynamicDict),
@@ -788,6 +793,10 @@ var GlyphCompressor = class {
   }
   _restoreCompressionState(state) {
     this.level = state.level;
+    if (state.trustPolicy) {
+      this.trustPolicy = state.trustPolicy;
+      this.trustProfile = TRUST_POLICY_PROFILES[state.trustPolicy];
+    }
     this.fileIndex = new Map(state.fileIndex);
     this.fileCounter = state.fileCounter;
     this.dynamicDict = new Map(state.dynamicDict);
@@ -1311,7 +1320,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.32.0",
+      version: "1.32.1",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

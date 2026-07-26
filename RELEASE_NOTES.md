@@ -1,3 +1,20 @@
+## v1.32.1 — Chat-Path Trust Fix (the other half of v1.32.0's bug)
+
+v1.32.0 fixed the `level: 'auto'` trust-policy coupling in `compressText()`. That fix deliberately scoped out `compressMessages()`, whose candidate-strategy machinery has its own state capture/restore. Following up on that scoping decision found the same bug live there — and considerably worse.
+
+### The Same Root Cause, in the Main Path
+- `compressMessages()` resolves `level: 'auto'` through `_resolveBaseLevel()` → `selectCompressionLevel()`, which returns `ultra` for code-heavy threads, then assigned `this.level = candidate.level` without re-deriving the trust policy. Identical to the v1.32.0 bug, but in the path the **proxy, `wrapOpenAI`/`wrapAnthropic`, and the VS Code extension** all use — i.e. essentially every real integration, not just the CLI.
+- Severity measured on a realistic 4-message review thread over this repository's own `src/compressor.js`: explicit `ultra` → **325** tokens, `auto` → **4922** tokens. **A 15x difference**, versus 11.5% for the `compressText()` case fixed in v1.32.0.
+- Fixed by routing the candidate loop through `_applyEffectiveLevel()`, and by capturing/restoring `trustPolicy` in `_captureCompressionState()`/`_restoreCompressionState()` — the two are coupled, so restoring the level without the policy left the compressor in a state it could never have reached on its own.
+- An explicitly requested trust policy is still never escalated: `trustPolicy: 'reversible'` pinned alongside `level: 'auto'` continues to block ultra's transforms in the chat path too.
+
+### Tests & Verification
+- Two new tests in `test/context-budget-planner.js` (now 16) covering the chat path specifically, since it reaches its level through different machinery than `compressText()`.
+- Both verified to fail against the reverted fix before being trusted.
+- **Complete Suite Validation**: 27 suites, all passing. `npm run benchmark` unchanged (1.3x / 22%).
+
+***
+
 ## v1.32.0 — Context Budget Planner (and a real `level: 'auto'` bug it exposed)
 
 ### Context Budget Planner
