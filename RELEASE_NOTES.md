@@ -1,3 +1,21 @@
+## v1.32.6 — Warm-Start File Ref Collision Guard
+
+Closes the last surviving mutation from the audit that produced v1.32.3-v1.32.5.
+
+- `_loadCache()` restores both `dynamicCounter` and `fileCounter` on a warm start, but only `dynamicCounter` was asserted. Removing the `fileCounter` restore left all 30 suites green.
+- The consequence is not cosmetic. Reproduced directly: session one indexes `src/alpha.ts` → `◇₍1₎` and `src/beta.ts` → `◇₍2₎`; session two warm-starts, and `src/gamma.ts` is assigned **`◇₍1₎`** — an index already bound to a different path. The model then decodes that reference to the wrong file, and nothing about the output looks malformed.
+- Guarded behaviourally (no duplicate refs across a warm start) rather than by asserting the counter value, because the collision is the thing that matters — a future refactor could keep the counter correct by other means and should not fail, while any path that reintroduces a duplicate reference must.
+
+### Audit Summary (v1.32.3 → v1.32.6)
+Four releases from one deliberate pause on features. Across ~24 mutations in four rounds:
+- **Real defects fixed**: native Anthropic clients losing their system prompt and all tools (v1.32.5, critical); `escapeHtml()` throwing on the numeric fields its own render loop passes, silently freezing the dashboard; the dashboard history path interpolating unescaped (latent, not exploitable); this warm-start collision.
+- **Coverage gaps closed**: 6 of 9 privacy redaction patterns, `inferProviderFromTarget()` (zero coverage despite gating every provider-specific decision), the proxy's error-body redaction call site, `src/dashboard.js` (755 lines, zero tests).
+- **Falsely-passing tests found and fixed**: three — `gitDiffOnly` passing with the filter fully disabled, the placeholder-leak test using inputs the economics filter rejected anyway, and an escalation guard written earlier in the same session.
+- **Confirmed already solid**: the Anthropic bridge's OpenAI path, team codebook ordering, cache workspace keying, extension command registration, holographic folding, intent diffs, decay — all mutations caught.
+- One survivor was analysed and proved an **equivalent mutation** (the `freq >= 2` dictionary filter is redundant, since the savings formula already excludes single-occurrence words) and documented as such rather than papered over with a test that could not fail.
+
+***
+
 ## v1.32.5 — Native Anthropic Clients (Critical Fix)
 
 **Pointing a native Anthropic client at the GlyphProxy silently destroyed its request.** Found while answering a direct user question — "how do I use this in my Claude Code session?" — rather than by the mutation sweep, which had not thought to ask what happens when the client is not OpenAI-shaped.

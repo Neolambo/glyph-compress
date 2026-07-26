@@ -45,6 +45,31 @@ if (fs.existsSync(gc1.cacheFile)) {
   fs.unlinkSync(gc1.cacheFile);
 }
 
+// fileCounter has the same warm-start requirement as dynamicCounter above,
+// but only dynamicCounter was asserted — mutation testing showed the
+// fileCounter restore could be removed with the whole suite staying green.
+// The consequence is not cosmetic: a file indexed in a later session reuses
+// an index already cached for a *different* path, so the model decodes the
+// reference to the wrong file. Asserted behaviourally (no duplicate refs)
+// rather than on the counter, since the collision is what actually matters.
+const refCacheKey = 'glyph-file-ref-warmstart-' + Date.now();
+const refSession1 = new GlyphCompressor({ cacheKey: refCacheKey, level: 'standard' });
+refSession1.compressText('Look at src/alpha.ts and src/beta.ts for details.');
+assert(refSession1.fileIndex.size >= 2, 'precondition: first session must index both files');
+
+const refSession2 = new GlyphCompressor({ cacheKey: refCacheKey, level: 'standard' });
+refSession2.compressText('Now check src/gamma.ts instead.');
+const refs = [...refSession2.fileIndex.values()];
+assert.strictEqual(
+  refs.length,
+  new Set(refs).size,
+  `warm-start file refs collided (${JSON.stringify([...refSession2.fileIndex.entries()])}) — a new file reused a cached index, so the model would decode the reference to the wrong path`,
+);
+
+if (refSession1.cacheFile && fs.existsSync(refSession1.cacheFile)) {
+  fs.unlinkSync(refSession1.cacheFile);
+}
+
 // Test Attentional Decay Compaction
 const decayCompressor = new GlyphCompressor({ level: 'standard', attentionalDecay: true });
 const transcript = [

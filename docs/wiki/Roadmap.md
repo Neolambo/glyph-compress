@@ -3,7 +3,13 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.32.5`: Native Anthropic Clients (Critical Fix).
+`v1.32.6`: Warm-Start File Ref Collision Guard.
+
+## Delivered in v1.32.6
+
+- Closed the last surviving mutation of the audit: `fileCounter` was restored on warm start but never asserted, so removing the restore kept all 30 suites green while new files reused cached reference indices — the model would decode a reference to the wrong file.
+- Guarded behaviourally (no duplicate refs across a warm start) rather than by asserting the counter value.
+- 30 suites, all passing.
 
 ## Delivered in v1.32.5
 
