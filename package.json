@@ -99,7 +99,8 @@
     "check:links": "node scripts/check-links.js",
     "release:prepare": "node scripts/release-helper.js",
     "measure:routing": "node scripts/measure-routing.mjs",
-    "measure:cache": "node scripts/measure-cache.mjs"
+    "measure:cache": "node scripts/measure-cache.mjs",
+    "measure:implicit-cache": "node scripts/measure-implicit-cache.mjs"
   },
   "keywords": [
     "compression",
