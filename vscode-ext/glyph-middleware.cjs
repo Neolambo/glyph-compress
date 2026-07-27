@@ -332,6 +332,8 @@ function planCompressionForBudget(text, options = {}) {
 var FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
 var COMPRESSION_LEVELS = ["light", "standard", "aggressive", "ultra"];
 var ELISION_MARKER = "[identical code block repeated later in this conversation - see the most recent copy]";
+var ELISION_MARKER_BACKREF = "[identical code block shown earlier in this conversation - see the first copy]";
+var ELISION_MARKERS = [ELISION_MARKER, ELISION_MARKER_BACKREF];
 function normalizeCompressionLevel(level) {
   if (typeof level !== "string") return "standard";
   const cleaned = level.trim().toLowerCase();
@@ -711,8 +713,13 @@ var GlyphCompressor = class {
       if (at.length > 1 && block.length > 200) elidable.add(block);
     }
     if (elidable.size === 0) return messages;
-    const lastIndexOf = /* @__PURE__ */ new Map();
-    for (const block of elidable) lastIndexOf.set(block, Math.max(...occurrences.get(block)));
+    const keepOldest = !this.attentionalDecay;
+    const survivorIndexOf = /* @__PURE__ */ new Map();
+    for (const block of elidable) {
+      const at = occurrences.get(block);
+      survivorIndexOf.set(block, keepOldest ? Math.min(...at) : Math.max(...at));
+    }
+    const lastIndexOf = survivorIndexOf;
     let elided = 0;
     const out = messages.map((msg, msgIndex) => {
       if (!rolesToCompress.has(msg.role) || typeof msg.content !== "string") return msg;
@@ -721,7 +728,7 @@ var GlyphCompressor = class {
         if (!elidable.has(block) || lastIndexOf.get(block) === msgIndex) return block;
         changed = true;
         elided++;
-        return ELISION_MARKER;
+        return keepOldest ? ELISION_MARKER_BACKREF : ELISION_MARKER;
       });
       return changed ? { ...msg, content } : msg;
     });
@@ -732,7 +739,7 @@ var GlyphCompressor = class {
     this.resetSourceMap();
     const rolesToCompress = this.attentionalDecay ? /* @__PURE__ */ new Set(["user", "assistant"]) : new Set(candidate.roles || ["user"]);
     messages = this._elideRepeatedBlocks(messages, rolesToCompress);
-    const allCompressibleText = messages.filter((m) => rolesToCompress.has(m.role)).map((m) => this._normalizeMessageContent(m.content)).map((text) => text.split(ELISION_MARKER).join(" ")).join("\n");
+    const allCompressibleText = messages.filter((m) => rolesToCompress.has(m.role)).map((m) => this._normalizeMessageContent(m.content)).map((text) => ELISION_MARKERS.reduce((acc, marker) => acc.split(marker).join(" "), text)).join("\n");
     const safeText = this._applyPrivacyFirewall(allCompressibleText, false);
     this._buildDynamicDictionary(safeText);
     const compressed = messages.map((msg, index) => {
@@ -1449,7 +1456,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.33.8",
+      version: "1.33.9",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

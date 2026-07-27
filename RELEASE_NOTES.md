@@ -1,3 +1,42 @@
+## v1.33.9 — Differential Transmission Now Keeps The Cache Prefix Too
+
+**Billed session cost on a re-attached file, 10 turns: −63.7% → −75.4% (OpenAI), −66.8% → −78.5% (Anthropic).** No change to how many tokens are transmitted — the entire gain is cache that was previously being thrown away.
+
+### What Was Happening
+
+Differential transmission (v1.33.0) elides a code block repeated across turns and keeps one copy. It keeps the **newest**, which means every turn rewrites the bytes of earlier turns — and a provider's prefix cache keys on exactly those bytes. Measured over a 10-turn session: **9 prefix breaks out of 9.** Every turn missed the cache.
+
+The elision itself was never in question and still measures as this project's largest single saving. Re-priced with js-tiktoken rather than the heuristic that v1.33.0 used:
+
+| Turns | Tokens transmitted |
+|---|---|
+| 3 | −40.0% |
+| 6 | −63.4% |
+| 10 | **−75.4%** |
+
+which confirms the original −72.4% figure. But the *billed* figure was well below it, because the cache never hit.
+
+### The Fix, And Why It Is Conditional
+
+Keeping the **oldest** copy transmits exactly the same number of tokens and leaves history untouched — **1 prefix break out of 9** instead of 9. The whole difference lands on the bill:
+
+| Turns | Provider | Billed, keep newest | Billed, keep oldest |
+|---|---|---|---|
+| 3 | openai | −23.8% | **−34.3%** |
+| 6 | openai | −48.6% | **−62.7%** |
+| 10 | openai | −63.7% | **−75.4%** |
+| 10 | anthropic | −66.8% | **−78.5%** |
+
+**But it is only safe when nothing rewrites history.** With Attentional Decay enabled, old turns are compacted: measured over the same session, turns 0–5 come back with their code blocks replaced by structural summaries. Pointing every marker at the oldest copy would then reference a turn whose code no longer exists — a dangling pointer, the failure class of the `◈₍1₎` collision fixed in v1.32.6. **v1.33.0's choice was correct**; it was correct for the case it was designed around.
+
+So the surviving copy is now the oldest when decay is off (the default) and the newest when it is on. The marker wording follows the reference direction — *"shown earlier … see the first copy"* against *"repeated later … see the most recent copy"* — because a marker pointing the model the wrong way is a wrong instruction, not a cosmetic difference.
+
+### Verification
+
+Both directions are pinned by their own test, each with the reason it exists. Forcing keep-newest fails the decay-off case; forcing keep-oldest fails the decay-on case, and neither mutation is caught by the other's test. The surviving copy is asserted to be un-decayed in both modes, and marker direction is asserted to match. 30 suites green, `npm run benchmark` unchanged at 26%.
+
+---
+
 ## v1.33.8 — Compression Is Priced In Real Tokens, Over A Session
 
 **GlyphCompress no longer sends more tokens than it received.** The guarantee is scoped to a *session* of ordinary use, not to each individual call — which is the scope that matters, and the one that makes the prompt-cache investment legal.

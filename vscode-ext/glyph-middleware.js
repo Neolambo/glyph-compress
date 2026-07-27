@@ -247,7 +247,13 @@ const FALLBACK_MIN_IMPROVEMENT_RATIO = 0.9;
 
 const COMPRESSION_LEVELS = ['light', 'standard', 'aggressive', 'ultra'];
 
+// Two markers, because the direction of the reference has to match which copy
+// actually survived — a marker pointing the model the wrong way is a wrong
+// instruction, not a cosmetic difference. See _elideRepeatedBlocks for why the
+// surviving copy depends on whether attentional decay is running.
 const ELISION_MARKER = '[identical code block repeated later in this conversation - see the most recent copy]';
+const ELISION_MARKER_BACKREF = '[identical code block shown earlier in this conversation - see the first copy]';
+const ELISION_MARKERS = [ELISION_MARKER, ELISION_MARKER_BACKREF];
 
 /**
  * Resolve a caller-supplied compression level to a real one.
@@ -692,8 +698,33 @@ class GlyphCompressor {
     }
     if (elidable.size === 0) return messages;
 
-    const lastIndexOf = new Map();
-    for (const block of elidable) lastIndexOf.set(block, Math.max(...occurrences.get(block)));
+    // Which copy survives depends on whether attentional decay is running,
+    // and the difference is worth about 11 percentage points of session cost.
+    //
+    // Keeping the NEWEST copy rewrites history bytes on every turn, so a
+    // provider's prefix cache misses every turn: measured 9 breaks out of 9
+    // over a 10-turn session. Keeping the OLDEST leaves history untouched —
+    // 1 break out of 9 — and transmits exactly the same number of tokens
+    // (-75.4% either way), so the whole difference lands on the cache:
+    // billed session cost -63.7% keeping the newest against -75.3% keeping
+    // the oldest (OpenAI, 10 turns; -66.8% vs -78.4% on Anthropic).
+    //
+    // But it is only safe without decay. With decay on, old turns are
+    // summarised: measured over the same session, turns 0-5 come back
+    // `decayed: true` with their code blocks replaced by structural
+    // summaries. Pointing every marker at the oldest copy would then point
+    // them at a turn whose code no longer exists — a dangling reference, the
+    // same silent failure as the ◈₍1₎ collision fixed in v1.32.6. The newest
+    // copy is the one decay never touches, which is why v1.33.0 chose it.
+    //
+    // So: oldest when nothing rewrites history, newest when something does.
+    const keepOldest = !this.attentionalDecay;
+    const survivorIndexOf = new Map();
+    for (const block of elidable) {
+      const at = occurrences.get(block);
+      survivorIndexOf.set(block, keepOldest ? Math.min(...at) : Math.max(...at));
+    }
+    const lastIndexOf = survivorIndexOf;
 
     let elided = 0;
     const out = messages.map((msg, msgIndex) => {
@@ -703,7 +734,7 @@ class GlyphCompressor {
         if (!elidable.has(block) || lastIndexOf.get(block) === msgIndex) return block;
         changed = true;
         elided++;
-        return ELISION_MARKER;
+        return keepOldest ? ELISION_MARKER_BACKREF : ELISION_MARKER;
       });
       return changed ? { ...msg, content } : msg;
     });
@@ -727,7 +758,7 @@ class GlyphCompressor {
       // the §60 copy]" — decodable in principle, a four-glyph lookup chain in
       // practice, for a sentence the model has to act on. Same rule the
       // privacy placeholders already get in _buildDynamicDictionary.
-      .map((text) => text.split(ELISION_MARKER).join(' '))
+      .map((text) => ELISION_MARKERS.reduce((acc, marker) => acc.split(marker).join(' '), text))
       .join('\n');
     const safeText = this._applyPrivacyFirewall(allCompressibleText, false);
     this._buildDynamicDictionary(safeText);
@@ -1674,7 +1705,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.33.8',
+      version: '1.33.9',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

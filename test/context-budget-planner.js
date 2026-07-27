@@ -215,25 +215,67 @@ test('a file re-sent across turns is transmitted once, not once per turn', () =>
   // §69 — see the most recent copy"), and its definition ships in the same
   // request's DYN line, so the marker stays decodable. Matching the full
   // string would fail on a working system.
-  assert(body.includes('identical code block repeated'), 'earlier turns should carry the elision marker');
-});
-
-test('the surviving copy is the most recent one, so decay cannot orphan the marker', () => {
-  // Direction is the design: Attentional Decay compacts OLD turns. A marker
-  // pointing backwards would dangle once its referent decayed — the silent
-  // failure class of the ◈₍1₎ collision fixed in v1.32.6.
-  const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
-  const messages = gc.compressMessages(repeatedFileThread(4), 'openai').messages;
-  const users = messages.filter((m) => m.role === 'user');
-  const withFence = users.filter((m) => typeof m.content === 'string' && m.content.includes('```'));
-
-  assert.strictEqual(withFence.length, 1, 'exactly one turn should still carry the block');
-  assert.strictEqual(
-    withFence[0],
-    users[users.length - 1],
-    'the surviving copy must be the newest turn — eliding the newest and keeping an old one is what decay would later destroy',
+  // Two marker wordings since v1.33.9, because the reference direction has to
+  // match which copy survived: "repeated later … most recent copy" when decay
+  // is on and the newest is kept, "shown earlier … first copy" when it is off
+  // and the oldest is kept. Asserted on the leading fragment of either, not
+  // the whole sentence: the dynamic dictionary legitimately substitutes words
+  // inside the marker, and its definition ships in the same request's DYN
+  // line, so the marker stays decodable. Matching the full string would fail
+  // on a working system.
+  assert(
+    body.includes('identical code block repeated') || body.includes('identical code block shown earlier'),
+    'the non-surviving turns should carry an elision marker',
   );
 });
+
+// Which copy survives depends on whether anything rewrites history, and both
+// directions have to be pinned — each is unsafe in the other's mode.
+//
+// With decay ON the newest must survive: decay compacts OLD turns, so a marker
+// pointing backwards would dangle once its referent was summarised away — the
+// silent failure class of the ◈₍1₎ collision fixed in v1.32.6. Measured over a
+// 10-turn session, turns 0-5 come back decayed with their code replaced by
+// structural summaries.
+//
+// With decay OFF nothing compacts anything, so the oldest can survive — and
+// keeping it means history bytes never change, which is what a provider's
+// prefix cache keys on. Measured: prefix breaks drop from 9-of-9 to 1-of-9
+// over 10 turns, and because the transmitted token count is identical either
+// way (-75.4%), the entire difference lands on the bill: -63.7% keeping the
+// newest against -75.4% keeping the oldest on OpenAI, -66.8% vs -78.5% on
+// Anthropic. Reproduce with `npm run measure:implicit-cache`.
+for (const decay of [false, true]) {
+  test(`the surviving copy is the ${decay ? 'newest (decay on: nothing else survives compaction)' : 'oldest (decay off: keeps the cache prefix intact)'}`, () => {
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'openai', attentionalDecay: decay });
+    const messages = gc.compressMessages(repeatedFileThread(4), 'openai').messages;
+    const users = messages.filter((m) => m.role === 'user');
+    const withFence = users.filter((m) => typeof m.content === 'string' && m.content.includes('```'));
+
+    assert.strictEqual(withFence.length, 1, 'exactly one turn should still carry the block');
+    assert.strictEqual(
+      withFence[0],
+      decay ? users[users.length - 1] : users[0],
+      decay
+        ? 'with decay on, the surviving copy must be the newest turn — keeping an old one is what decay would later destroy'
+        : 'with decay off, the surviving copy must be the oldest turn — keeping the newest rewrites history every turn and misses the prefix cache',
+    );
+
+    // The marker must point the way the survivor actually lies. A back-
+    // reference emitted while the newest copy survived would send the model
+    // looking in the wrong direction.
+    const markers = users
+      .filter((m) => m !== withFence[0])
+      .map((m) => (typeof m.content === 'string' ? m.content : ''));
+    assert(markers.length > 0, 'precondition: some turns must have been elided');
+    for (const text of markers) {
+      assert(
+        decay ? text.includes('repeated later') : text.includes('shown earlier'),
+        `marker direction must match the surviving copy (decay=${decay}), got: ${text.slice(0, 120)}`,
+      );
+    }
+  });
+}
 
 test('elision holds up with attentional decay enabled', () => {
   const plain = new GlyphCompressor({ level: 'standard', provider: 'openai' })
