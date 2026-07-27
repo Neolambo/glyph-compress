@@ -119,18 +119,82 @@ try {
     }
   });
 
-  test('selectRelevantFiles ranks a repeatedly-used file above an equally-matched but unused one', () => {
-    const codebook = buildWorkspaceCodebook(dir);
-    saveWorkspaceCodebook(dir, codebook);
-    recordFileUsage(dir, ['a.js']);
-    recordFileUsage(dir, ['a.js']);
-    recordFileUsage(dir, ['a.js']);
-    const { files } = selectRelevantFiles(dir, 'random query with no keyword overlap', { limit: 12 });
-    const alpha = files.find((f) => f.path === 'a.js');
-    const beta = files.find((f) => f.path === 'b.js');
-    assert(alpha, 'a.js should surface purely from its usage boost');
-    assert(alpha.score > 0, 'usage boost should give a used file a positive score even with no query match');
-    assert(!beta || alpha.score > beta.score, 'the used file should outrank the unused, equally-matched file');
+  // v1.23.0 let usage "outrank a cold keyword match" — a used file could
+  // surface on a query it matched nothing in. That is unsound here, because
+  // routeAndCompress() records usage for everything it selects and nothing
+  // records whether the selection was correct, so the boost feeds on the
+  // router's own output. Measured on this repository, examples/test-dashboard.tsx
+  // reached count 318 and won "dashboard escapeHtml crashes" on one generic
+  // path match, beating src/dashboard.js which matched the rare term.
+  //
+  // Since v1.33.3 usage breaks ties between files that already matched, and
+  // cannot manufacture a match. Both halves are asserted below: without the
+  // second, capping the boost to zero would still pass.
+  test('usage breaks ties between matched files but cannot surface an unmatched one', () => {
+    const tieDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-awm-tie-'));
+    try {
+      // alphaMarker and betaMarker each appear in exactly one file, so the two
+      // score identically on the query and only usage can separate them.
+      fs.writeFileSync(path.join(tieDir, 'a.js'), 'export function alphaMarker() { return 1; }\n', 'utf8');
+      fs.writeFileSync(path.join(tieDir, 'b.js'), 'export function betaMarker() { return 2; }\n', 'utf8');
+      fs.writeFileSync(path.join(tieDir, 'c.js'), 'export function unrelatedThing() { return 3; }\n', 'utf8');
+      saveWorkspaceCodebook(tieDir, buildWorkspaceCodebook(tieDir));
+
+      // c.js is used the most, and matches nothing in the query.
+      for (let i = 0; i < 5; i++) recordFileUsage(tieDir, ['c.js']);
+      recordFileUsage(tieDir, ['a.js']);
+      recordFileUsage(tieDir, ['a.js']);
+      recordFileUsage(tieDir, ['a.js']);
+
+      const { files } = selectRelevantFiles(tieDir, 'alphaMarker betaMarker', { limit: 12 });
+      const alpha = files.find((f) => f.path === 'a.js');
+      const beta = files.find((f) => f.path === 'b.js');
+      const unrelated = files.find((f) => f.path === 'c.js');
+
+      assert(alpha && beta, `both matched files should rank, got: ${files.map((f) => f.path).join(', ')}`);
+      assert(alpha.score > beta.score, 'among files that matched equally, the more-used one should rank higher');
+      assert(
+        !unrelated || unrelated.score === 0,
+        `a file matching nothing in the query must earn no usage boost, got score=${unrelated?.score}`,
+      );
+      assert(
+        !unrelated || unrelated.score < beta.score,
+        'the heavily-used but unmatched file must not outrank a genuine keyword match',
+      );
+    } finally {
+      fs.rmSync(tieDir, { recursive: true, force: true });
+    }
+  });
+
+  // The gate above stops usage inventing relevance; this covers the other
+  // half, that it cannot outweigh relevance either. USAGE_COUNT_CAP sits below
+  // the points one term match earns, so a heavily-used weak match still loses
+  // to an unused strong one. Raising the cap back to its pre-1.33.3 value of 10
+  // is caught here, and is worth catching: measured against six ground-truth
+  // queries on this repository, cap 10 retrieves 2/6 and cap 3 retrieves 3/6,
+  // because scripts/build-middleware.js is used often enough to displace
+  // src/workspace-intelligence.js on its own query.
+  test('a heavily-used weak match does not outrank an unused strong match', () => {
+    const capDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-awm-cap-'));
+    try {
+      // heavy.js matches one query term; exact.js matches that plus a rarer one.
+      fs.writeFileSync(path.join(capDir, 'heavy.js'), 'export function serviceHandler() { return 1; }\n', 'utf8');
+      fs.writeFileSync(path.join(capDir, 'exact.js'), 'export function serviceHandler() { return zzRareMarker; }\nexport const zzRareMarker = 2;\n', 'utf8');
+      saveWorkspaceCodebook(capDir, buildWorkspaceCodebook(capDir));
+      for (let i = 0; i < 10; i++) recordFileUsage(capDir, ['heavy.js']);
+
+      const { files } = selectRelevantFiles(capDir, 'serviceHandler zzRareMarker', { limit: 12 });
+      const heavy = files.find((f) => f.path === 'heavy.js');
+      const exact = files.find((f) => f.path === 'exact.js');
+
+      assert(heavy && exact, `both files should rank, got: ${files.map((f) => f.path).join(', ')}`);
+      assert(
+        exact.score > heavy.score,
+        `the stronger match must win despite 10 recorded uses of the weaker one (exact=${exact.score.toFixed(2)}, heavy=${heavy.score.toFixed(2)})`,
+      );
+    } finally {
+      fs.rmSync(capDir, { recursive: true, force: true });
+    }
   });
 
   test('routeAndCompress records usage for every file it actually selects', () => {

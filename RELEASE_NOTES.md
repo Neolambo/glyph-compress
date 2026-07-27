@@ -1,3 +1,38 @@
+## v1.33.3 — The Router's Memory Was Feeding On Itself
+
+Retrieval against six ground-truth queries: **0/6 → 3/6**, noise **18/18 → 15/18**.
+
+### The Bug
+v1.23.0 gave files a boost for having been selected before, and documented the intent that this "can outrank a cold keyword match". The intent is defensible in isolation. It is not defensible *here*, because of what sits on either side of it:
+
+- `routeAndCompress()` records usage for **everything it selects**.
+- **Nothing** records whether the selection was any good.
+
+So the boost is computed from the router's own past output, with no correctness signal anywhere in the loop. A file selected often keeps being selected because it was selected often. Measured on this repository, `examples/test-dashboard.tsx` reached usage count **318** and won the query `"dashboard escapeHtml crashes on a number"` on a single generic path match — beating `src/dashboard.js`, which matched the rare term. `USAGE_COUNT_CAP` was 10 while one query-term match is worth 4, so usage did not merely break ties; it outvoted relevance two-and-a-half to one.
+
+### The Fix
+Usage now **breaks ties among files that already matched, and cannot manufacture a match**:
+
+- **Gate** — a file matching nothing in the query earns no usage boost at all.
+- **Cap** — `USAGE_COUNT_CAP` 10 → 3, below the 4 points one term match earns, so usage can reorder within a relevance tier but never jump one.
+
+Both halves are load-bearing, which is worth stating because the gate alone looks sufficient: with the gate in place but the cap left at 10, retrieval is **2/6**, not 3/6 — `scripts/build-middleware.js` is used often enough to displace `src/workspace-intelligence.js` on its own query.
+
+### Verification
+Both mutations are caught by `test/adaptive-workspace-memory.js`: removing the gate fails the new tie test, restoring the cap to 10 fails the new cap test. The baseline was re-measured by stashing the change and re-running the same harness — 0/6, confirming the improvement is this change and not measurement drift. 30 suites green; cache-prefix stability and the three-provider comprehension checks unaffected.
+
+### Dropped, Not Shipped
+**IDF term weighting** was implemented alongside this and removed. Weighting rare query terms above common ones sounds obviously correct; measured, it changed nothing — retrieval 3/6 and noise 15/18 with and without it — and mutating it to a flat weight broke no test. Shipping it would have added a document-frequency pass over every candidate file per query in exchange for no measured benefit. It is recorded in `ROADMAP.md` as refuted so it is not retried.
+
+### Two Corrections To The Previous Iteration
+- The earlier report of this work said the cap-and-gate approach reached only **1/6**. That number was wrong: it came from a run whose IDF divisor was `log(corpusSize)`, which is `0` for a single-file corpus and turned every score into `NaN`. With that guarded, the same approach reaches 3/6.
+- Two of the six ground-truth queries expected `src/privacy.js` and `src/glyph-middleware.js`. Neither is where that code lives — the patterns and the decay zones are both in `vscode-ext/glyph-middleware.js`, and `src/glyph-middleware.js` is a 16-line shim. Those two were harness errors, not router failures, and are corrected in the numbers above.
+
+### Still Open
+The three remaining misses fail the same way: **the test file outranks the source file**. Scoring reads `path + owner + symbols + imports` and never the file's content, which systematically favours the file *named* after a topic over the file that *implements* it. That needs content indexing (BM25 over file text), tracked in `ROADMAP.md`.
+
+---
+
 ## v1.33.2 — Cross-Session Determinism (and a Misattribution Corrected)
 
 Closes the cache-first thread with no new mechanism: the property was already there, undocumented and untested. Getting to it required correcting a wrong conclusion first.

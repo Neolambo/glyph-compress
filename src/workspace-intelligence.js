@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 
-const VERSION = '1.33.2';
+const VERSION = '1.33.3';
 const CODEBOOK_DIR = '.glyphcompress';
 const CODEBOOK_FILE = 'codebook.json';
 const SUPPORTED_EXTENSIONS = new Set([
@@ -151,10 +151,24 @@ export function recordFileUsage(rootDir = process.cwd(), filePaths = []) {
 // A file used many times recently is more likely to matter again than one
 // used once months ago. Half-life decay (not a hard cutoff) so the boost
 // fades smoothly rather than a usage record suddenly stops counting at an
-// arbitrary age. Count is capped so a file selected 50 times can't
-// permanently dominate every future ranking regardless of relevance.
+// arbitrary age.
+//
+// Usage breaks ties between files that are already relevant; it does not
+// create relevance. v1.23.0 originally let it "outrank a cold keyword match",
+// but that is unsound in a system where routeAndCompress() records usage for
+// everything it selects and *nothing* records whether the selection was any
+// good: the boost then feeds on the router's own output, and a file picked
+// often enough keeps being picked. Measured on this repository,
+// examples/test-dashboard.tsx reached count 318 and won the query
+// "dashboard escapeHtml crashes" on one generic path match, beating
+// src/dashboard.js which matched two terms including the rare one.
+//
+// The cap is therefore below the 4 points a single query-term match earns,
+// so usage can reorder within a relevance tier but never jump one. The gate
+// at the call site is the other half: a file matching nothing in the query
+// gets no boost at all.
 const USAGE_DECAY_HALF_LIFE_DAYS = 14;
-const USAGE_COUNT_CAP = 10;
+const USAGE_COUNT_CAP = 3;
 
 function usageBoost(usageEntry) {
   if (!usageEntry || !usageEntry.lastUsedAt) return 0;
@@ -221,9 +235,15 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
 
   const ranked = candidateFiles.map((file) => {
     let score = 0;
+    // Tracked for the usage gate below, which needs to know whether this file
+    // matched the query at all — not merely how it scored, since several
+    // intent bonuses further down can lift a file that matched nothing.
+    let termMatches = 0;
     const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(' ')} ${(file.imports || []).join(' ')}`.toLowerCase();
     for (const term of terms) {
-      if (haystack.includes(term)) score += 4;
+      if (!haystack.includes(term)) continue;
+      termMatches++;
+      score += 4;
     }
     if (gitPaths.has(file.path)) score += intents.includes('review_diff') ? 10 : 3;
     if (intents.includes('write_tests') && /(?:test|spec)\./i.test(file.path)) score += 6;
@@ -235,7 +255,9 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
     // half-lifed (see usageBoost) so proven-useful files can surface even
     // for a generic query, without permanently outranking a real keyword
     // or intent match.
-    score += usageBoost(usage[file.path]);
+    // Gated: usage reorders files that already earned relevance, and cannot
+    // introduce one that matched nothing. See USAGE_COUNT_CAP above for why.
+    if (termMatches > 0 || gitPaths.has(file.path)) score += usageBoost(usage[file.path]);
     return { ...file, score };
   }).filter((file) => file.score > 0 || options.gitDiffOnly)
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))

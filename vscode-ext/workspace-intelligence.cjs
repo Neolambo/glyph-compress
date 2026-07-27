@@ -43,7 +43,7 @@ var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
-var VERSION = "1.33.2";
+var VERSION = "1.33.3";
 var CODEBOOK_DIR = ".glyphcompress";
 var CODEBOOK_FILE = "codebook.json";
 var SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
@@ -166,7 +166,7 @@ function recordFileUsage(rootDir = process.cwd(), filePaths = []) {
   return codebook.usage;
 }
 var USAGE_DECAY_HALF_LIFE_DAYS = 14;
-var USAGE_COUNT_CAP = 10;
+var USAGE_COUNT_CAP = 3;
 function usageBoost(usageEntry) {
   if (!usageEntry || !usageEntry.lastUsedAt) return 0;
   const ageDays = (Date.now() - new Date(usageEntry.lastUsedAt).getTime()) / (1e3 * 60 * 60 * 24);
@@ -203,16 +203,19 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
   const usage = codebook.usage || {};
   const ranked = candidateFiles.map((file) => {
     let score = 0;
+    let termMatches = 0;
     const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(" ")} ${(file.imports || []).join(" ")}`.toLowerCase();
     for (const term of terms) {
-      if (haystack.includes(term)) score += 4;
+      if (!haystack.includes(term)) continue;
+      termMatches++;
+      score += 4;
     }
     if (gitPaths.has(file.path)) score += intents.includes("review_diff") ? 10 : 3;
     if (intents.includes("write_tests") && /(?:test|spec)\./i.test(file.path)) score += 6;
     if (intents.includes("fix_error") && codebook.diagnostics.some((diag) => diag.file === file.path)) score += 8;
     if (intents.includes("explain_architecture") && /(readme|package|index|main|app|route|schema)/i.test(file.path)) score += 4;
     if (intents.includes("optimize_performance") && /(perf|benchmark|cache|query|service|worker)/i.test(file.path)) score += 5;
-    score += usageBoost(usage[file.path]);
+    if (termMatches > 0 || gitPaths.has(file.path)) score += usageBoost(usage[file.path]);
     return { ...file, score };
   }).filter((file) => file.score > 0 || options.gitDiffOnly).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, options.limit || 12);
   return { intents, files: ranked, codebook };
