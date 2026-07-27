@@ -342,7 +342,6 @@ function normalizeCompressionLevel(level) {
 }
 function isCompressionTrusted(compTokens, origTokens, provider, measured = false) {
   if (measured) return compTokens <= origTokens;
-  if (provider === "raw") return compTokens <= origTokens;
   return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
 }
 var ERROR_PATTERNS = [
@@ -1456,7 +1455,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.33.9",
+      version: "1.33.10",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

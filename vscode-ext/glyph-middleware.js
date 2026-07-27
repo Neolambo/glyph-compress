@@ -297,6 +297,19 @@ function normalizeCompressionLevel(level) {
  */
 function isCompressionTrusted(compTokens, origTokens, provider, measured = false) {
   if (measured) return compTokens <= origTokens;
+
+  // Unmeasured: the 10% margin applies to EVERY provider, raw included.
+  //
+  // Raw was given a bare `compTokens <= origTokens` in v1.33.8 on the
+  // reasoning that it should accept any genuine improvement. That reasoning
+  // holds for a real count and fails for an estimated one: the heuristic
+  // overstates improvement by 10-14%, so at the 1.0 boundary it waves through
+  // payloads that actually inflate. Caught by measuring the packaged VSIX,
+  // where js-tiktoken is absent because it is an optional dependency and a
+  // VSIX ships no node_modules — +0.15% via compressText and +5.54% via
+  // compressMessages on this repository's own files, in exactly the build
+  // most users run. The margin is what stands in for the tokenizer when the
+  // tokenizer is not there.
   // 'raw' used to return true unconditionally — it exists to report raw
   // character-level deltas, so it deliberately skipped the 10% margin the
   // other providers require. That exemption turned out to be a hole rather
@@ -305,10 +318,9 @@ function isCompressionTrusted(compTokens, origTokens, provider, measured = false
   // reading of this project's promise under which returning MORE tokens than
   // it received is acceptable.
   //
-  // Raw keeps its permissive character — it still accepts any genuine
-  // improvement, where the others demand a 10% margin to clear the
-  // estimator's own noise band — but it no longer accepts a loss.
-  if (provider === 'raw') return compTokens <= origTokens;
+  // Raw's permissive `compTokens <= origTokens` moved to the `measured`
+  // branch above, where it is sound. Here the numbers are estimates, so raw
+  // takes the same margin as everyone else.
   return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
 }
 
@@ -1705,7 +1717,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.33.9',
+      version: '1.33.10',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

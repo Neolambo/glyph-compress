@@ -1,3 +1,40 @@
+## v1.33.10 — The Guarantee Did Not Hold In The Shipped Build
+
+**Corrects v1.33.8.** That release stated the never-inflate guarantee "holds either way", with or without the optional tokenizer. It did not. Measured on the packaged artifact, where `js-tiktoken` is absent by design: **+5.54% via `compressMessages`** and **+0.15% via `compressText`** on this repository's own files.
+
+### Why It Was Missed
+
+`js-tiktoken` is an **optional** dependency, and a VSIX ships no `node_modules` at all — so the packaged extension always runs on the fallback path. Every measurement backing v1.33.8 was taken in the development tree, where the dependency *is* installed. The verified path and the shipped path were not the same path, and nothing tested the difference.
+
+### The Cause
+
+v1.33.8 gave `raw` a bare `compressed <= original` check. That is correct against a **real** count and wrong against an **estimated** one: the estimator overstates improvement by 10–14%, so at the 1.0 boundary it waves through payloads that actually grew. The margin exists precisely to stand in for the tokenizer when the tokenizer is not there, and `raw` had been exempted from it.
+
+Raw's permissive rule now applies only on the measured path. Unmeasured, every provider takes the 10% margin.
+
+### The Honest Bound
+
+With the fix, the packaged artifact's worst case across 60 file/provider/level combinations is **raw/ultra at +4 real tokens on a 3,230-token payload (+0.12%)** — the estimator believes it saved over 10% there while reality is a fractional loss. Widening the margin enough to absorb that would start rejecting genuine savings.
+
+So the guarantee is stated in two parts rather than overclaimed:
+
+| | Guarantee |
+|---|---|
+| With `js-tiktoken` installed (npm default) | **Exact.** Never more tokens out than in. |
+| Without it (VSIX, or `--no-optional`) | **Bounded by the estimator**, measured worst case +0.12%. |
+
+Both are asserted. The second pins the 0.5% ceiling; the first asserts the exact bound so the tolerance can never quietly become the normal operating point.
+
+### The Test Took Three Attempts, And The Failures Are The Point
+
+The first version judged the child process's output using `stats.compressedTokens` — **the estimator**, the very instrument whose error causes the bug. It passed with the bug deliberately restored. The second used a fixture the bug did not appear on, and also passed. The third exceeded the OS argument limit inlining 60,000 characters of source into `node -e`.
+
+The working version runs the packaged artifact where the tokenizer cannot resolve, refuses to run if it turns out to be reachable, ships the emitted bytes back to the parent process, and counts them **there** with js-tiktoken. Restoring the bug now fails it with `compressMessages inflated by 182 real tokens (5.54%) at src/proxy.js raw/light`.
+
+A test that cannot fail is worse than no test, because it reports safety it never checked.
+
+---
+
 ## v1.33.9 — Differential Transmission Now Keeps The Cache Prefix Too
 
 **Billed session cost on a re-attached file, 10 turns: −63.7% → −75.4% (OpenAI), −66.8% → −78.5% (Anthropic).** No change to how many tokens are transmitted — the entire gain is cache that was previously being thrown away.
@@ -64,7 +101,7 @@ The shorter identifier costs more. No length heuristic separates them.
 
 ### The Fix
 
-`js-tiktoken` becomes an **optional** dependency. Installed, admission and the accept/reject gate use real BPE counts; absent, a deliberately conservative length rule (`chars/8`) applies, chosen against those counterexamples so it never over-estimates the replaced word — the only error direction that can admit a loser. **The never-inflate guarantee holds either way**; without the tokenizer it simply leaves real savings on the table (`processTransaction0` at 120 occurrences is ~113 tokens).
+`js-tiktoken` becomes an **optional** dependency. Installed, admission and the accept/reject gate use real BPE counts; absent, a deliberately conservative length rule (`chars/8`) applies, chosen against those counterexamples so it never over-estimates the replaced word — the only error direction that can admit a loser. ~~**The never-inflate guarantee holds either way**~~ — **corrected in v1.33.10: it did not.** Without the tokenizer the packaged build was still inflating (+5.54% via `compressMessages`), because this release also exempted `raw` from the margin that stands in for the tokenizer. See v1.33.10 for the fix and the honest bound. Without the tokenizer the fallback also leaves real savings on the table (`processTransaction0` at 120 occurrences is ~113 tokens).
 
 Two further gaps closed: `raw` skipped the guard entirely and was inflating README.md by 0.5%, and the 10% improvement margin — which exists to cover the *heuristic's* error band — no longer applies to a real count, where a 5.7% saving is simply a 5.7% saving.
 

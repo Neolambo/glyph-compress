@@ -38,7 +38,7 @@ import fs from 'fs';
 import path from 'path';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 
-const server = new McpServer({ name: 'glyph-compress', version: '1.33.9' });
+const server = new McpServer({ name: 'glyph-compress', version: '1.33.10' });
 
 const LEVEL_ENUM = z.enum(['light', 'standard', 'aggressive', 'ultra', 'auto']);
 const PROVIDER_ENUM = z.enum(['raw', 'openai', 'anthropic', 'gemini', 'local']);
