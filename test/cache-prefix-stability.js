@@ -58,9 +58,22 @@ async function run() {
   // messages legitimately fall back to plain text — see the adaptive
   // fallback tested elsewhere — which would make these fixtures pass
   // vacuously instead of actually exercising codebook injection).
-  const richContent = (subject) => Array.from({ length: 10 }, (_, i) => (
-    `Use React and TypeScript to fix the ${subject}Manager bug in the ${subject}Manager module (case ${i}), `
-    + `then re-run the ${subject}Manager regression suite.`
+  // `${subject}ReconciliationWorker`, not `${subject}Manager`, and 20 clauses
+  // rather than 10. Since v1.33.8 the dictionary is priced in real tokens and
+  // the payload has to clear a real-token margin, and the old fixture cleared
+  // neither: `AuthenticationManager` measures at 2 tokens against a 2-token
+  // §N glyph, so it could never be worth substituting, and 10 clauses of
+  // English prose are not enough body text for the injected codebook to pay
+  // for itself. `AuthenticationReconciliationWorker` is 4 tokens, which
+  // genuinely is.
+  //
+  // Every test in this suite depends on this fixture actually compressing —
+  // several assert on the *injected codebook*, which does not exist at all
+  // when the payload falls back.
+  const richContent = (subject) => Array.from({ length: 20 }, (_, i) => (
+    `Use React and TypeScript to fix the ${subject}ReconciliationWorker bug in the `
+    + `${subject}ReconciliationWorker module (case ${i}), then re-run the `
+    + `${subject}ReconciliationWorker regression suite.`
   )).join(' ');
 
   await test('OpenAI: identical content produces byte-identical codebook across independent instances', () => {
@@ -93,9 +106,17 @@ async function run() {
   // still leaves the message net-positive — this is the realistic case
   // (sizeable IDE agent system prompts, meaty exchanges) where the
   // caching upgrade should actually engage.
+  // `${subject}ReconciliationWorker`, not `handle_${subject}`. Every test below
+  // needs this payload to actually compress — several assert on the injected
+  // codebook, which does not exist when the payload falls back — and under the
+  // real-token pricing introduced in v1.33.8 the old identifier could not carry
+  // it: `handle_ReactAuth` is short enough that substituting it costs more than
+  // it saves, so the whole message fell back. Verified both ways: with
+  // `handle_${subject}` this fixture falls back, with the longer identifier it
+  // does not.
   const largeContent = (subject, repeats = 60) => (
     `Fix the error in the ${subject} module. TypeError: cannot read property of undefined at line 42. `
-    + `function handle_${subject}(event) { const result = fetchData(event); return result; } `.repeat(repeats)
+    + `function ${subject}ReconciliationWorker(event) { const result = fetchData(event); return result; } `.repeat(repeats)
   );
   const bigSystemPrompt = 'You are an expert pair-programming assistant integrated into a code editor. '.repeat(20);
 

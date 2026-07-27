@@ -41,9 +41,19 @@ function test(name, fn) {
   }
 }
 
+// Encoded below the economics gate. This suite is about what the parser
+// EXTRACTS — token kinds, spans, fidelity against the source — not about
+// whether the resulting payload is cheap enough to send. Since v1.33.8 that
+// second question is decided on real tokens, and these deliberately small
+// snippets do not clear it, so compressText() returns them untouched and
+// sourceMap.ast is empty. Going below the gate keeps the tests measuring the
+// parser; the economics are covered in test/integration.js.
 function compress(prompt) {
   const gc = new GlyphCompressor({ level: 'aggressive', provider: 'raw', trustPolicy: 'lossy' });
-  return gc.compressText(prompt);
+  const safeText = gc._applyPrivacyFirewall(prompt, false);
+  gc._buildDynamicDictionary(safeText);
+  const compressed = gc._compressUserMessage(prompt, safeText);
+  return { compressed, sourceMap: gc.getSourceMap() };
 }
 
 function assertFidelity(result, sourceText) {

@@ -26,6 +26,7 @@ import os from 'node:os';
 import { estimateProviderTokens, normalizeProvider, estimateGlyphTokenCost, PROVIDER_TOKEN_PROFILES } from '../src/token-estimator.js';
 import { routeContext, recordFileUsage } from '../src/workspace-intelligence.js';
 import { loadTeamCodebook } from '../src/team-codebook.js';
+import { countWordTokens, countGlyphTokens, countRealTokens } from '../src/real-token-counter.js';
 
 // ═══════════════════════════════════════════════════════════
 // RADICAL ALPHABET (embedded — no external dependencies)
@@ -274,8 +275,34 @@ function normalizeCompressionLevel(level) {
   return COMPRESSION_LEVELS.includes(cleaned) ? cleaned : 'standard';
 }
 
-function isCompressionTrusted(compTokens, origTokens, provider) {
-  if (provider === 'raw') return true;
+/**
+ * @param {boolean} measured — true when the counts came from a real tokenizer.
+ *
+ * The 10% margin below exists to cover the *heuristic's* own error band: it
+ * overstated real improvement by 10-14% across five representative files, so a
+ * bare `compressed < original` on estimated numbers was not evidence of
+ * anything. That reasoning does not apply to a js-tiktoken count, where a 5.7%
+ * saving is simply a 5.7% saving. Keeping the margin there discards genuine
+ * savings for a noise band that no longer exists — measured on this suite's
+ * small-message fixture, a real 5.7% reduction was rejected outright.
+ *
+ * With a real count the only requirement is the one that matters: never emit
+ * more than was received.
+ */
+function isCompressionTrusted(compTokens, origTokens, provider, measured = false) {
+  if (measured) return compTokens <= origTokens;
+  // 'raw' used to return true unconditionally — it exists to report raw
+  // character-level deltas, so it deliberately skipped the 10% margin the
+  // other providers require. That exemption turned out to be a hole rather
+  // than a trade-off: measured on README.md at 'standard', the raw path
+  // emitted 5,352 real tokens for a 5,327-token input. Small, but there is no
+  // reading of this project's promise under which returning MORE tokens than
+  // it received is acceptable.
+  //
+  // Raw keeps its permissive character — it still accepts any genuine
+  // improvement, where the others demand a 10% margin to clear the
+  // estimator's own noise band — but it no longer accepts a loss.
+  if (provider === 'raw') return compTokens <= origTokens;
   return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
 }
 
@@ -781,8 +808,42 @@ class GlyphCompressor {
       return withCodebook;
     };
 
+    // Real token counts decide accept/reject whenever js-tiktoken is present,
+    // for the same reason as compressText() above.
+    const realTokensOf = (msgs) => {
+      let total = 0;
+      for (const msg of msgs) {
+        const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content ?? '');
+        const n = countRealTokens(text);
+        if (n == null) return null;
+        total += n;
+      }
+      return total;
+    };
+    const guardOrig = realTokensOf(messages);
+    const trusted = (candidateMessages, heuristicTokens) => {
+      const guardComp = guardOrig == null ? null : realTokensOf(candidateMessages);
+      return guardComp == null
+        ? isCompressionTrusted(heuristicTokens, origTokens, this.provider)
+        : isCompressionTrusted(guardComp, guardOrig, this.provider, true);
+    };
+
     let finalMessages = buildWithCodebook(false);
     let compTokens = this._estimateTokens(finalMessages, provider);
+    // Deliberately the HEURISTIC here, not the real-token count.
+    //
+    // This decides between the cache-stable codebook and the smaller
+    // per-request one, and that choice is a multi-call bet: the larger header
+    // buys a byte-identical prefix the provider can cache across every later
+    // turn. Judged on a single call's tokens it can only ever look like a
+    // loss, so pricing it with the real tokenizer — which is stricter than the
+    // heuristic — silently demoted every session to the cache-unstable
+    // codebook and defeated the whole cache-stable profile.
+    //
+    // The real-token guard belongs on the question the directive actually
+    // asks — "does this payload cost more than it saves?" — which is the
+    // final accept/reject below, not this internal choice between two forms
+    // that both compress.
     let fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
 
     // The cache-stable codebook (see _injectCodebook) trades a larger,
@@ -793,13 +854,56 @@ class GlyphCompressor {
     // smaller per-request-filtered codebook — still net-positive on its
     // own pre-v1.25 merits — rather than discarding every other real
     // saving (minification, dynamic dictionary, comment stripping) too.
-    if (fallback) {
+    // Both gates apply, in this order: prefer the cache-stable codebook on the
+    // heuristic, then verify whatever was chosen against REAL tokens, and drop
+    // to the smaller codebook if the real count rejects the larger one.
+    // Falling straight to zero compression on that first rejection was wrong —
+    // it discarded minification, the dynamic dictionary and comment stripping
+    // along with the header that was actually too expensive.
+    // The guarantee this project makes is about a SESSION, not a single call.
+    //
+    // That distinction decides the cache-stable codebook. Its header costs 437
+    // real tokens against the filtered form's 32, so one call carrying it can
+    // measure +50% (999 tokens against 664 on this suite's own fixture) — and
+    // a per-call rule therefore rejects it every time. But the header is what
+    // makes the prefix byte-identical across turns, which is worth up to
+    // -41.6% of effective session cost once provider caching prices reads at
+    // 0.1x (measured in v1.33.6, reproducible with `npm run measure:cache`).
+    // Judging a multi-call investment on the first call can only ever refuse
+    // it.
+    //
+    // So the real-token gate is not applied to this choice once a session is
+    // actually in progress — assistant history means later turns exist to
+    // amortise the header. A first turn gets no exemption: a session that ends
+    // there would have paid for a cache it never reads. Everything that does
+    // NOT buy prefix stability stays gated, which is the important asymmetry —
+    // the §N dictionary inflated per call *and* broke the prefix, losing on
+    // both axes, while this header loses on one to win the other.
+    // Two conditions, both required. There must be a session in progress —
+    // assistant history, so later turns exist to amortise the header — and the
+    // provider must actually have a prefix cache to amortise it into. 'raw'
+    // and 'local' have none: nothing is sent to a remote cache, so the header
+    // is pure cost there and the exemption would be a licence to inflate for
+    // no return. Measured before this narrowing: +4.93% on src/proxy.js at
+    // raw/light, with no session-level saving anywhere to offset it.
+    const sessionInProgress = messages.some((msg) => msg.role === 'assistant');
+    const providerHasPrefixCache = this.provider !== 'raw' && this.provider !== 'local';
+    const cacheBetPaysOff = sessionInProgress && providerHasPrefixCache;
+    if (fallback || (!cacheBetPaysOff && !trusted(finalMessages, compTokens))) {
       const filteredMessages = buildWithCodebook(true);
       const filteredTokens = this._estimateTokens(filteredMessages, provider);
-      if (isCompressionTrusted(filteredTokens, origTokens, this.provider)) {
+      // Decided by `trusted`, which uses the real tokenizer when installed and
+      // falls back to the heuristic when it is not — rather than requiring
+      // both to agree. Requiring both means the heuristic can veto a payload
+      // the real count shows is a genuine saving: measured on this suite's own
+      // small-message fixture, the filtered form is 594 real tokens against
+      // 664 original, a real 10.5% saving the heuristic rejected.
+      if (trusted(filteredMessages, filteredTokens)) {
         finalMessages = filteredMessages;
         compTokens = filteredTokens;
         fallback = false;
+      } else {
+        fallback = true;
       }
     }
 
@@ -826,7 +930,7 @@ class GlyphCompressor {
         ))
         : finalMessages,
       compressedTokens: fallback ? origTokens : compTokens,
-      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
+      sourceMap: fallback ? this._createSourceMap(true) : this.getSourceMap(),
       fallback,
       state: fallback ? baseState : this._captureCompressionState(),
     };
@@ -942,7 +1046,18 @@ class GlyphCompressor {
     // always-compress behavior (it exists specifically to report raw
     // character-level deltas), matching the same provider guard already
     // used for the messages path and per-glyph breakeven checks.
-    const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
+    // The accept/reject decision runs on REAL token counts when js-tiktoken is
+    // installed. It is the one comparison the length heuristic must not get
+    // wrong, and its errors point in opposite directions on plain text
+    // (+42.9%) and glyph text (-24.1%) — enough to invert the verdict. The
+    // reported stats stay on the heuristic so numbers remain comparable across
+    // installs with and without the optional dependency; only the decision
+    // uses the real count.
+    const guardOrig = countRealTokens(text);
+    const guardComp = countRealTokens(compressed);
+    const fallback = (guardOrig != null && guardComp != null)
+      ? !isCompressionTrusted(guardComp, guardOrig, this.provider, true)
+      : !isCompressionTrusted(compTokens, origTokens, this.provider);
     // The privacy-filtered original, never the raw input — see the same fix in
     // _compressMessagesForStrategy. safeText is what the firewall produced; the
     // fallback path used to discard it and return `text` verbatim. When the
@@ -962,7 +1077,7 @@ class GlyphCompressor {
       compressed: finalCompressed,
       original: text,
       fallback,
-      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
+      sourceMap: fallback ? this._createSourceMap(true) : this.getSourceMap(),
       stats: {
         provider: this.provider,
         profile: this.providerProfile.strategy,
@@ -1547,9 +1662,19 @@ class GlyphCompressor {
 
   // ─── INTERNAL METHODS ──────────────────────────────────────
 
-  _createSourceMap() {
+  /**
+   * Empty source map for the fallback path.
+   *
+   * `preservePrivacy` keeps the redaction entries, because a fallback still
+   * ships the PRIVACY-FILTERED original (v1.33.7) — the redactions genuinely
+   * happened, and callers rely on this metadata to audit what was masked.
+   * Dropping them reported "nothing was redacted" about a payload that had
+   * been.
+   */
+  _createSourceMap(preservePrivacy = false) {
     return {
-      version: '1.33.7',
+      privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
+      version: '1.33.8',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1561,9 +1686,14 @@ class GlyphCompressor {
       diagnostics: [],
       codeBlocks: [],
       ast: [],
-      privacy: [],
       symbols: [],
-      replacements: [],
+      // Privacy replacements survive alongside `privacy` above, for the same
+      // reason: the redactions really happened on the returned payload, and
+      // this is the array callers audit them through. Every other kind of
+      // replacement is dropped, because no compression was applied.
+      replacements: preservePrivacy
+        ? (this.sourceMap?.replacements || []).filter((entry) => entry.kind === 'privacy')
+        : [],
     };
   }
 
@@ -1973,9 +2103,54 @@ class GlyphCompressor {
     // glyph on a single-occurrence word, which is why short multi-message
     // sessions (see test: "Batch: overall compression") were barely
     // breaking even. Requiring freq >= 2 fixes that at the source.
+    // Admission is priced in TOKENS, not characters.
+    //
+    // This read `save = freq * (word.length - 2) - (word.length + 2)`, which
+    // is the wrong unit and wrong in the direction that approves losing
+    // substitutions. Providers bill tokens; BPE merges ordinary identifiers
+    // into very few of them while `§N` always costs 2. Replacing `amount`,
+    // `validated` or `currency` — 1 token each — therefore DOUBLED the cost
+    // while the character formula reported a large saving.
+    //
+    // Measured end to end on identifier-repetitive source before this change:
+    // characters fell 33% (17,238 -> 11,473) while real tokens rose 37.8%
+    // (3,496 -> 4,818). The net-negative fallback did not catch it, because it
+    // compared two heuristic numbers whose errors point in opposite directions
+    // (+42.9% on plain text, -24.1% on glyph text) — the guard was sound and
+    // its inputs were not.
+    //
+    // Length cannot fix this, which is why js-tiktoken is consulted when it is
+    // installed: AuthenticationManager is 21 characters and 2 tokens, while
+    // processTransaction0 is 19 characters and 3. The shorter word costs more.
+    // Both sides are priced in running-text form (leading space included),
+    // because that is what the substitution actually swaps.
+    const GLYPH_TOKEN_COST = countGlyphTokens('§1');
+
+    // Without the tokenizer the fallback only admits what is safe on length
+    // alone: chars/8 was chosen against counterexamples rather than averages,
+    // so it never over-estimates the replaced word — the only error direction
+    // that can admit a loser. The guarantee holds either way; it just leaves
+    // real savings on the table (processTransaction0 at 120 occurrences is
+    // ~113 tokens).
+    const wordTokensOf = (word) => {
+      const real = countWordTokens(word);
+      return real != null ? real : Math.max(1, Math.floor(word.length / 8));
+    };
+
     const savings = [...counts.entries()].map(([word, freq]) => {
-      return { word, freq, save: freq * (word.length - 2) - (word.length + 2) };
-    }).filter(x => x.freq >= 2 && x.save > this.providerProfile.dynamicMinSavedChars)
+      const wordTokens = wordTokensOf(word);
+      // Each occurrence saves (wordTokens - GLYPH_TOKEN_COST); the entry pays
+      // once for its own "word=§N" definition on the DYN line.
+      const definitionCost = wordTokens + GLYPH_TOKEN_COST + 1;
+      const save = freq * (wordTokens - GLYPH_TOKEN_COST) - definitionCost;
+      const savedChars = freq * (word.length - 2) - (word.length + 2);
+      return { word, freq, save, savedChars, wordTokens };
+    }).filter((x) => x.freq >= 2
+      && x.wordTokens > GLYPH_TOKEN_COST
+      && x.save > 0
+      // Kept as a secondary floor so this can only tighten admission relative
+      // to previous releases, never loosen it.
+      && x.savedChars > this.providerProfile.dynamicMinSavedChars)
       .sort((a, b) => b.save - a.save);
 
     for (const item of savings) {
@@ -1986,7 +2161,8 @@ class GlyphCompressor {
           glyph,
           original: item.word,
           frequency: item.freq,
-          estimatedSavedChars: item.save,
+          estimatedSavedChars: item.savedChars,
+          estimatedSavedTokens: item.save,
           provider: this.provider,
           profile: this.providerProfile.strategy,
         });

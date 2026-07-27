@@ -1,6 +1,6 @@
 {
   "name": "glyph-compress",
-  "version": "1.33.7",
+  "version": "1.33.8",
   "description": "Semantic compression for IDE↔LLM communication using radical glyphs — CLI, MCP server, and VS Code extension, with a Context Router, team-shared dictionaries, and compression calibrated against real provider tokenizers.",
   "mcpName": "io.github.Neolambo/glyph-compress",
   "type": "module",
@@ -31,6 +31,7 @@
     "vscode-ext/token-estimator.cjs",
     "vscode-ext/workspace-intelligence.cjs",
     "vscode-ext/team-codebook.cjs",
+    "vscode-ext/real-token-counter.cjs",
     "vscode-ext/proxy.js",
     "vscode-ext/LICENSE",
     "vscode-ext/package.json",
@@ -100,7 +101,8 @@
     "release:prepare": "node scripts/release-helper.js",
     "measure:routing": "node scripts/measure-routing.mjs",
     "measure:cache": "node scripts/measure-cache.mjs",
-    "measure:implicit-cache": "node scripts/measure-implicit-cache.mjs"
+    "measure:implicit-cache": "node scripts/measure-implicit-cache.mjs",
+    "measure:showcase": "node scripts/measure-showcase.mjs"
   },
   "keywords": [
     "compression",
@@ -137,5 +139,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
+  },
+  "optionalDependencies": {
+    "js-tiktoken": "^1.0.15"
   }
 }

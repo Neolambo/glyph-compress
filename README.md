@@ -98,7 +98,7 @@ AFTER (137 chars):
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1337) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1338) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -223,7 +223,17 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
-### New in v1.33.7 (Security — the privacy firewall was bypassed on every fallback)
+### New in v1.33.8 (Compression is priced in real tokens, over a session)
+
+**GlyphCompress no longer sends more tokens than it received**, guaranteed across a session of ordinary use rather than per individual call.
+
+Dictionary admission used to count **characters**, which is the wrong unit and wrong in the direction that approves losing substitutions: a `§N` glyph always costs 2 real tokens while BPE merges `amount`, `validated` or `currency` into 1 each. Measured on identifier-repetitive source, characters fell 33% while **real tokens rose 37.8%**. Length cannot separate the cases — `AuthenticationManager` is 21 characters and 2 tokens, `processTransaction0` is 19 characters and 3 — so **`js-tiktoken` is now an optional dependency**: installed, the decision uses real BPE counts; absent, a conservative length rule keeps the guarantee and simply saves less.
+
+The scope matters. The cache-stable codebook header costs 437 real tokens against 32 for the filtered form, so one call carrying it can measure +50% — while buying byte-identical prefixes worth up to **−41.6% of session cost**. It stays, but only when a session is actually in progress *and* the provider has a prefix cache to amortise it into.
+
+Verified at session level: **0.0% inflation and 0 prefix truncations** across 2–42 turns on OpenAI and Gemini, **100% prefix coverage** on Anthropic, benchmark unchanged at 26%. Reproduce with `npm run measure:implicit-cache`, `npm run measure:cache` and `npm run measure:showcase`.
+
+### Also recent (v1.33.7 — security: the privacy firewall was bypassed on every fallback)
 
 **Upgrade if you use `privacyFirewall: true`.** When compression turned out to be net-negative, both `compressText()` and `compressMessages()` fell back to the **raw** original instead of the redacted one — so API keys, tokens, emails and IPs that the firewall had already masked were sent to the provider intact, while the API reported the firewall as active.
 
@@ -293,7 +303,7 @@ v1.32.2 also corrects a **wrong level** that the bug had been hiding: decay's wa
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.33.7)
+### 📏 Benchmark Snapshot (v1.33.8)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -323,7 +333,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1337) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1338) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|

@@ -34,8 +34,16 @@ assert(compressed.includes('AuthenticationManager'), 'Should capture class renam
 assert(compressed.includes('authenticate'), 'Should capture function change');
 
 // 2. Test GlyphCompressor middleware intent diffs
+// Encoded below the economics gate. Since v1.33.8 compressText() only ships
+// its output when that output costs fewer REAL tokens, and a short diff does
+// not clear that bar — the glyph forms cost more than the English at this size.
+// This test is about what intent-diff encoding *produces*, not about whether
+// the result is cheap enough to send, so it calls the encoder directly. The
+// economics are covered in test/integration.js.
 const middlewareCompressor = new GlyphCompressor({ intentDiffs: true });
-const textResult = middlewareCompressor.compressText(diffText);
+const safeDiff = middlewareCompressor._applyPrivacyFirewall(diffText, false);
+middlewareCompressor._buildDynamicDictionary(safeDiff);
+const textResult = { compressed: middlewareCompressor._compressUserMessage(diffText, safeDiff) };
 console.log('Intent Middleware Output:\n', textResult.compressed);
 
 // Assertions for Middleware

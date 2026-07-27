@@ -24,6 +24,9 @@ const workspaceCjsVsix = path.join(rootDir, 'vscode-ext', 'workspace-intelligenc
 const teamCodebookJs = path.join(rootDir, 'src', 'team-codebook.js');
 const teamCodebookCjs = path.join(rootDir, 'src', 'team-codebook.cjs');
 const teamCodebookCjsVsix = path.join(rootDir, 'vscode-ext', 'team-codebook.cjs');
+const realCounterJs = path.join(rootDir, 'src', 'real-token-counter.js');
+const realCounterCjs = path.join(rootDir, 'src', 'real-token-counter.cjs');
+const realCounterCjsVsix = path.join(rootDir, 'vscode-ext', 'real-token-counter.cjs');
 const proxyJs = path.join(rootDir, 'src', 'proxy.js');
 const proxyCjs = path.join(rootDir, 'vscode-ext', 'proxy.js');
 
@@ -59,8 +62,15 @@ try {
   execSync(`npx esbuild "${workspaceJs}" --platform=node --format=cjs --bundle --outfile="${workspaceCjsVsix}"`, { stdio: 'inherit' });
   execSync(`npx esbuild "${teamCodebookJs}" --platform=node --format=cjs --bundle --outfile="${teamCodebookCjsVsix}"`, { stdio: 'inherit' });
 
+  // js-tiktoken is an OPTIONAL dependency, so it must stay external in every
+  // output: bundling it would both bloat the VSIX and turn a missing optional
+  // package into a hard load failure. src/real-token-counter.js is written to
+  // survive its absence.
+  execSync(`npx esbuild "${realCounterJs}" --platform=node --format=cjs --bundle --external:js-tiktoken --outfile="${realCounterCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${realCounterJs}" --platform=node --format=cjs --bundle --external:js-tiktoken --outfile="${realCounterCjsVsix}"`, { stdio: 'inherit' });
+
   // 3. Build glyph-middleware.cjs
-  execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:node:child_process --external:../src/token-estimator.js --external:../src/workspace-intelligence.js --external:../src/team-codebook.js --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
+  execSync(`npx esbuild "${middlewareJs}" --bundle --external:node:crypto --external:node:fs --external:node:path --external:node:os --external:node:child_process --external:../src/token-estimator.js --external:../src/workspace-intelligence.js --external:../src/team-codebook.js --external:../src/real-token-counter.js --external:js-tiktoken --platform=node --format=cjs --outfile="${middlewareCjs}"`, { stdio: 'inherit' });
 
   // 4. Rewrite requires in glyph-middleware.cjs to local, self-contained
   // vscode-ext/ copies — never a "../src/..." path, so the packaged VSIX
@@ -69,6 +79,7 @@ try {
   content = content.replace('require("../src/token-estimator.js")', 'require("./token-estimator.cjs")');
   content = content.replace('require("../src/workspace-intelligence.js")', 'require("./workspace-intelligence.cjs")');
   content = content.replace('require("../src/team-codebook.js")', 'require("./team-codebook.cjs")');
+  content = content.replace('require("../src/real-token-counter.js")', 'require("./real-token-counter.cjs")');
   fs.writeFileSync(middlewareCjs, content, 'utf8');
 
   // 5. Build vscode-ext/proxy.js from src/proxy.js (was a hand-maintained

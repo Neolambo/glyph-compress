@@ -91,12 +91,18 @@ test('Every DOMAIN_GLYPHS value used as a file-ref prefix is documented', () => 
 
 test('Dynamic dictionary glyphs from compressText() are documented via getCodebookPrompt()', () => {
   const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
+  // Repeated eight times, not four, and AuthenticationManager is gone.
+  // Since v1.33.8 dictionary admission is priced in real tokens: an entry has
+  // to save more than it costs to define. RateLimiterService and
+  // AuditTrailRecorder are 3 tokens against a 2-token §N glyph, so each
+  // occurrence saves 1 and the definition costs ~6 — seven occurrences is the
+  // break-even. AuthenticationManager measures at 2 tokens and can never
+  // qualify: substituting it would cost exactly as much as leaving it.
   const paragraph = `
-    The AuthenticationManager validates AuthenticationManager tokens before AuthenticationManager
-    grants access. The RateLimiterService throttles RateLimiterService requests, and the
+    The RateLimiterService throttles RateLimiterService requests, and the
     RateLimiterService logs every RateLimiterService decision to the AuditTrailRecorder,
     which the AuditTrailRecorder later replays for the AuditTrailRecorder compliance report.
-  `;
+  `.repeat(3);
   const r = gc.compressText(paragraph);
   const dynGlyphsUsed = [...r.compressed.matchAll(/§\d+/g)].map((m) => m[0]);
   assert(dynGlyphsUsed.length > 0, 'fixture should trigger the dynamic dictionary');
@@ -114,9 +120,16 @@ test('Dynamic dictionary glyphs from compressMessages() are documented in the in
   // would make this fixture vacuously pass for the wrong reason.
   const clause = (n) => `OrderReconciliationWorker instance ${n} retried the OrderReconciliationWorker job queue while `
     + `PaymentSettlementGateway and PaymentSettlementGateway confirmed the PaymentSettlementGateway ledger entry.`;
+  // Sixteen clauses, not six. The threshold this fixture has to clear became a
+  // real-token one in v1.33.8 rather than a character one, and six clauses of
+  // English prose no longer reach it — long phrases are already close to
+  // optimal for BPE, so the codebook cannot pay for itself over that little
+  // body text. The identifiers still qualify (OrderReconciliationWorker is 4
+  // real tokens, PaymentSettlementGateway 5, against a 2-token §N glyph); what
+  // was missing is enough of them to amortise the injected codebook.
   const messages = [{
     role: 'user',
-    content: Array.from({ length: 6 }, (_, i) => clause(i)).join(' '),
+    content: Array.from({ length: 16 }, (_, i) => clause(i)).join(' '),
   }];
   const { messages: compressed, stats } = gc.compressMessages(messages, 'openai');
   const systemMsg = compressed.find((m) => m.role === 'system');

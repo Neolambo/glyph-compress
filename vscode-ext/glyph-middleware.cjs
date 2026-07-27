@@ -49,6 +49,7 @@ var import_node_os = __toESM(require("node:os"));
 var import_token_estimator = require("./token-estimator.cjs");
 var import_workspace_intelligence = require("./workspace-intelligence.cjs");
 var import_team_codebook = require("./team-codebook.cjs");
+var import_real_token_counter = require("./real-token-counter.cjs");
 var DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -337,8 +338,9 @@ function normalizeCompressionLevel(level) {
   if (cleaned === "auto") return "auto";
   return COMPRESSION_LEVELS.includes(cleaned) ? cleaned : "standard";
 }
-function isCompressionTrusted(compTokens, origTokens, provider) {
-  if (provider === "raw") return true;
+function isCompressionTrusted(compTokens, origTokens, provider, measured = false) {
+  if (measured) return compTokens <= origTokens;
+  if (provider === "raw") return compTokens <= origTokens;
   return compTokens <= origTokens * FALLBACK_MIN_IMPROVEMENT_RATIO;
 }
 var ERROR_PATTERNS = [
@@ -789,16 +791,36 @@ var GlyphCompressor = class {
       }
       return withCodebook;
     };
+    const realTokensOf = (msgs) => {
+      let total = 0;
+      for (const msg of msgs) {
+        const text = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content ?? "");
+        const n = (0, import_real_token_counter.countRealTokens)(text);
+        if (n == null) return null;
+        total += n;
+      }
+      return total;
+    };
+    const guardOrig = realTokensOf(messages);
+    const trusted = (candidateMessages, heuristicTokens) => {
+      const guardComp = guardOrig == null ? null : realTokensOf(candidateMessages);
+      return guardComp == null ? isCompressionTrusted(heuristicTokens, origTokens, this.provider) : isCompressionTrusted(guardComp, guardOrig, this.provider, true);
+    };
     let finalMessages = buildWithCodebook(false);
     let compTokens = this._estimateTokens(finalMessages, provider);
     let fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
-    if (fallback) {
+    const sessionInProgress = messages.some((msg) => msg.role === "assistant");
+    const providerHasPrefixCache = this.provider !== "raw" && this.provider !== "local";
+    const cacheBetPaysOff = sessionInProgress && providerHasPrefixCache;
+    if (fallback || !cacheBetPaysOff && !trusted(finalMessages, compTokens)) {
       const filteredMessages = buildWithCodebook(true);
       const filteredTokens = this._estimateTokens(filteredMessages, provider);
-      if (isCompressionTrusted(filteredTokens, origTokens, this.provider)) {
+      if (trusted(filteredMessages, filteredTokens)) {
         finalMessages = filteredMessages;
         compTokens = filteredTokens;
         fallback = false;
+      } else {
+        fallback = true;
       }
     }
     return {
@@ -818,7 +840,7 @@ var GlyphCompressor = class {
       // recorded these same entries in the source map.
       messages: fallback ? messages.map((msg) => typeof msg.content === "string" ? { ...msg, content: this._applyPrivacyFirewall(msg.content, false) } : { ...msg }) : finalMessages,
       compressedTokens: fallback ? origTokens : compTokens,
-      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
+      sourceMap: fallback ? this._createSourceMap(true) : this.getSourceMap(),
       fallback,
       state: fallback ? baseState : this._captureCompressionState()
     };
@@ -911,7 +933,9 @@ var GlyphCompressor = class {
     this.level = configuredLevel;
     this.trustPolicy = configuredTrustPolicy;
     this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
-    const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
+    const guardOrig = (0, import_real_token_counter.countRealTokens)(text);
+    const guardComp = (0, import_real_token_counter.countRealTokens)(compressed);
+    const fallback = guardOrig != null && guardComp != null ? !isCompressionTrusted(guardComp, guardOrig, this.provider, true) : !isCompressionTrusted(compTokens, origTokens, this.provider);
     const finalCompressed = fallback ? safeText : compressed;
     const finalCompTokens = fallback ? origTokens : compTokens;
     this.stats.totalOriginalTokens += origTokens;
@@ -922,7 +946,7 @@ var GlyphCompressor = class {
       compressed: finalCompressed,
       original: text,
       fallback,
-      sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
+      sourceMap: fallback ? this._createSourceMap(true) : this.getSourceMap(),
       stats: {
         provider: this.provider,
         profile: this.providerProfile.strategy,
@@ -1413,9 +1437,19 @@ ${parsed.dynamicLine}`
     }
   }
   // ─── INTERNAL METHODS ──────────────────────────────────────
-  _createSourceMap() {
+  /**
+   * Empty source map for the fallback path.
+   *
+   * `preservePrivacy` keeps the redaction entries, because a fallback still
+   * ships the PRIVACY-FILTERED original (v1.33.7) — the redactions genuinely
+   * happened, and callers rely on this metadata to audit what was masked.
+   * Dropping them reported "nothing was redacted" about a payload that had
+   * been.
+   */
+  _createSourceMap(preservePrivacy = false) {
     return {
-      version: "1.33.7",
+      privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
+      version: "1.33.8",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1427,9 +1461,12 @@ ${parsed.dynamicLine}`
       diagnostics: [],
       codeBlocks: [],
       ast: [],
-      privacy: [],
       symbols: [],
-      replacements: []
+      // Privacy replacements survive alongside `privacy` above, for the same
+      // reason: the redactions really happened on the returned payload, and
+      // this is the array callers audit them through. Every other kind of
+      // replacement is dropped, because no compression was applied.
+      replacements: preservePrivacy ? (this.sourceMap?.replacements || []).filter((entry) => entry.kind === "privacy") : []
     };
   }
   _resolveProviderProfile(provider) {
@@ -1688,9 +1725,18 @@ ${dynLine}` : "";
         counts.set(bigram, (counts.get(bigram) || 0) + 1);
       }
     }
+    const GLYPH_TOKEN_COST = (0, import_real_token_counter.countGlyphTokens)("\xA71");
+    const wordTokensOf = (word) => {
+      const real = (0, import_real_token_counter.countWordTokens)(word);
+      return real != null ? real : Math.max(1, Math.floor(word.length / 8));
+    };
     const savings = [...counts.entries()].map(([word, freq]) => {
-      return { word, freq, save: freq * (word.length - 2) - (word.length + 2) };
-    }).filter((x) => x.freq >= 2 && x.save > this.providerProfile.dynamicMinSavedChars).sort((a, b) => b.save - a.save);
+      const wordTokens = wordTokensOf(word);
+      const definitionCost = wordTokens + GLYPH_TOKEN_COST + 1;
+      const save = freq * (wordTokens - GLYPH_TOKEN_COST) - definitionCost;
+      const savedChars = freq * (word.length - 2) - (word.length + 2);
+      return { word, freq, save, savedChars, wordTokens };
+    }).filter((x) => x.freq >= 2 && x.wordTokens > GLYPH_TOKEN_COST && x.save > 0 && x.savedChars > this.providerProfile.dynamicMinSavedChars).sort((a, b) => b.save - a.save);
     for (const item of savings) {
       if (!this.dynamicDict.has(item.word) && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
         const glyph = `\xA7${this.dynamicCounter + 1}`;
@@ -1699,7 +1745,8 @@ ${dynLine}` : "";
           glyph,
           original: item.word,
           frequency: item.freq,
-          estimatedSavedChars: item.save,
+          estimatedSavedChars: item.savedChars,
+          estimatedSavedTokens: item.save,
           provider: this.provider,
           profile: this.providerProfile.strategy
         });

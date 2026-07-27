@@ -59,45 +59,76 @@ function test(name, fn) {
 console.log('\n═══ TEST: GlyphCompressor Core ═══\n');
 // ═══════════════════════════════════════════════════════════
 
+
+// Encoding vs economics are two different contracts, and since v1.33.8 they
+// have two different tests.
+//
+// `compressText()` only ships glyphs when they cost fewer REAL tokens than the
+// text they replace. On a one-line prompt they never do — "fix the error in
+// app.tsx" is 7 tokens, "⺌✗ ◈₍1₎" is 12 — so the gate correctly returns the
+// input untouched. That is a size effect, not a verdict on the encoding:
+// measured with `npm run measure:showcase`, the same encoder saves 78% of real
+// tokens across the five showcase scenarios.
+//
+// Tests below that assert *what the encoder produces* therefore call it
+// directly, through encodeOnly(). Tests that assert a *saving* keep going
+// through compressText() with a payload large enough for the saving to be real.
+// Mirrors compressText()'s pipeline minus the economics gate: the dictionary
+// has to be built first, exactly as compressText() does, or dynamic §N entries
+// never exist and a test asserting them fails for the wrong reason.
+const encodeOnly = (compressor, text) => {
+  const safeText = compressor._applyPrivacyFirewall(text, false);
+  compressor._buildDynamicDictionary(safeText);
+  return compressor._compressUserMessage(text, safeText);
+};
+
 const gc = new GlyphCompressor({ level: 'standard' });
 
 test('Compress prompt: fix error', () => {
-  const r = gc.compressText('fix the error in app.tsx');
+  const r = { compressed: encodeOnly(gc, 'fix the error in app.tsx') };
   assert(r.compressed.includes('⺌✗'), `Expected ⺌✗, got: ${r.compressed}`);
 });
 
 test('Compress prompt: create component', () => {
-  const r = gc.compressText('create a login component');
+  const r = { compressed: encodeOnly(gc, 'create a login component') };
   assert(r.compressed.includes('▲⊞'), `Expected ▲⊞, got: ${r.compressed}`);
 });
 
 test('Compress prompt: deploy', () => {
-  const r = gc.compressText('deploy the app to kubernetes');
+  const r = { compressed: encodeOnly(gc, 'deploy the app to kubernetes') };
   assert(r.compressed.includes('⺏'), `Expected ⺏, got: ${r.compressed}`);
   assert(r.compressed.includes('𝒦'), `Expected 𝒦, got: ${r.compressed}`);
 });
 
 test('Compress tech names', () => {
-  const r = gc.compressText('build a react app with typescript and postgres');
+  const r = { compressed: encodeOnly(gc, 'build a react app with typescript and postgres') };
   assert(r.compressed.includes('ℜ'), `Expected ℜ for react`);
   assert(r.compressed.includes('ᵗ'), `Expected ᵗ for typescript`);
   assert(r.compressed.includes('ℙ'), `Expected ℙ for postgres`);
 });
 
 test('Compress error messages', () => {
-  const r = gc.compressText("Property 'name' does not exist on type 'User'");
+  const r = { compressed: encodeOnly(gc, "Property 'name' does not exist on type 'User'") };
   assert(r.compressed.includes("'name'∉User"), `Expected compressed error, got: ${r.compressed}`);
 });
 
 test('Compress file paths', () => {
-  const r = gc.compressText('The file src/components/Header.tsx has an issue');
+  const r = { compressed: encodeOnly(gc, 'The file src/components/Header.tsx has an issue') };
   assert(r.compressed.includes('₍'), `Expected file index ref, got: ${r.compressed}`);
 });
 
 test('Stats tracking', () => {
-  const r = gc.compressText('optimize the performance of the main dashboard page with react and typescript');
+  // A one-line prompt is the case where compression correctly declines, so
+  // asserting a saving on one asserts something untrue since v1.33.8. Stats
+  // are exercised on a payload where compression genuinely pays, at the level
+  // that pays: measured on this repository's own source, 'standard' does not
+  // clear the 10% margin and 'aggressive' saves ~900 real tokens.
+  const source = fs.readFileSync(new URL('../src/compressor.js', import.meta.url), 'utf8').slice(0, 8000);
+  const statsGC = new GlyphCompressor({ level: 'aggressive' });
+  const r = statsGC.compressText(`optimize the performance of this module:\n\`\`\`js\n${source}\n\`\`\``);
   assert(parseInt(r.stats.originalTokens) > parseInt(r.stats.compressedTokens),
     'Compressed should be smaller');
+  assert(r.stats.ratio.includes('x'), 'Should report a ratio');
 });
 
 test('Privacy firewall: redacts secrets before compression', () => {
@@ -177,10 +208,20 @@ test('OpenAI: track stats per message', () => {
   const messages = [
     {
       role: 'user',
-      content: `create a dashboard component with react and typescript that shows user analytics and explain the architecture decisions for this release:\n\n${'UserAnalyticsDashboard.tsx exports dashboard widgets, chart rendering helpers, analytics queries, caching adapters, user segments, and release notes. '.repeat(24)}`,
+      // Real source, not repeated marketing prose. Measured: that prose falls
+      // back at every level once compression is priced in real tokens, because
+      // long English phrases are already close to optimal for BPE. Source code
+      // is what compresses — comments, indentation and structure.
+      content: 'create a dashboard component and explain the architecture:\n```js\n'
+        + fs.readFileSync(new URL('../src/compressor.js', import.meta.url), 'utf8').slice(0, 8000)
+        + '\n```',
     },
   ];
-  const { messages: compressed, stats } = gcOpenAI.compressMessages(messages, 'openai');
+  // 'aggressive': measured, 'standard' does not clear the 10% margin on real
+  // source and correctly falls back, so asserting compression at 'standard'
+  // asserts something untrue since v1.33.8.
+  const statsClient = new GlyphCompressor({ level: 'aggressive', provider: 'openai' });
+  const { messages: compressed, stats } = statsClient.compressMessages(messages, 'openai');
   // The user message should be shorter after compression
   const userMsg = compressed.find(m => m.role === 'user');
   assert(userMsg.content.length < messages[0].content.length,
@@ -192,17 +233,28 @@ test('OpenAI: track stats per message', () => {
 });
 
 test('OpenAI: may compress assistant history when it reduces transcript cost', () => {
-  const assistantHistory = `${
-    'Review summary: src/workspace-intelligence.js keeps ranking heuristics, doctor metadata, and repository summaries tightly coupled. ' +
-    'Suggested actions: isolate scoring, add regression coverage for release-readiness flows, and verify provider-aware output stability. '
-  }`.repeat(12);
+  // The assistant turn carries code too. Repeated English prose was measured
+  // to fall back at every level once compression is priced in real tokens, so
+  // a transcript made of it could never demonstrate history compression.
+  const assistantHistory = 'Here is the relevant section:\n```js\n'
+    + fs.readFileSync(new URL('../src/token-estimator.js', import.meta.url), 'utf8')
+    + '\n```';
   const messages = [
     { role: 'system', content: 'You are a staff engineer reviewing a production repository.' },
-    { role: 'user', content: `Review this implementation before merge:\n\n${'src/workspace-intelligence.js exports ranking helpers, doctor summaries, provider diagnostics, and release notes. '.repeat(18)}` },
+    {
+      role: 'user',
+      // Real source rather than repeated prose: measured, English phrases are
+      // already near-optimal for BPE and fall back at every level, so a
+      // transcript built from them tests nothing about compression.
+      content: 'Review this implementation before merge:\n```js\n'
+        + fs.readFileSync(new URL('../src/compressor.js', import.meta.url), 'utf8').slice(0, 8000)
+        + '\n```',
+    },
     { role: 'assistant', content: assistantHistory },
     { role: 'user', content: 'Draft the final merge summary with risks and mitigation.' },
   ];
-  const { messages: compressed, stats } = gcOpenAI.compressMessages(messages, 'openai');
+  const historyGC = new GlyphCompressor({ level: 'aggressive', provider: 'openai' });
+  const { messages: compressed, stats } = historyGC.compressMessages(messages, 'openai');
   const assistantMessage = compressed.find((message) => message.role === 'assistant');
   assert(assistantMessage, 'Should keep assistant history in transcript');
   assert(assistantMessage.content.length < assistantHistory.length, 'Should compress assistant history when beneficial');
@@ -210,10 +262,15 @@ test('OpenAI: may compress assistant history when it reduces transcript cost', (
 });
 
 test('Provider profiles: tune dynamic dictionary thresholds by provider', () => {
-  const text = 'Fix ProviderProfileAlpha ProviderProfileAlpha and ProviderProfileAlpha now.';
-  const raw = new GlyphCompressor({ level: 'standard', provider: 'raw' }).compressText(text);
-  const anthropic = new GlyphCompressor({ level: 'standard', provider: 'anthropic' }).compressText(text, 'anthropic');
-  const local = new GlyphCompressor({ level: 'standard', provider: 'local' }).compressText(text, 'local');
+  const text = 'Fix ' + 'ProviderProfileAlphaIdentifier '.repeat(10) + 'now.';
+  const mapOf = (provider) => {
+    const c = new GlyphCompressor({ level: 'standard', provider });
+    encodeOnly(c, text);
+    return { sourceMap: c.getSourceMap() };
+  };
+  const raw = mapOf('raw');
+  const anthropic = mapOf('anthropic');
+  const local = mapOf('local');
   assert(raw.sourceMap.version === currentVersion, 'Should include the current source map version');
   assert(anthropic.sourceMap.provider === 'anthropic', 'Should store normalized provider in source map');
   assert(anthropic.sourceMap.profile.strategy === 'cache-stable', 'Should store provider profile metadata');
@@ -262,12 +319,14 @@ console.log('\n═══ TEST: v2 Advanced Features ═══\n');
 
 test('Dynamic Dictionary replaces repeated words', () => {
   const gc = new GlyphCompressor({ level: 'standard' });
-  const r = gc.compressText('The AuthenticationManager handles AuthenticationManager logic for AuthenticationManager.');
+  // Priced in real tokens since v1.33.8: AuthenticationManager is 2 tokens and
+  // a §N glyph is 2, so it was always a losing swap.
+  const r = { compressed: encodeOnly(gc, 'The ' + 'SuperUniqueIdentifierName '.repeat(10) + 'logic.') };
   // Dynamic entries are §N references (e.g. §1), not single Greek/Cyrillic
   // letters — that pool collided with the reserved TECH_GLYPHS symbols for
   // "Agent" (α) and "prompt" (π) and exhausted after 54 entries.
-  assert(/§\d+/.test(r.compressed), 'Should replace AuthenticationManager with a §N dynamic-dictionary reference');
-  assert(!r.compressed.includes('AuthenticationManager'), 'AuthenticationManager should be gone');
+  assert(/§\d+/.test(r.compressed), 'Should replace SuperUniqueIdentifierName with a §N dynamic-dictionary reference');
+  assert(!r.compressed.includes('SuperUniqueIdentifierName'), 'SuperUniqueIdentifierName should be gone');
 });
 
 test('Dynamic Dictionary glyphs never collide with reserved TECH_GLYPHS symbols', () => {
@@ -323,14 +382,20 @@ test('Anthropic wrap keeps stable protocol block separate from dynamic additions
   };
 
   const { wrapAnthropic } = await import('../src/glyph-middleware.js');
-  const wrapped = wrapAnthropic(mockClient);
+  const wrapped = wrapAnthropic(mockClient, { level: 'aggressive' });
   await wrapped.messages.create({
     model: 'claude',
     system: 'You are a release reviewer.',
     messages: [
       {
         role: 'user',
-        content: `${'GlyphCompress release review benchmark benchmark provider provider middleware middleware extension extension diagnostics diagnostics '.repeat(10)}`,
+        // Real source: the structured system path (protocol block plus
+        // separate DYN block) only runs when compression is actually applied,
+        // and repeated prose falls back at every level once compression is
+        // priced in real tokens.
+        content: 'Review this before release:\n```js\n'
+          + fs.readFileSync(new URL('../src/compressor.js', import.meta.url), 'utf8').slice(0, 8000)
+          + '\n```',
       },
       {
         role: 'assistant',
@@ -380,10 +445,20 @@ Can you fix this?`;
 
 test('Light: only compress prompts and tech names', () => {
   const gc = new GlyphCompressor({ level: 'light' });
-  const r = gc.compressText(complexMessage);
-  // Light should compress tech names but NOT file paths or code blocks
+  const r = { compressed: encodeOnly(gc, complexMessage) };
   assert(r.compressed.includes('ℜ') || r.compressed.includes('ᵗ'), 'Should compress tech names');
-  assert(parseInt(r.stats.savedPct) > 0, 'Should save something');
+  // The savedPct assertion that used to sit here measured the economics gate,
+  // not the level — and encodeOnly deliberately runs below that gate. What the
+  // test name claims is the *restraint* of 'light', which had no coverage at
+  // all. The old comment said light leaves file paths alone; measured, it does
+  // fold them into ◈₍N₎ references. What it actually preserves is fenced code,
+  // which is the distinction that separates it from 'aggressive'.
+  assert(
+    /```[\s\S]*const analytics|```[\s\S]*\w/.test(r.compressed),
+    'light must leave fenced code blocks intact rather than minifying them',
+  );
+  assert(!r.compressed.includes('imp ℜ'), 'light must not apply aggressive-level import minification');
+  assert(r.compressed.length < complexMessage.length, 'light should still shorten the prompt text itself');
 });
 
 test('Standard: compress prompts + files + errors', () => {
@@ -403,7 +478,7 @@ test('Aggressive: compress code blocks too', () => {
   const gcAggressive = new GlyphCompressor({ level: 'aggressive' });
   // Use a string with raw backticks (not escaped) to simulate actual markdown
   const codeMsg = 'Fix this code:\n' + '```' + 'typescript\nimport React from "react";\n\nexport const App = () => <div>Hello</div>;\n' + '```';
-  const r = gcAggressive.compressText(codeMsg);
+  const r = { compressed: encodeOnly(gcAggressive, codeMsg) };
   assert(r.compressed.includes('```'), `Should preserve code block, got: ${r.compressed}`);
   assert(r.compressed.includes('imp ℜ'), 'Should minify import');
   assert(r.compressed.includes('exp ◇ App'), 'Should minify export const');
@@ -479,10 +554,38 @@ test(`Batch: processed ${sessionMessages.length} messages`, () => {
     `Expected ${sessionMessages.length}, got ${batchStats.messagesProcessed}`);
 });
 
-test(`Batch: overall compression > 1x (standalone text)`, () => {
+// This used to assert `ratio > 1` on nine one-line prompts, and since v1.33.8
+// prices compression in real tokens rather than characters, that claim is
+// simply false: a one-line prompt has nothing to amortise a codebook against,
+// and the glyph forms cost more than the English they replace at that size.
+// The compressor now declines, which is the correct outcome and the one the
+// README already describes as "weak fit".
+//
+// Replacing the false claim with the true one is more useful than inflating
+// the fixture until the old number comes back — this is the documented
+// boundary of the tool, and nothing covered it before.
+test('Batch: one-line prompts are declined rather than inflated', () => {
   const ratio = parseFloat(batchStats.overallRatio);
-  assert(ratio > 1, `Expected >1x, got ${batchStats.overallRatio}`);
-  assert(batchStats.totalSavedTokens > 0, 'Should save some tokens');
+  assert(ratio >= 1, `compression must never make a batch worse, got ${batchStats.overallRatio}`);
+  assert(batchStats.totalSavedTokens >= 0, 'a batch of short prompts must not cost tokens');
+});
+
+// The counterpart: realistic IDE context, where compression does pay. Without
+// this, the assertion above would be satisfied by a compressor that never
+// compresses anything at all.
+test('Batch: realistic IDE payloads do compress', () => {
+  // 'aggressive', not 'standard', and real source rather than synthetic lines.
+  // Measured on 8,000 characters of this repository's own src/compressor.js:
+  // 'standard' saves nothing that clears the 10% margin and correctly falls
+  // back, 'aggressive' saves 901 real tokens and 'ultra' 2,112. Asserting a
+  // saving at 'standard' would be asserting something untrue.
+  const source = fs.readFileSync(new URL('../src/compressor.js', import.meta.url), 'utf8').slice(0, 8000);
+  const realisticGC = new GlyphCompressor({ level: 'aggressive', provider: 'openai' });
+  const result = realisticGC.compressText(`Review this:\n\`\`\`js\n${source}\n\`\`\``, 'openai');
+  const saved = result.stats.originalTokens - result.stats.compressedTokens;
+
+  assert(!result.fallback, 'a real source file at aggressive should not fall back');
+  assert(saved > 100, `realistic payloads should save real tokens, saved ${saved}`);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -503,7 +606,11 @@ test('Source maps: expose reversible dictionaries', () => {
 
 test('Source maps: record AST-like token spans inside minified code blocks', () => {
   const gc = new GlyphCompressor({ level: 'aggressive' });
-  const r = gc.compressText("Review this code:\n```ts\nimport React from 'react';\nexport function App() {\n  const title = 'Hi';\n  return title;\n}\n```");
+  // Below the economics gate: this asserts what minification *records*, not
+  // whether the result is cheap enough to ship. A six-line snippet is not, and
+  // gating it would make the test fail for an unrelated reason.
+  encodeOnly(gc, "Review this code:\n```ts\nimport React from 'react';\nexport function App() {\n  const title = 'Hi';\n  return title;\n}\n```");
+  const r = { sourceMap: gc.getSourceMap() };
   const block = r.sourceMap.codeBlocks.find(item => item.mode === 'minified');
   assert(block && Array.isArray(block.tokens), 'Minified code block should expose structural tokens');
   assert(block.tokens.some(token => token.kind === 'import' && token.glyph === 'imp' && token.span.start.line === 3), 'Should map import token span');
@@ -514,11 +621,20 @@ test('Source maps: record AST-like token spans inside minified code blocks', () 
 
 test('Source maps: dynamic dictionary can be read after compression', () => {
   const gc = new GlyphCompressor({ level: 'standard' });
-  const r = gc.compressText('AuthenticationManager calls AuthenticationManager before AuthenticationManager returns.');
+  // SuperUniqueIdentifierName is 4 real tokens against a 2-token glyph and is
+  // repeated enough to amortise its own definition; AuthenticationManager,
+  // used here before, measures at 2 tokens and no longer qualifies.
+  // Comma-separated on purpose. This test is about the *single-word* dynamic
+  // entry, and the bigram pattern (`word\s+word`) would otherwise win and
+  // consume every occurrence — repeating one word ten times even forms the
+  // bigram "X X" — leaving no single-word span to assert on. Punctuation
+  // between the identifiers stops a bigram forming at all.
+  encodeOnly(gc, 'SuperUniqueIdentifierName, AnotherDistinctIdentifierName. '.repeat(10));
+  const r = { sourceMap: gc.getSourceMap() };
   const dictionaries = gc.getReversibleDictionaries();
-  assert(r.sourceMap.dynamic.some(entry => entry.original === 'AuthenticationManager'), 'Should expose dynamic source map entry');
-  assert(dictionaries.dynamic.some(entry => entry.original === 'AuthenticationManager'), 'Should expose reversible dynamic dictionary');
-  assert(dictionaries.symbols.some(entry => entry.kind === 'dynamic' && entry.original === 'AuthenticationManager'), 'Should expose reversible dynamic spans');
+  assert(r.sourceMap.dynamic.some(entry => entry.original === 'SuperUniqueIdentifierName'), 'Should expose dynamic source map entry');
+  assert(dictionaries.dynamic.some(entry => entry.original === 'SuperUniqueIdentifierName'), 'Should expose reversible dynamic dictionary');
+  assert(dictionaries.symbols.some(entry => entry.kind === 'dynamic' && entry.original === 'SuperUniqueIdentifierName'), 'Should expose reversible dynamic spans');
 });
 
 test('Source maps: record line and column spans across multiple lines', () => {
@@ -534,7 +650,8 @@ test('Source maps: record line and column spans across multiple lines', () => {
 test('Source maps: CommonJS root export matches ESM behavior', () => {
   const cjs = require('..');
   const gc = new cjs.GlyphCompressor({ level: 'standard' });
-  const r = gc.compressText('Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
+  encodeOnly(gc, 'Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
+  const r = { sourceMap: gc.getSourceMap() };
   assert(r.sourceMap.version === currentVersion, 'Should expose source maps through require()');
   assert(r.sourceMap.files.some(file => file.path === 'src/server/auth.ts'), 'Should expose file maps through require()');
   assert(typeof cjs.buildWorkspaceCodebook === 'function', 'Should expose workspace intelligence through require()');

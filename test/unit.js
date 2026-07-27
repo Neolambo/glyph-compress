@@ -3,10 +3,33 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { GlyphCompressor, estimateProviderTokens, normalizeProvider, compareTokenEstimates } from '../src/index.js';
 
-const compressor = new GlyphCompressor({ level: 'standard' });
-const compressed = compressor.compressText('fix the error in app.tsx').compressed;
+// The intent encoding is unchanged — `fix ... error` still maps to ⺌✗. What
+// v1.33.8 added is that emitting it is conditional on being cheaper in REAL
+// tokens rather than characters.
+//
+// That gate matters most exactly here, on a short string: "fix the error in
+// app.tsx" is 7 real tokens while "⺌✗ ◈₍1₎" is 12, because the glyphs are
+// non-ASCII and fragment into several tokens each. This assertion used to lock
+// in that inflated output.
+//
+// It is a size effect, not a verdict on the encoding: measured with
+// `npm run measure:showcase`, the same encoder saves 78% of real tokens across
+// the five showcase scenarios. Small strings lose, realistic IDE context wins.
+const shortPrompt = 'fix the error in app.tsx';
+const shortResult = new GlyphCompressor({ level: 'standard' }).compressText(shortPrompt);
+assert.strictEqual(
+  shortResult.compressed,
+  shortPrompt,
+  'a short prompt must come back untouched: the glyph form costs more real tokens than the plain text',
+);
+assert(shortResult.fallback, 'and the result must say so, rather than reporting a saving it did not make');
 
-assert(compressed.includes('⺌✗'), 'core compressor should encode fix error intent');
+// The encoder still produces the intent glyphs; only the economics gate in
+// front of it decides whether they ship. Asserted directly so this file keeps
+// covering the encoding itself, not just the gate.
+const encoded = new GlyphCompressor({ level: 'standard', provider: 'raw' })
+  ._compressUserMessage(shortPrompt, shortPrompt);
+assert(encoded.includes('⺌✗'), 'core compressor should still encode fix error intent');
 assert(normalizeProvider('claude') === 'anthropic', 'provider aliases should normalize');
 assert(estimateProviderTokens([{ role: 'user', content: 'hello world' }], 'openai') > 0, 'OpenAI estimate should be positive');
 
@@ -31,7 +54,11 @@ if (fs.existsSync(gc1.cacheFile)) {
   fs.unlinkSync(gc1.cacheFile);
 }
 
-const textToCompress = 'SuperUniqueIdentifierName SuperUniqueIdentifierName SuperUniqueIdentifierName';
+// Ten occurrences, not three. Since v1.33.8 dictionary admission is priced in
+// real tokens: this word costs 4, a §N glyph costs 2, so each substitution
+// saves 2 while the entry's own "word=§N" definition costs ~7. Three
+// occurrences is a net loss of one token; ten amortises the definition.
+const textToCompress = 'SuperUniqueIdentifierName '.repeat(10).trim();
 gc1.compressText(textToCompress);
 
 assert(fs.existsSync(gc1.cacheFile), 'cache file should be written after compressText');
@@ -71,17 +98,32 @@ if (refSession1.cacheFile && fs.existsSync(refSession1.cacheFile)) {
 }
 
 // Test Attentional Decay Compaction
+//
+// Each turn carries a real code block rather than a one-liner. Since v1.33.8
+// compression is accepted only when it reduces real tokens, and a nine-message
+// transcript of ~180 tokens is simply too small for decay plus the injected
+// codebook to pay for itself — the compressor correctly returns it untouched,
+// which left this suite reading decayed[9] on a 9-element array. A transcript
+// decay can actually win on is also the more honest test of decay.
+const decayBody = (n) => Array.from({ length: 12 }, (_, i) =>
+  `  const helper${n}_${i} = (input) => transform(input, options${n});`).join('\n');
+
+const decayTurn = (n, label) => ({
+  role: n % 2 === 0 ? 'user' : 'assistant',
+  content: `Message ${n} (${label}).\n\`\`\`javascript\nconst code${n} = ${n};\n${decayBody(n)}\n\`\`\``,
+});
+
 const decayCompressor = new GlyphCompressor({ level: 'standard', attentionalDecay: true });
 const transcript = [
-  { role: 'user', content: 'Message 0 (Deep Freeze): This is very old history. \n```javascript\nconst code0 = 0;\n```' }, // d = 8 (Deep Freeze)
-  { role: 'assistant', content: 'Message 1 (Deep Freeze): Old response. \n```javascript\nconst code1 = 1;\n```' }, // d = 7 (Deep Freeze)
-  { role: 'user', content: 'Message 2 (Cold): This is cold history. \n```javascript\nconst code2 = 2;\n```' }, // d = 6 (Cold)
-  { role: 'assistant', content: 'Message 3 (Cold): Cold response. \n```javascript\nconst code3 = 3;\n```' }, // d = 5 (Cold)
-  { role: 'user', content: 'Message 4 (Cold): Another cold one. \n```javascript\nconst code4 = 4;\n```' }, // d = 4 (Cold)
-  { role: 'assistant', content: 'Message 5 (Warm): This is warm. \n```javascript\nconst code5 = 5;\n```' }, // d = 3 (Warm)
-  { role: 'user', content: 'Message 6 (Warm): Warm request. \n```javascript\nconst code6 = 6;\n```' }, // d = 2 (Warm)
-  { role: 'assistant', content: 'Message 7 (Warm): Warm response. \n```javascript\nconst code7 = 7;\n```' }, // d = 1 (Warm)
-  { role: 'user', content: 'Message 8 (Active): Latest active prompt! \n```javascript\nconst code8 = 8;\n```' }, // d = 0 (Active)
+  decayTurn(0, 'Deep Freeze'), // d = 8
+  decayTurn(1, 'Deep Freeze'), // d = 7
+  decayTurn(2, 'Cold'), // d = 6
+  decayTurn(3, 'Cold'), // d = 5
+  decayTurn(4, 'Cold'), // d = 4
+  decayTurn(5, 'Warm'), // d = 3
+  decayTurn(6, 'Warm'), // d = 2
+  decayTurn(7, 'Warm'), // d = 1
+  decayTurn(8, 'Active'), // d = 0
 ];
 
 const { messages: decayed } = decayCompressor.compressMessages(transcript, 'raw');
@@ -104,7 +146,10 @@ assert(!decayed[3].content.includes('code2'), 'Cold zone should strip raw code b
 // assertion could match the literal word "Summary". Assert the actual
 // contract instead — the code is gone, replaced by something describing it.
 assert(
-  /\[Summary|\[\S*\d+L\]/.test(decayed[3].content),
+  // `\S*` assumed the structural form had no internal spaces, which only held
+  // for a one-line code block. A realistic block summarises as `[ʲˢƒ:12 13L]`
+  // — language tag, function count, line count — with a space in the middle.
+  /\[Summary|\[[^\]]*\d+L\]/.test(decayed[3].content),
   `Cold zone should replace code blocks with a summary marker, got: ${decayed[3].content}`,
 );
 

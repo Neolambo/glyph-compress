@@ -89,12 +89,17 @@ try {
   test('Session-local learning continues indices after team entries without colliding', () => {
     saveTeamCodebook(dir, ['AuthenticationManager']);
     const gc = new GlyphCompressor({ level: 'standard', provider: 'raw', workspacePath: dir });
-    const r = gc.compressText('AuthenticationManager calls NotificationDispatcher NotificationDispatcher NotificationDispatcher now.');
+    // NotificationDispatcher is 2 real tokens against a 2-token §N glyph, so
+    // since v1.33.8 it can never be worth learning; ReconciliationWorkerIdentifier
+    // is 4, and repeated enough to amortise its own definition. The team entry
+    // itself is seeded regardless of economics — that is the point of a team
+    // codebook — so AuthenticationManager stays as the seeded word.
+    const r = gc.compressText('AuthenticationManager calls ' + 'ReconciliationWorkerIdentifier '.repeat(8) + 'now.');
     assert(r.compressed.includes('§1'), 'team entry should still be used');
     // The newly-learned word must get its own, later index — never reuse
     // §1, which the team codebook already claimed for a different word.
     assert.strictEqual(gc.dynamicDict.get('AuthenticationManager'), '§1', 'team entry keeps its assigned index');
-    const newGlyph = gc.dynamicDict.get('NotificationDispatcher');
+    const newGlyph = gc.dynamicDict.get('ReconciliationWorkerIdentifier');
     assert(newGlyph && newGlyph !== '§1', `session-learned word must get a fresh index, not reuse §1, got: ${newGlyph}`);
   });
 
@@ -116,7 +121,12 @@ try {
   test('CLI: team-codebook sync promotes locally-learned words, then show lists them', () => {
     const cliDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-team-cli-sync-'));
     try {
-      fs.writeFileSync(path.join(cliDir, 'sample.txt'), 'RepeatedIdentifierWord RepeatedIdentifierWord appears twice.\n', 'utf8');
+      // Eight occurrences, not two. RepeatedIdentifierWord is 4 real tokens
+      // against a 2-token §N glyph, so each substitution saves 2 while the
+      // entry's own definition costs ~7 — two occurrences is a net loss, and
+      // since v1.33.8 the dictionary correctly declines to learn it, leaving
+      // `team-codebook sync` with nothing to promote.
+      fs.writeFileSync(path.join(cliDir, 'sample.txt'), `${'RepeatedIdentifierWord '.repeat(8)}appears often.\n`, 'utf8');
       execFileSync(process.execPath, [cliPath, 'sample.txt', '--level', 'standard'], { cwd: cliDir, encoding: 'utf8' });
       const syncOut = execFileSync(process.execPath, [cliPath, 'team-codebook', 'sync', '--json'], { cwd: cliDir, encoding: 'utf8' });
       const syncResult = JSON.parse(syncOut);
@@ -154,13 +164,27 @@ test('workspacePath makes the compressed body byte-identical across differently-
     const unrelated = fs.readFileSync(path.join(repoRoot, 'src', 'logger.js'), 'utf8');
 
     const warmDifferently = (opts) => {
-      const gc = new GlyphCompressor({ level: 'standard', provider: 'openai', ...opts });
+      // 'aggressive', not 'standard'. Measured, 'standard' no longer clears the
+      // margin on real source once compression is priced in real tokens, so
+      // BOTH arms fell back to the identical uncompressed text — which the
+      // control assertion below correctly flagged as proving nothing.
+      const gc = new GlyphCompressor({ level: 'aggressive', provider: 'openai', ...opts });
       gc.compressText(unrelated, 'openai');
-      gc.compressText('deploy the kubernetes service and review the auth flow', 'openai');
+      // Warming content that actually TEACHES the dictionary something. The
+      // short prompt that used to sit here no longer does: with admission
+      // priced in real tokens (v1.33.8) none of its words qualify, so the
+      // §N counter never advanced and both arms produced identical output —
+      // which the control assertion below correctly flagged as proving
+      // nothing. These identifiers are 4+ real tokens and repeated enough to
+      // pay for their own definitions.
+      gc.compressText(
+        `${'UnrelatedWarmupIdentifierAlpha '.repeat(8)}${'UnrelatedWarmupIdentifierBeta '.repeat(8)}`,
+        'openai',
+      );
       return gc.compressText(target, 'openai').compressed;
     };
     const fromFresh = (opts) =>
-      new GlyphCompressor({ level: 'standard', provider: 'openai', ...opts }).compressText(target, 'openai').compressed;
+      new GlyphCompressor({ level: 'aggressive', provider: 'openai', ...opts }).compressText(target, 'openai').compressed;
 
     assert.strictEqual(
       warmDifferently({ workspacePath: ws }),

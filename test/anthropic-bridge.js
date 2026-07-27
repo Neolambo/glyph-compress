@@ -403,7 +403,14 @@ await testAsync('end-to-end: OpenAI and Gemini targets are unaffected by the Ant
         // net-negative fallback doesn't fire and mask the assertion below —
         // the same "too small to compress" gotcha test/context-router.js
         // already guards against via its usedAdaptiveFallback check.
-        const repeatableCode = 'function handleClick(event) { const result = fetchData(event); return result; } '.repeat(25);
+        // `ReconciliationWorkerHandler`, not `handleClick`. Compression is
+        // priced in real tokens since v1.33.8, and `handleClick` is short
+        // enough that substituting it costs more than it saves — so the whole
+        // payload fell back, no codebook was injected, and there was no system
+        // message for this assertion to find. The same "too small to compress"
+        // gotcha the comment above describes, in a form the old fixture could
+        // no longer trip.
+        const repeatableCode = 'function ReconciliationWorkerHandler(event) { const result = fetchData(event); return result; } '.repeat(25);
         await postJson(server.address().port, '/v1/chat/completions', {
           model: 'gpt-4o',
           messages: [{ role: 'user', content: 'Fix the error in the React frontend component. TypeError: cannot read property of undefined at line 42. ' + repeatableCode }],

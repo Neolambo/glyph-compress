@@ -6,7 +6,8 @@
     "result": {
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
-        "version": "1.33.7",
+        "privacy": [],
+        "version": "1.33.8",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -35,7 +36,6 @@
         ],
         "codeBlocks": [],
         "ast": [],
-        "privacy": [],
         "symbols": [
           {
             "glyph": "⊝₍1₎",
@@ -84,25 +84,6 @@
     "result": {
       "compressed": "Use API_KEY=⟦SECRET_ASSIGNMENT_2⟧ and contact ⟦EMAIL_3⟧ from ⟦IPV4_4⟧",
       "sourceMap": {
-        "version": "1.33.7",
-        "level": "standard",
-        "provider": "raw",
-        "profile": {
-          "provider": "raw",
-          "strategy": "balanced",
-          "dynamicMinSavedChars": 4,
-          "maxDynamicEntries": 80,
-          "codebookHint": "Generic text profile with balanced dynamic dictionary compression."
-        },
-        "trustPolicy": "privacy",
-        "trustWarnings": [
-          "Privacy firewall active: values matching secret/PII patterns are redacted before compression — verify no legitimate (non-secret) value was caught by those patterns."
-        ],
-        "files": [],
-        "dynamic": [],
-        "diagnostics": [],
-        "codeBlocks": [],
-        "ast": [],
         "privacy": [
           {
             "kind": "openai_key",
@@ -125,36 +106,26 @@
             "placeholder": "⟦IPV4_4⟧"
           }
         ],
-        "symbols": [
-          {
-            "glyph": "⟦OPENAI_KEY_1⟧",
-            "original": "[openai_key]",
-            "kind": "privacy",
-            "redacted": true,
-            "label": "OpenAI API key"
-          },
-          {
-            "glyph": "⟦SECRET_ASSIGNMENT_2⟧",
-            "original": "[secret_assignment]",
-            "kind": "privacy",
-            "redacted": true,
-            "label": "secret assignment"
-          },
-          {
-            "glyph": "⟦EMAIL_3⟧",
-            "original": "[email]",
-            "kind": "privacy",
-            "redacted": true,
-            "label": "email address"
-          },
-          {
-            "glyph": "⟦IPV4_4⟧",
-            "original": "[ipv4]",
-            "kind": "privacy",
-            "redacted": true,
-            "label": "IPv4 address"
-          }
+        "version": "1.33.8",
+        "level": "standard",
+        "provider": "raw",
+        "profile": {
+          "provider": "raw",
+          "strategy": "balanced",
+          "dynamicMinSavedChars": 4,
+          "maxDynamicEntries": 80,
+          "codebookHint": "Generic text profile with balanced dynamic dictionary compression."
+        },
+        "trustPolicy": "privacy",
+        "trustWarnings": [
+          "Privacy firewall active: values matching secret/PII patterns are redacted before compression — verify no legitimate (non-secret) value was caught by those patterns."
         ],
+        "files": [],
+        "dynamic": [],
+        "diagnostics": [],
+        "codeBlocks": [],
+        "ast": [],
+        "symbols": [],
         "replacements": [
           {
             "kind": "privacy",
@@ -191,11 +162,11 @@
         "profile": "balanced",
         "trustPolicy": "privacy",
         "originalTokens": 25,
-        "compressedTokens": 23,
-        "fallback": false,
+        "compressedTokens": 25,
+        "fallback": true,
         "selectedLevel": "standard",
-        "ratio": "1.1x",
-        "savedPct": "8%"
+        "ratio": "1.0x",
+        "savedPct": "0%"
       }
     }
   },
@@ -224,7 +195,8 @@
         }
       ],
       "sourceMap": {
-        "version": "1.33.7",
+        "privacy": [],
+        "version": "1.33.8",
         "level": "standard",
         "provider": "openai",
         "profile": {
@@ -241,7 +213,6 @@
         "diagnostics": [],
         "codeBlocks": [],
         "ast": [],
-        "privacy": [],
         "symbols": [],
         "replacements": []
       },
@@ -288,7 +259,8 @@
         }
       ],
       "sourceMap": {
-        "version": "1.33.7",
+        "privacy": [],
+        "version": "1.33.8",
         "level": "standard",
         "provider": "anthropic",
         "profile": {
@@ -305,7 +277,6 @@
         "diagnostics": [],
         "codeBlocks": [],
         "ast": [],
-        "privacy": [],
         "symbols": [],
         "replacements": []
       },

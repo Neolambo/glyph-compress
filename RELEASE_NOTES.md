@@ -1,3 +1,68 @@
+## v1.33.8 — Compression Is Priced In Real Tokens, Over A Session
+
+**GlyphCompress no longer sends more tokens than it received.** The guarantee is scoped to a *session* of ordinary use, not to each individual call — which is the scope that matters, and the one that makes the prompt-cache investment legal.
+
+### The Bug: Admission Was Counted In Characters
+
+The dynamic dictionary decided what to learn with
+
+```js
+save = freq * (word.length - 2) - (word.length + 2)
+```
+
+Characters, not tokens — and wrong in the direction that approves losing substitutions. Providers bill tokens; BPE merges ordinary identifiers into very few of them while `§N` always costs 2. Replacing `amount`, `validated` or `currency` — **1 token each** — therefore doubled the cost while the formula reported a large saving.
+
+Measured on identifier-repetitive source: **characters fell 33% (17,238 → 11,473) while real tokens rose 37.8% (3,496 → 4,818).** The net-negative fallback did not catch it, because it compared two heuristic numbers whose errors point in *opposite* directions — **+42.9% on plain text against −24.1% on glyph text**, more than enough to invert a verdict. The guard was sound; its inputs were not.
+
+Length cannot fix this, and that is the whole reason for the new dependency:
+
+| Identifier | Length | Real tokens |
+|---|---|---|
+| `AuthenticationManager` | 21 | **2** |
+| `processTransaction0` | 19 | **3** |
+
+The shorter identifier costs more. No length heuristic separates them.
+
+### The Fix
+
+`js-tiktoken` becomes an **optional** dependency. Installed, admission and the accept/reject gate use real BPE counts; absent, a deliberately conservative length rule (`chars/8`) applies, chosen against those counterexamples so it never over-estimates the replaced word — the only error direction that can admit a loser. **The never-inflate guarantee holds either way**; without the tokenizer it simply leaves real savings on the table (`processTransaction0` at 120 occurrences is ~113 tokens).
+
+Two further gaps closed: `raw` skipped the guard entirely and was inflating README.md by 0.5%, and the 10% improvement margin — which exists to cover the *heuristic's* error band — no longer applies to a real count, where a 5.7% saving is simply a 5.7% saving.
+
+### Why A Session, Not A Call
+
+The cache-stable codebook header costs **437 real tokens** against the filtered form's 32. On one call it can measure **+50%** (999 tokens against 664). A per-call rule rejects it every time — and rejecting it throws away byte-identical prefixes worth up to **−41.6% of effective session cost** once providers price cache reads at 0.1× (v1.33.6, `npm run measure:cache`).
+
+So that header is exempt from the real-token gate, under two conditions: assistant history exists (later turns are real, not hypothetical) **and** the provider actually has a prefix cache. `raw` and `local` have none, so the exemption would be a licence to inflate for no return — measured at +4.93% before that narrowing.
+
+The asymmetry is the point. The `§N` dictionary inflated per call *and* broke the prefix — losing on both axes. This header loses one to win the other.
+
+### Verified At Session Level
+
+| | Result |
+|---|---|
+| OpenAI/Gemini implicit caching, 2–42 turns | **0.0%** inflation, **0** prefix truncations |
+| Anthropic explicit caching, 2–42 turns | **100%** prefix coverage, **0** full-price tokens |
+| `compressText`, 100 combinations | never inflates |
+| `raw`/`local` (no prefix cache), per call | never inflates |
+| `npm run benchmark` | 26%, unchanged |
+
+### The Tests Were Measuring The Wrong Thing
+
+Migrating the suite surfaced a distinction that had been conflated: **what the encoder produces** and **whether shipping it pays** are different contracts. Tests asserting glyph output now call the encoder directly; tests asserting a *saving* go through the gate with payloads where the saving is real.
+
+Doing so exposed three facts worth stating plainly:
+
+- **`standard` no longer clears the margin on real source.** `aggressive` saves ~901 real tokens on 8,000 characters of this repository's own code, `ultra` ~2,112. `standard` correctly declines.
+- **Repeated English prose does not compress at any level.** Long phrases are already close to optimal for BPE. Several fixtures were built from it.
+- **A test asserting `ratio > 1x` on nine one-line prompts was simply false.** It is now two true assertions: short prompts are declined without inflation, and realistic IDE payloads do compress.
+
+### Not A Verdict On The Glyph Encoding
+
+A 24-character prompt inflates 71% (`fix the error in app.tsx` is 7 real tokens, `⺌✗ ◈₍1₎` is 12), which looked like an indictment of the whole approach. Re-pricing the README's own showcase scenarios with js-tiktoken says otherwise — **89% in characters, 78% in real tokens** (`npm run measure:showcase`). The published figure holds. Small strings lose; realistic IDE context wins, which is what the README already claimed.
+
+---
+
 ## v1.33.7 — Security: The Privacy Firewall Was Bypassed On Every Fallback
 
 **Upgrade if you use `privacyFirewall: true`.** Secrets that the firewall had already redacted were sent to the provider **unredacted** whenever compression turned out to be net-negative.

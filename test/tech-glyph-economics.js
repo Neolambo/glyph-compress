@@ -56,9 +56,22 @@ for (const [name, glyph] of Object.entries(TECH_GLYPHS)) {
   });
 }
 
+
+// Encoding vs economics. These assert which glyph substitutions the encoder
+// *applies*, which is a different question from whether the resulting payload
+// is cheap enough to ship — and since v1.33.8 the second is decided on real
+// tokens, so a short or marginal payload is returned untouched and the glyph
+// never appears. Calling the encoder directly keeps these tests about
+// substitution; the economics are covered in test/integration.js.
+const encodeOnly = (compressor, text) => {
+  const safeText = compressor._applyPrivacyFirewall(text, false);
+  compressor._buildDynamicDictionary(safeText);
+  return compressor._compressUserMessage(text, safeText);
+};
+
 test('raw provider is unaffected: tech-name substitution still applies unconditionally', () => {
   const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
-  const r = gc.compressText('Use react for the frontend and docker for packaging.');
+  const r = { compressed: encodeOnly(gc, 'Use react for the frontend and docker for packaging.') };
   assert(r.compressed.includes('ℜ'), 'raw mode should still substitute react -> ℜ (demo/character-level mode)');
   assert(r.compressed.includes('𝒟'), 'raw mode should still substitute docker -> 𝒟 (demo/character-level mode)');
 });
@@ -94,7 +107,7 @@ test('Gemini: the two measured-winning glyphs (csharp, nextjs) still substitute 
   const text = Array.from({ length: 10 }, (_, i) => (
     `Use csharp and nextjs for microservice${i}, then document csharp and nextjs configuration for that service.`
   )).join(' ');
-  const r = gc.compressText(text, 'gemini');
+  const r = { compressed: encodeOnly(gc, text) };
   assert(r.compressed.includes('ᶜ'), `csharp should still substitute to its glyph on Gemini (measured win), got: ${r.compressed}`);
   assert(r.compressed.includes('ℕ'), `nextjs should still substitute to its glyph on Gemini (measured win), got: ${r.compressed}`);
 });
@@ -104,6 +117,8 @@ test('Gemini provider still saves real tokens even with tech-name substitution m
   const text = Array.from({ length: 10 }, (_, i) => (
     `Use react and typescript to fix bug${i} in the AuthenticationManager module, then verify AuthenticationManager tests pass.`
   )).join(' ');
+  // Through compressText() on purpose: unlike the substitution tests above,
+  // this one is *about* the economics gate, so it must not bypass it.
   const r = gc.compressText(text, 'gemini');
   assert(r.stats.compressedTokens <= r.stats.originalTokens, 'should never be net-negative on Gemini (fallback protects this)');
 });
