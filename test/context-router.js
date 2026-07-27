@@ -26,13 +26,27 @@ import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
+import { buildWorkspaceCodebook } from '../src/workspace-intelligence.js';
 
 let passed = 0;
 let failed = 0;
 
+// Async tests rejected *after* fn() returned, so the try/catch never saw the
+// failure: the suite printed a green tick and reported "0 failed". Verified by
+// forcing a false assertion inside the async test below — it still passed.
+// Their results are collected here and awaited before the summary instead.
+const pending = [];
+
 function test(name, fn) {
   try {
-    fn();
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      pending.push(result.then(
+        () => { passed++; console.log(`  ✓ ${name}`); },
+        (err) => { failed++; console.log(`  ✗ ${name}: ${err.message}`); },
+      ));
+      return;
+    }
     passed++;
     console.log(`  ✓ ${name}`);
   } catch (err) {
@@ -173,6 +187,51 @@ test('routing sees files added after the codebook was persisted', () => {
     fs.rmSync(ws, { recursive: true, force: true });
   }
 });
+
+// readTextFile() returned '' for any file over maxFileBytes rather than
+// reading a prefix, so an oversized file contributed no symbols, no imports
+// and no diagnostics — it could never be selected, while the router still
+// returned a confident scored list without it. Measured on this repository at
+// the default 120,000-byte limit, exactly one file crossed it:
+// vscode-ext/glyph-middleware.js at 122,875 bytes, indexing as 0 lines and 0
+// symbols despite holding the compressor, the privacy patterns and the decay
+// zones. A query for a symbol unique to it went unranked; it now ranks first.
+//
+// Same silent-omission shape as the stale index above: valid output, one file
+// permanently missing from it.
+test('a file larger than maxFileBytes is indexed from its prefix, not skipped', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-router-big-'));
+  try {
+    // Distinctive symbol near the top, then padding past the limit. Padding is
+    // varied rather than one repeated line so it cannot be mistaken for the
+    // kind of degenerate input a scanner might special-case.
+    const header = 'export function oversizedUniqueMarker() { return 1; }\n';
+    const padding = Array.from({ length: 4000 }, (_, i) => `const filler${i} = ${i};`).join('\n');
+    const bigPath = path.join(ws, 'oversized.js');
+    fs.writeFileSync(bigPath, header + padding, 'utf8');
+    fs.writeFileSync(path.join(ws, 'small.js'), 'export function unrelatedSmall() { return 2; }\n', 'utf8');
+
+    const maxFileBytes = 2000;
+    assert(
+      fs.statSync(bigPath).size > maxFileBytes,
+      'fixture must exceed the limit or this test proves nothing',
+    );
+
+    const codebook = buildWorkspaceCodebook(ws, { incremental: false, maxFileBytes });
+    const entry = codebook.files.find((f) => f.path === 'oversized.js');
+
+    assert(entry, 'the oversized file should still appear in the codebook');
+    assert(
+      entry.symbols.includes('oversizedUniqueMarker'),
+      `an oversized file must be indexed from its prefix; got symbols: ${JSON.stringify(entry.symbols)}`,
+    );
+    assert(entry.lines > 0, `an oversized file should report a real line count, got ${entry.lines}`);
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+await Promise.all(pending);
 
 console.log(`\ncontext-router: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

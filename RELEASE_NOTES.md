@@ -1,3 +1,46 @@
+## v1.33.4 — Two Silent Failures, Found While Measuring Something Else
+
+This release ships no feature. It went looking for one, didn't find it, and found two bugs on the way — both of the same kind this project keeps turning up: **output that stays valid and confident while something is quietly missing from it.**
+
+### 1. A File Too Large To Index Was Skipped Entirely
+
+`readTextFile()` returned `''` for any file over `maxFileBytes` rather than reading a prefix. An oversized file therefore contributed no symbols, no imports, no diagnostics — it could never be selected by the router, which still returned a confident scored list without it.
+
+On this repository, at the 120,000-byte default, exactly one file crossed the line: **`vscode-ext/glyph-middleware.js` at 122,875 bytes** — the ESM source of truth holding the compressor, the privacy patterns and the attentional decay zones. The file most questions about this project's behavior should reach indexed as **0 lines, 0 symbols, 0 imports, 0 diagnostics**.
+
+It now reads a prefix instead: **2,824 lines, 20 symbols, 8 imports, 1 diagnostic**. A query for `TECH_LABEL_OVERRIDES`, a symbol unique to that file, went from **unranked to rank 1**. A prefix is strictly better than nothing here — imports and top-level symbols cluster near the head of a source file.
+
+Covered by `test/context-router.js`; reverting the read to the skip behavior fails it.
+
+### 2. Three Tests Reported Green With Guaranteed-False Assertions
+
+The `test()` helpers in `test/context-router.js` and `test/integration.js` call `fn()` inside a `try/catch`. An async test **rejects after fn() returns**, so the catch never fires: the suite printed `✓` and reported `0 failed`. Verified by forcing a false assertion into one — it still passed.
+
+`integration.js` was the worse of the two: it ends in `process.exit()`, which tore the process down before the rejection could even surface as an unhandled one. In `context-router.js` the rejection did escape, and Node's default `--unhandled-rejections=throw` set exit 1 — so CI caught it by luck of a runtime default, while the suite's own reporting said everything passed.
+
+Both helpers now detect a thenable, collect it, and await every pending result before printing totals. Same forced failure now prints `✗` and `1 failed`. `test/mcp-server.js` and `test/cache-prefix-stability.js` were already correct — they use `await test(...)`.
+
+### The Feature That Didn't Ship
+
+The goal was content indexing: score files on their text, not just `path + owner + symbols + imports`. It was built, measured across five variants, and dropped. **Retrieval stayed at exactly 3/6 and noise at 15/18 in every one:**
+
+| Variant | Retrieval | Noise | Codebook |
+|---|---|---|---|
+| v1.33.3 baseline (metadata only) | 3/6 | 15/18 | 66 KB |
+| + content terms, 40/file | 3/6 | 15/18 | 133 KB |
+| + content terms, 100/file | 3/6 | 15/18 | 214 KB |
+| + content terms, 200/file | 3/6 | 15/18 | 317 KB |
+| + terms scaled by file length | 3/6 | 15/18 | 135 KB |
+| + identifier splitting + BM25 saturated tf + df>1 filter | 3/6 | 15/18 | 132 KB |
+
+It did improve rank *within* the top 3 — `src/dashboard.js` 2nd→1st, `src/workspace-intelligence.js` 3rd→1st — but no metric this project holds itself to measures that, and 2x–5x the codebook for an unmeasured effect is the same trade v1.33.3 refused for IDF.
+
+**Why it failed is the part worth keeping.** Choosing which terms to *store* by tf·idf is the wrong objective. idf exists to score a query term, and it rewards terms unique to one file — so a 2,800-line file's stored vocabulary filled up with one-off compound identifiers (`this._minifyreplace`, `addmatches`, `this.dynamiccounter`), each df=1 and therefore maximal idf. Nobody queries those. The words a person actually types — "privacy", "decay" — appear in a handful of files, score lower, and never made the list. Filtering df=1 didn't rescue it, because the committed `.cjs` build artifacts duplicate the sources and inflate df for every identifier in them.
+
+That points at the real blocker, upstream of scoring: **the index treats generated bundles as peers of their sources.** They compete for slots, split the term statistics, and appear as noise in every result above. Excluding build outputs is the prerequisite; retrying content indexing before that means retrying it against corrupted statistics. Tracked in `ROADMAP.md`.
+
+---
+
 ## v1.33.3 — The Router's Memory Was Feeding On Itself
 
 Retrieval against six ground-truth queries: **0/6 → 3/6**, noise **18/18 → 15/18**.

@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 
-const VERSION = '1.33.3';
+const VERSION = '1.33.4';
 const CODEBOOK_DIR = '.glyphcompress';
 const CODEBOOK_FILE = 'codebook.json';
 const SUPPORTED_EXTENSIONS = new Set([
@@ -367,13 +367,41 @@ function listWorkspaceFiles(root, options) {
   return files;
 }
 
+/**
+ * Read up to maxBytes of a file, truncating rather than skipping.
+ *
+ * This used to return '' for anything over the limit, so an oversized file
+ * contributed no symbols, no imports and no diagnostics — it could never be
+ * selected by the router, which still returned a confident scored list
+ * without it. Measured on this repository at the default 120,000-byte limit,
+ * exactly one file crossed it: vscode-ext/glyph-middleware.js at 122,875
+ * bytes — the ESM source of truth holding the compressor, the privacy
+ * patterns and the decay zones, i.e. the file most questions about this
+ * project's behavior should reach. It indexed as 0 lines, 0 symbols.
+ *
+ * A prefix is strictly better than nothing: imports and most top-level
+ * symbols cluster near the top of a source file, so the truncated head is its
+ * most identifying part.
+ */
 function readTextFile(filePath, maxBytes) {
+  let handle;
   try {
     const stat = fs.statSync(filePath);
-    if (stat.size > maxBytes) return '';
-    return fs.readFileSync(filePath, 'utf8');
+    if (stat.size <= maxBytes) return fs.readFileSync(filePath, 'utf8');
+
+    const buffer = Buffer.alloc(maxBytes);
+    handle = fs.openSync(filePath, 'r');
+    const bytesRead = fs.readSync(handle, buffer, 0, maxBytes, 0);
+    // A multi-byte character can straddle the cut; 'utf8' decoding replaces
+    // the partial tail with U+FFFD rather than throwing, and one junk token
+    // at the boundary does not affect ranking.
+    return buffer.subarray(0, bytesRead).toString('utf8');
   } catch {
     return '';
+  } finally {
+    if (handle !== undefined) {
+      try { fs.closeSync(handle); } catch { /* already gone */ }
+    }
   }
 }
 

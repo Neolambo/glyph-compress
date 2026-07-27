@@ -28,9 +28,23 @@ const currentVersion = require('../package.json').version;
 let passed = 0;
 let failed = 0;
 
+// Async tests rejected *after* fn() returned, so the try/catch never saw the
+// failure and the suite printed a green tick. Worse here than elsewhere: this
+// file ends in process.exit(), which tears down the process before a pending
+// rejection can even surface as an unhandled one. Their results are collected
+// here and awaited before the summary instead.
+const pending = [];
+
 function test(name, fn) {
   try {
-    fn();
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      pending.push(result.then(
+        () => { console.log(`  ✓ ${name}`); passed++; },
+        (e) => { console.log(`  ✗ ${name}: ${e.message}`); failed++; },
+      ));
+      return;
+    }
     console.log(`  ✓ ${name}`);
     passed++;
   } catch (e) {
@@ -682,6 +696,10 @@ test('Testing split: package exposes focused suite scripts', () => {
 // ═══════════════════════════════════════════════════════════
 // RESULTS
 // ═══════════════════════════════════════════════════════════
+
+// Async test results land here; the totals below are only correct once every
+// collected promise has settled.
+await Promise.all(pending);
 
 console.log('\n' + '═'.repeat(70));
 console.log('RESULTS');

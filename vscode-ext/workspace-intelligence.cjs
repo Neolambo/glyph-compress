@@ -43,7 +43,7 @@ var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
-var VERSION = "1.33.3";
+var VERSION = "1.33.4";
 var CODEBOOK_DIR = ".glyphcompress";
 var CODEBOOK_FILE = "codebook.json";
 var SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
@@ -309,12 +309,23 @@ function listWorkspaceFiles(root, options) {
   return files;
 }
 function readTextFile(filePath, maxBytes) {
+  let handle;
   try {
     const stat = import_fs.default.statSync(filePath);
-    if (stat.size > maxBytes) return "";
-    return import_fs.default.readFileSync(filePath, "utf8");
+    if (stat.size <= maxBytes) return import_fs.default.readFileSync(filePath, "utf8");
+    const buffer = Buffer.alloc(maxBytes);
+    handle = import_fs.default.openSync(filePath, "r");
+    const bytesRead = import_fs.default.readSync(handle, buffer, 0, maxBytes, 0);
+    return buffer.subarray(0, bytesRead).toString("utf8");
   } catch {
     return "";
+  } finally {
+    if (handle !== void 0) {
+      try {
+        import_fs.default.closeSync(handle);
+      } catch {
+      }
+    }
   }
 }
 function extractSymbols(text) {
