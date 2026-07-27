@@ -98,7 +98,7 @@ AFTER (137 chars):
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1334) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1335) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -223,7 +223,15 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
-### New in v1.33.4 (Two Silent Failures, Found While Measuring Something Else)
+### New in v1.33.5 (Correcting Two Published Numbers That Don't Reproduce)
+
+No behavior change — this release retracts and restates measurements, and adds the harness that makes them reproducible: **`npm run measure:routing`**.
+
+Both retracted figures came from an ad-hoc script run against the working tree. Ranking gives **+3 to any git-dirty file**, and the file being edited — `src/workspace-intelligence.js` — is the target of one of the six queries, so the act of measuring inflated the result. v1.33.3's real delta is **1/6 → 2/6**, not 0/6 → 3/6, and its claim that both halves of the fix are load-bearing is withdrawn: measured cleanly, either half alone achieves the full effect. v1.33.4's content-indexing table shifts by a point, with its conclusion intact.
+
+The harness refuses to run on a dirty tree rather than quietly including that boost, and pins the usage history instead of inheriting whatever a previous run left on disk. Full detail in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
+### Also recent (v1.33.4 — two silent failures, found while measuring something else)
 
 No feature this release — it went looking for one, didn't find it, and found two bugs on the way.
 
@@ -237,7 +245,7 @@ No feature this release — it went looking for one, didn't find it, and found t
 
 The Context Router boosts files it has selected before. But `routeAndCompress()` records usage for *everything* it selects, and nothing records whether the selection was any good — so the boost was computed from the router's own past output with no correctness signal in the loop. A file selected often kept being selected because it was selected often. Measured here, `examples/test-dashboard.tsx` reached usage count **318** and won the query *"dashboard escapeHtml crashes on a number"* on one generic path match, beating `src/dashboard.js`, which matched the rare term.
 
-Usage now breaks ties among files that already matched and cannot manufacture a match: a file matching nothing in the query earns no boost, and the usage cap drops from 10 to 3 — below the 4 points one term match is worth. Against six ground-truth queries: **retrieval 0/6 → 3/6, noise 18/18 → 15/18**. Both halves are load-bearing; with the gate alone and the cap left at 10, retrieval is 2/6.
+Usage now breaks ties among files that already matched and cannot manufacture a match: a file matching nothing in the query earns no boost, and the usage cap drops from 10 to 3 — below the 4 points one term match is worth. Against six ground-truth queries with a seeded usage history: **retrieval 1/6 → 2/6, noise 17/18 → 16/18** (`npm run measure:routing -- --seed-usage`). Without any usage history every revision scores 2/6 — the feedback loop was costing one retrieval, and the fix gives it back rather than adding capability. Either half alone achieves this; they are redundant, and both are kept because each defends a distinct failure mode.
 
 IDF term weighting was built alongside this and **dropped** — it changed neither retrieval nor noise, and no test caught its removal. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full measurement and [ROADMAP.md](ROADMAP.md) for what still misses (the three remaining failures all rank the *test* file above the *source* file, which needs content indexing).
 
@@ -263,7 +271,7 @@ v1.32.2 also corrects a **wrong level** that the bug had been hiding: decay's wa
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.33.4)
+### 📏 Benchmark Snapshot (v1.33.5)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -293,7 +301,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1334) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1335) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|

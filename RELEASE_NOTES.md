@@ -1,4 +1,58 @@
+## v1.33.5 — Correcting Two Published Numbers That Don't Reproduce
+
+No behavior change. This release retracts and restates measurements from v1.33.3 and v1.33.4, and adds the harness that makes them reproducible: **`npm run measure:routing`**.
+
+### What Was Wrong
+
+Both figures came from an ad-hoc script run against the working tree. That is not a stable measurement environment, for two reasons that compounded:
+
+- **git dirtiness.** Ranking gives **+3** to any file git reports as staged or unstaged. `src/workspace-intelligence.js` is the target of query 6 — and it was the file being edited, so every "after" run boosted it, while every "before" run, taken via `git stash`, did not. That is a whole retrieval point, manufactured by the act of measuring.
+- **usage history.** `routeAndCompress()` records usage for everything it selects, so simply running the router changes what the next run returns. Measurements taken minutes apart were not comparable, and the original history (`examples/test-dashboard.tsx` at count 318) was deleted during a sweep, so the v1.33.3 figure could not be re-derived at all.
+
+The dirtiness confound survived a first round of diagnosis, because mutating a file with `sed` to test a variant makes it dirty again — the corrected run reproduced the original error.
+
+### Correction 1 — v1.33.3's Delta
+
+**Published: retrieval 0/6 → 3/6. Actual: 1/6 → 2/6.** Both ends were wrong, in the same direction.
+
+Measured with `npm run measure:routing --seed-usage` on clean checkouts of each revision, all sharing one deterministic usage history:
+
+| Revision | With usage history | Without |
+|---|---|---|
+| v1.33.2 (before the fix) | **1/6**, noise 17/18 | 2/6, noise 16/18 |
+| v1.33.3 | **2/6**, noise 16/18 | 2/6, noise 16/18 |
+| v1.33.4 | 2/6, noise 16/18 | 2/6, noise 16/18 |
+
+The right-hand column is the clearer statement of what the fix does. With no history, the boost has nothing to act on and every revision scores 2/6. The feedback loop was costing one retrieval; the fix gives it back. **It repairs damage rather than adding capability** — which is what a fix should do, and less than the original note claimed.
+
+### Correction 2 — The Two Halves Are Redundant, Not Complementary
+
+v1.33.3 stated that both halves are load-bearing, citing "cap 10 with the gate in place retrieves only 2/6, not 3/6". That comparison was contaminated. The clean 2x2:
+
+| Gate | Cap | Retrieval | Noise |
+|---|---|---|---|
+| off | 10 (v1.33.2) | 1/6 | 17/18 |
+| **on** | 10 | 2/6 | 16/18 |
+| off | **3** | 2/6 | 16/18 |
+| **on** | **3** (shipped) | 2/6 | 16/18 |
+
+**Either half alone achieves the full effect; together they add nothing measurable.** The shipped release applies both.
+
+Both are kept. Six queries cannot separate two guards that defend distinct failure modes — the gate stops usage *inventing* relevance, the cap stops it *outweighing* relevance — and each has its own unit test that fails when its mechanism is removed. But that is a design argument, not a measured one, and v1.33.3 presented it as measured.
+
+### Correction 3 — v1.33.4's Content-Indexing Table
+
+The baseline row read 3/6; on a clean tree it is 2/6, and every other row shifts with it. **The conclusion is unaffected** — all six variants were measured under the same contamination, and all six were identical, so "content indexing changed nothing" still holds, as does the reason it failed. Only the absolute figures were inflated.
+
+### The Harness
+
+`npm run measure:routing` refuses to run on a dirty tree (exit 2) rather than producing a number that quietly includes the +3 boost on whatever you were editing, and pins the usage history instead of inheriting it. `--seed-usage` rebuilds the feedback loop deterministically — 40 rounds of ordinary development queries, after which `examples/test-dashboard.tsx` reaches count **312**, against the 318 recorded before the original data was lost. That the same file tops the list from a clean start is independent confirmation of the v1.33.3 *diagnosis*, which was never in question — only its magnitude was.
+
+---
+
 ## v1.33.4 — Two Silent Failures, Found While Measuring Something Else
+
+> **Corrected in v1.33.5:** the retrieval figures in the table below were measured on a dirty working tree and are inflated by one point. The comparison between variants — all identical — and the conclusion drawn from it are unaffected. See v1.33.5 above.
 
 This release ships no feature. It went looking for one, didn't find it, and found two bugs on the way — both of the same kind this project keeps turning up: **output that stays valid and confident while something is quietly missing from it.**
 
@@ -43,7 +97,9 @@ That points at the real blocker, upstream of scoring: **the index treats generat
 
 ## v1.33.3 — The Router's Memory Was Feeding On Itself
 
-Retrieval against six ground-truth queries: **0/6 → 3/6**, noise **18/18 → 15/18**.
+> **Corrected in v1.33.5.** The figures below do not reproduce: they were taken on a working tree where the file under edit — the target of one query — received the +3 git-dirty ranking boost. The real delta is **1/6 → 2/6**, and the claim that both halves are load-bearing is wrong; either alone achieves the full effect. The diagnosis is unchanged and independently reproduced. Read v1.33.5 for the corrected numbers and `npm run measure:routing` for the command that produces them.
+
+Retrieval against six ground-truth queries: ~~**0/6 → 3/6**, noise **18/18 → 15/18**~~ — see the correction above.
 
 ### The Bug
 v1.23.0 gave files a boost for having been selected before, and documented the intent that this "can outrank a cold keyword match". The intent is defensible in isolation. It is not defensible *here*, because of what sits on either side of it:
@@ -59,7 +115,7 @@ Usage now **breaks ties among files that already matched, and cannot manufacture
 - **Gate** — a file matching nothing in the query earns no usage boost at all.
 - **Cap** — `USAGE_COUNT_CAP` 10 → 3, below the 4 points one term match earns, so usage can reorder within a relevance tier but never jump one.
 
-Both halves are load-bearing, which is worth stating because the gate alone looks sufficient: with the gate in place but the cap left at 10, retrieval is **2/6**, not 3/6 — `scripts/build-middleware.js` is used often enough to displace `src/workspace-intelligence.js` on its own query.
+~~Both halves are load-bearing, which is worth stating because the gate alone looks sufficient: with the gate in place but the cap left at 10, retrieval is **2/6**, not 3/6.~~ **Retracted in v1.33.5** — that comparison was contaminated by the git-dirty boost. Measured cleanly, either half alone achieves the full effect and the two are redundant. Both are kept, on a design argument rather than a measured one.
 
 ### Verification
 Both mutations are caught by `test/adaptive-workspace-memory.js`: removing the gate fails the new tie test, restoring the cap to 10 fails the new cap test. The baseline was re-measured by stashing the change and re-running the same harness — 0/6, confirming the improvement is this change and not measurement drift. 30 suites green; cache-prefix stability and the three-provider comprehension checks unaffected.
