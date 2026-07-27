@@ -1,3 +1,42 @@
+## v1.33.7 — Security: The Privacy Firewall Was Bypassed On Every Fallback
+
+**Upgrade if you use `privacyFirewall: true`.** Secrets that the firewall had already redacted were sent to the provider **unredacted** whenever compression turned out to be net-negative.
+
+### What Happened
+
+Both entry points fall back to the original payload when compression would cost more tokens than it saves. Both returned the **raw** original rather than the privacy-filtered one:
+
+- `compressText()` returned `text` instead of `safeText` — the redacted string the firewall had just produced.
+- `compressMessages()` returned the untouched input array.
+
+The firewall ran, the redactions were computed, the source map recorded them, the API reported the firewall as active — and then the fallback path discarded the filtered text and shipped the original. Reproduced on released code with an entirely ordinary input:
+
+```
+API_KEY=sk-prod… and admin@example.com from 192.168.10.22
+```
+
+sent through `compressMessages()` with `privacyFirewall: true` arrives at the provider with the key, the address and the IP intact.
+
+### Why It Was Reachable
+
+Short messages are exactly where compression does not pay, so they take the fallback path — and short messages are exactly where people paste a credential to ask about it. The two conditions coincide rather than being independent.
+
+It stayed hidden because the firewall's own test suite verified redaction on payloads that compress successfully, so the fallback branch was never exercised with a secret in it. Six of nine redaction patterns had been untested until v1.32.3; this was the path around all nine.
+
+### The Fix
+
+Both paths now return the privacy-filtered original. The firewall is a security boundary and cannot be conditional on whether compression happened to pay off. Where the firewall is disabled, `_applyPrivacyFirewall` returns its input unchanged, so behaviour there is identical to before.
+
+Covered in `test/privacy-redaction.js` for both entry points, each asserting the fallback branch was actually taken before asserting anything about it — a precondition, so the test cannot quietly stop testing what it claims to. Reverting either half fails its own case and leaves the other passing.
+
+### Not Affected
+
+- `trustPolicy: 'lossless'` returns input unchanged by design and never enters this path.
+- Runs without `privacyFirewall: true` are unaffected: nothing was being redacted to begin with.
+- No change to compression output, ratios, or the benchmark suite.
+
+---
+
 ## v1.33.6 — The Cache Breakpoint Was On The Wrong Axis
 
 **Full-price tokens in a 42-turn session: 20,763 → 0. Effective cost −41.6%.**

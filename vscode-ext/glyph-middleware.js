@@ -805,7 +805,26 @@ class GlyphCompressor {
 
     return {
       level: candidate.level,
-      messages: fallback ? messages.map((msg) => ({ ...msg })) : finalMessages,
+      // Falling back returns PRIVACY-FILTERED originals, never the raw input.
+      //
+      // This read `messages.map((msg) => ({ ...msg }))`, so every fallback
+      // shipped the untouched text — API keys, bearer tokens, emails, IPs —
+      // straight to the provider, with the privacy firewall enabled and
+      // reporting success. Reproduced on the released code: a single user
+      // message containing `API_KEY=sk-prod...` and an email address falls
+      // back on token economics and both values arrive verbatim.
+      //
+      // The firewall is a security boundary, so it cannot be conditional on
+      // whether compression happened to pay off. Redaction is re-applied here
+      // with recording suppressed, because the compression attempt already
+      // recorded these same entries in the source map.
+      messages: fallback
+        ? messages.map((msg) => (
+          typeof msg.content === 'string'
+            ? { ...msg, content: this._applyPrivacyFirewall(msg.content, false) }
+            : { ...msg }
+        ))
+        : finalMessages,
       compressedTokens: fallback ? origTokens : compTokens,
       sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
       fallback,
@@ -924,7 +943,12 @@ class GlyphCompressor {
     // character-level deltas), matching the same provider guard already
     // used for the messages path and per-glyph breakeven checks.
     const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
-    const finalCompressed = fallback ? text : compressed;
+    // The privacy-filtered original, never the raw input — see the same fix in
+    // _compressMessagesForStrategy. safeText is what the firewall produced; the
+    // fallback path used to discard it and return `text` verbatim. When the
+    // firewall is disabled _applyPrivacyFirewall returns its input unchanged,
+    // so this is identical to the previous behaviour in that case.
+    const finalCompressed = fallback ? safeText : compressed;
     const finalCompTokens = fallback ? origTokens : compTokens;
 
     // Track stats
@@ -1525,7 +1549,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.33.6',
+      version: '1.33.7',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

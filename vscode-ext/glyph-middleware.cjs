@@ -803,7 +803,20 @@ var GlyphCompressor = class {
     }
     return {
       level: candidate.level,
-      messages: fallback ? messages.map((msg) => ({ ...msg })) : finalMessages,
+      // Falling back returns PRIVACY-FILTERED originals, never the raw input.
+      //
+      // This read `messages.map((msg) => ({ ...msg }))`, so every fallback
+      // shipped the untouched text — API keys, bearer tokens, emails, IPs —
+      // straight to the provider, with the privacy firewall enabled and
+      // reporting success. Reproduced on the released code: a single user
+      // message containing `API_KEY=sk-prod...` and an email address falls
+      // back on token economics and both values arrive verbatim.
+      //
+      // The firewall is a security boundary, so it cannot be conditional on
+      // whether compression happened to pay off. Redaction is re-applied here
+      // with recording suppressed, because the compression attempt already
+      // recorded these same entries in the source map.
+      messages: fallback ? messages.map((msg) => typeof msg.content === "string" ? { ...msg, content: this._applyPrivacyFirewall(msg.content, false) } : { ...msg }) : finalMessages,
       compressedTokens: fallback ? origTokens : compTokens,
       sourceMap: fallback ? this._createSourceMap() : this.getSourceMap(),
       fallback,
@@ -899,7 +912,7 @@ var GlyphCompressor = class {
     this.trustPolicy = configuredTrustPolicy;
     this.trustProfile = TRUST_POLICY_PROFILES[this.trustPolicy];
     const fallback = !isCompressionTrusted(compTokens, origTokens, this.provider);
-    const finalCompressed = fallback ? text : compressed;
+    const finalCompressed = fallback ? safeText : compressed;
     const finalCompTokens = fallback ? origTokens : compTokens;
     this.stats.totalOriginalTokens += origTokens;
     this.stats.totalCompressedTokens += finalCompTokens;
@@ -1402,7 +1415,7 @@ ${parsed.dynamicLine}`
   // ─── INTERNAL METHODS ──────────────────────────────────────
   _createSourceMap() {
     return {
-      version: "1.33.6",
+      version: "1.33.7",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

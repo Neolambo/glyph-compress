@@ -170,6 +170,57 @@ test('a repeated word does earn an entry, so the filter is not simply off', () =
   );
 });
 
+// The privacy firewall is a security boundary, so it must not be conditional
+// on whether compression happened to pay off. Both entry points returned the
+// RAW original when compression was net-negative — compressText() returned
+// `text` instead of the filtered `safeText`, and compressMessages() returned
+// the untouched input array — so every fallback shipped secrets verbatim while
+// reporting the firewall as active.
+//
+// Reachable on the released code with no unusual input: a short message is
+// exactly the case where compression does not pay, so it falls back, and short
+// messages are where credentials get pasted.
+for (const entry of ['compressText', 'compressMessages']) {
+  test(`${entry}: a net-negative fallback still redacts, and never returns raw secrets`, () => {
+    // High-entropy identifiers give the compressor nothing to work with, so
+    // the payload reliably takes the fallback path. compressText() needs this
+    // because its redaction placeholders are *shorter* than the secrets they
+    // replace, which is enough to make an ordinary secret-bearing string look
+    // like a compression win.
+    const payload = entry === 'compressText'
+      ? 'Trace 7f3a9c21-4b8e-11ee-be56-0242ac120002 and 9d2b4e77-1c3f-42aa-9b10-5e7c1d8a2f04 for API_KEY=sk-prodSECRETSECRETSECRETSECRETSECRET and admin@example.com from 192.168.10.22'
+      : 'API_KEY=sk-prodSECRETSECRETSECRETSECRETSECRET and admin@example.com from 192.168.10.22';
+    // An explicit provider matters: 'raw' is the default and trusts every
+    // compression unconditionally, so it never reaches the fallback branch
+    // this test exists to cover.
+    const compressor = new GlyphCompressor({ level: 'standard', privacyFirewall: true, provider: 'openai' });
+
+    let output;
+    let fellBack;
+    if (entry === 'compressText') {
+      const result = compressor.compressText(payload, 'openai');
+      output = result.compressed;
+      fellBack = result.fallback;
+    } else {
+      const result = compressor.compressMessages([{ role: 'user', content: payload }], 'openai');
+      output = result.messages.map((m) => (typeof m.content === 'string' ? m.content : '')).join(' ');
+      fellBack = result.stats.thisMessage?.fallback;
+    }
+
+    assert(
+      fellBack,
+      'precondition: this payload must take the fallback path, otherwise the test proves nothing about it',
+    );
+    assert(!output.includes('sk-prodSECRET'), `raw API key survived the fallback: ${output}`);
+    assert(!output.includes('admin@example.com'), `raw email survived the fallback: ${output}`);
+    assert(!output.includes('192.168.10.22'), `raw IP survived the fallback: ${output}`);
+    assert(
+      output.includes('⟦SECRET_ASSIGNMENT_') && output.includes('⟦EMAIL_'),
+      `redaction placeholders should be present, got: ${output}`,
+    );
+  });
+}
+
 console.log(`\nprivacy-redaction: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exitCode = 1;
