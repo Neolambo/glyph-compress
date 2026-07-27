@@ -1,3 +1,27 @@
+## v1.33.1 — The Context Router Ran Against a Stale File Index
+
+**A file added since the last `glyph-compress inspect` could never be routed, and the router reported a confident scored list regardless.**
+
+### The Bug
+`selectRelevantFiles()` took `loadWorkspaceCodebook()` as-is whenever a persisted codebook existed — it only ever built one when none was found. So routing ran against whatever snapshot the last `inspect` left behind, forever. Measured on this repository: the persisted codebook was dated 2026-07-19 and listed **119 files where a rebuild finds 136**. Seventeen files were invisible to routing, including `src/anthropic-bridge.js` and most of the test suites added since. A file the codebook never learned about cannot be selected, and nothing in the output says so.
+
+Fixed by seeding a rebuild with the cached copy instead of trusting it. The incremental path (v1.23.0) already reuses every unchanged file's parsed symbols by mtime and only rescans what changed, while still walking the tree so new files are discovered. **Measured cost: none** — 337ms vs 346ms per routing call, within noise, because the directory walk was already happening on the fallback path.
+
+### Measured, Not Fixed: Routing Relevance Is Poor
+Chasing the above turned up something larger that this release does **not** fix, reported rather than left implicit. Against six queries with unambiguous ground truth (`"why is the anthropic proxy dropping the system prompt"` → `src/anthropic-bridge.js`, and five like it), the router retrieved the right file **0 out of 6 times**, before *and* after the staleness fix. Two causes, both real:
+
+- **Relevance never looks at file content.** The haystack is `path + owner + symbols + imports` only. `src/dashboard.js` scores 8 and ranks 4th for `"dashboard escapeHtml crashes"` because `escapeHtml` lives inside a template string and is never extracted as a symbol — while `examples/test-dashboard.tsx` scores 14 on path matches alone.
+- **The usage boost is a feedback loop on its own output.** `routeAndCompress()` records usage for every file it selects, and `usageBoost()` then ranks those files higher next time. With no correctness signal anywhere, a bad selection reinforces itself.
+
+Fixing that means content indexing and a scoring redesign — a real piece of work, not a patch, and doing it badly inside this release would be worse than saying so. Tracked in ROADMAP.md.
+
+### Tests & Verification
+- New `test/context-router.js` case: a file created after the codebook was persisted must still be reachable. Verified it fails without the fix (`selected: alpha.js` — the new file invisible).
+- **A methodology note worth recording:** that revert-check initially *passed* with the fix reverted, which would have shipped an untested guard. `src/glyph-middleware.js` is a shim that `require()`s the built `vscode-ext/glyph-middleware.cjs`, into which esbuild **bundles** `src/workspace-intelligence.js` — so editing the source changes nothing until `npm run build:middleware` runs. The revert was never reaching the executed code. Any revert-check touching a bundled module must rebuild between the revert and the test run.
+- **Complete Suite Validation**: 30 suites, all passing.
+
+***
+
 ## v1.33.0 — Differential Transmission (72% on Repeated Context)
 
 **The largest measured saving this project has shipped, and it comes from not sending things twice rather than from compressing them harder.**

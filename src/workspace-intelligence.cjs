@@ -43,7 +43,7 @@ var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
-var VERSION = "1.33.0";
+var VERSION = "1.33.1";
 var CODEBOOK_DIR = ".glyphcompress";
 var CODEBOOK_FILE = "codebook.json";
 var SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([
@@ -195,7 +195,7 @@ function loadWorkspaceCodebook(rootDir = process.cwd()) {
 }
 function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) {
   const root = import_path.default.resolve(rootDir);
-  const codebook = options.codebook || loadWorkspaceCodebook(root) || buildWorkspaceCodebook(root, options);
+  const codebook = options.codebook || buildWorkspaceCodebook(root, { ...options, codebook: loadWorkspaceCodebook(root) });
   const intents = detectIntent(query);
   const terms = extractQueryTerms(query);
   const gitPaths = /* @__PURE__ */ new Set([...codebook.git?.staged || [], ...codebook.git?.unstaged || []]);

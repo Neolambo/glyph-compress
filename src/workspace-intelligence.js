@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 
-const VERSION = '1.33.0';
+const VERSION = '1.33.1';
 const CODEBOOK_DIR = '.glyphcompress';
 const CODEBOOK_FILE = 'codebook.json';
 const SUPPORTED_EXTENSIONS = new Set([
@@ -188,7 +188,21 @@ export function loadWorkspaceCodebook(rootDir = process.cwd()) {
 
 export function selectRelevantFiles(rootDir = process.cwd(), query = '', options = {}) {
   const root = path.resolve(rootDir);
-  const codebook = options.codebook || loadWorkspaceCodebook(root) || buildWorkspaceCodebook(root, options);
+  // A persisted codebook is a starting point, not an answer. Taking it as-is
+  // meant routing ran against whatever the last `glyph-compress inspect` left
+  // behind: measured on this repository, an 8-day-old snapshot listed 119
+  // files where a rebuild finds 136, so 17 files — including
+  // src/anthropic-bridge.js and half the test suites — were invisible to
+  // routing entirely. A file the codebook never learned about can never be
+  // selected, and the router reports its confident, scored list regardless,
+  // so the omission is silent.
+  //
+  // Seeding the rebuild with the cached copy keeps this cheap: the
+  // incremental path (v1.23.0) reuses every unchanged file's parsed symbols
+  // by mtime and only rescans what actually changed, while still walking the
+  // tree so newly added files are discovered.
+  const codebook = options.codebook
+    || buildWorkspaceCodebook(root, { ...options, codebook: loadWorkspaceCodebook(root) });
   const intents = detectIntent(query);
   const terms = extractQueryTerms(query);
   const gitPaths = new Set([...(codebook.git?.staged || []), ...(codebook.git?.unstaged || [])]);

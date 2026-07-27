@@ -3,7 +3,14 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.33.0`: Differential Transmission (72% on Repeated Context).
+`v1.33.1`: Context Router Ran Against a Stale File Index.
+
+## Delivered in v1.33.1
+
+- The Context Router used a persisted codebook as-is, so any file added since the last `inspect` was invisible to routing. Measured: 119 files listed where a rebuild finds 136.
+- Fixed by seeding an incremental rebuild with the cached copy. Measured cost: none (337ms vs 346ms per call).
+- Measured but NOT fixed: routing relevance is 0/6 against ground truth. Scoring never looks at file content, and the usage boost reinforces past selections with no correctness signal. Needs a redesign; tracked in ROADMAP.
+- 30 suites, all passing.
 
 ## Delivered in v1.33.0
 

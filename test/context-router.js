@@ -142,6 +142,38 @@ try {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// A file added after the workspace codebook was last persisted must still be
+// reachable. selectRelevantFiles() used to take loadWorkspaceCodebook() as-is
+// whenever a saved codebook existed, so routing ran against whatever the last
+// `glyph-compress inspect` left behind. Measured on this repository before the
+// fix: an 8-day-old snapshot listed 119 files where a rebuild found 136 — 17
+// files, including src/anthropic-bridge.js, could never be selected. The
+// router still returned a confident scored list, so the omission was silent.
+test('routing sees files added after the codebook was persisted', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-router-stale-'));
+  try {
+    fs.writeFileSync(path.join(ws, 'alpha.js'), 'export function alphaHandler() { return 1; }\n');
+
+    // Persist a codebook that knows only about alpha.js.
+    const first = new GlyphCompressor({ level: 'standard', provider: 'raw' });
+    first.routeAndCompress('alpha', { rootDir: ws, tokenBudget: 2000, maxFiles: 5 });
+
+    // Now add a file the persisted snapshot has never seen.
+    fs.writeFileSync(path.join(ws, 'betaSpecialMarker.js'), 'export function betaSpecialMarker() { return 2; }\n');
+
+    const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
+    const result = gc.routeAndCompress('betaSpecialMarker', { rootDir: ws, tokenBudget: 2000, maxFiles: 5 });
+    const paths = result.selectedFiles.map((f) => f.path);
+
+    assert(
+      paths.some((p) => p.includes('betaSpecialMarker')),
+      `a file created after the codebook was saved was invisible to routing; selected: ${paths.join(', ') || '(none)'}`,
+    );
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true });
+  }
+});
+
 console.log(`\ncontext-router: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exitCode = 1;
