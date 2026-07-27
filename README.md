@@ -98,7 +98,7 @@ AFTER (137 chars):
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1335) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1336) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -223,7 +223,23 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
-### New in v1.33.5 (Correcting Two Published Numbers That Don't Reproduce)
+### New in v1.33.6 (The Cache Breakpoint Was On The Wrong Axis)
+
+**Full-price tokens in a 42-turn session: 20,763 → 0. Effective cost −41.6%.**
+
+Anthropic's prompt cache is **prefix-based** — `cache_control` means "everything up to and including this block is cacheable" — so the breakpoint belongs at the *end* of what you sent. GlyphCompress marked the **largest user block** instead, which is almost always the file attached at the start of the session and **does not move as the conversation grows**. Every turn after it fell outside the cached prefix and was billed at full price on every request.
+
+Measured with `npm run measure:cache` (write 1.25x, read 0.1x, 5.5k-token file attached up front):
+
+| Turns | Prefix coverage | Full-price tokens before | Effective cost |
+|---|---|---|---|
+| 8 | 96% → 100% | 447 | −1.4% |
+| 18 | 88% → 100% | 3,291 | **−13.8%** |
+| 42 | 74% → 100% | 20,763 | **−41.6%** |
+
+Short sessions don't regress: the worst case measured is **+0.2% at 4 turns**, bounded by the 0.25x write premium on a single turn, while the gain is unbounded in session length. Figures are token-equivalents under Anthropic's multipliers and assume turns land inside the cache TTL.
+
+### Also recent (v1.33.5 — correcting two published numbers that don't reproduce)
 
 No behavior change — this release retracts and restates measurements, and adds the harness that makes them reproducible: **`npm run measure:routing`**.
 
@@ -271,7 +287,7 @@ v1.32.2 also corrects a **wrong level** that the bug had been hiding: decay's wa
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.33.5)
+### 📏 Benchmark Snapshot (v1.33.6)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -301,7 +317,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1335) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1336) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|

@@ -1,3 +1,45 @@
+## v1.33.6 — The Cache Breakpoint Was On The Wrong Axis
+
+**Full-price tokens in a 42-turn session: 20,763 → 0. Effective cost −41.6%.**
+
+### The Bug
+
+Anthropic's prompt cache is **prefix-based**: `cache_control` means "everything up to and including this block is cacheable". The breakpoint therefore belongs at the *end* of what you've sent, so the next request reads all of it back.
+
+GlyphCompress marked the **largest user block** instead. That is a different axis entirely, and in the shape that matters it is the wrong one: the largest block is almost always the file attached at the start of the session, and it **does not move as the conversation grows**. Every turn after it fell outside the cached prefix and was billed at full price — on every single request, for the rest of the session.
+
+The failure is invisible from the outside. The payload is valid, the cache is genuinely used, the numbers look fine on a short session. It only shows up as a bill that grows faster than the conversation.
+
+### Measured
+
+`npm run measure:cache`, with a 5.5k-token file attached up front, cache writes priced at 1.25x and reads at 0.1x:
+
+| Turns | Prefix coverage (before → after) | Full-price tokens (before) | Effective cost |
+|---|---|---|---|
+| 8 | 96% → 100% | 447 | −1.4% |
+| 18 | 88% → 100% | 3,291 | **−13.8%** |
+| 42 | 74% → 100% | 20,763 | **−41.6%** |
+
+The saving grows with session length, because that is precisely how much conversation had piled up beyond the frozen breakpoint. This is the axis the project's own analysis said mattered most — 85–95% of cumulative session tokens are repetition, and the write/read spread attacks that at 10x leverage, against the ~22% compression delivers.
+
+### Why Short Sessions Don't Regress
+
+Marking the newest turn writes it to cache at 1.25x, and a session that ends there never reads it back. Swept across session lengths, the worst case measured is **+0.2% at 4 turns** — the loss is bounded by the 0.25x write premium on one turn, while the gain is unbounded in session length. There is no length at which the old placement wins by more than rounding.
+
+### One Breakpoint, Not Two
+
+Keeping the old largest-block marking *as well* was measured and rejected. It is the documented "stable floor plus moving head" pattern, but it measured identically here and it buys no real resilience: with prefix caching, any change early enough to invalidate the advancing head invalidates the floor beneath it too. Dropping it also leaves headroom — with both system blocks cached, this now uses **3 of Anthropic's 4** breakpoints instead of exactly 4.
+
+### Verification
+
+`test/cache-prefix-stability.js` asserts both the structure (exactly one conversation breakpoint, on the final message) and the billing consequence (the prefix covers 100% of the conversation) — the second because the first alone would still pass if some other breakpoint were deciding the outcome. Restoring the largest-block heuristic fails it. 30 suites green.
+
+### Caveat Stated Plainly
+
+These are token-equivalents under Anthropic's published multipliers, not billed dollars, and they assume each turn lands inside the cache TTL (5 minutes by default). A session with long pauses re-writes rather than reads, and the advantage shrinks toward zero. The change is never worse than the old placement in that case — both lose the cache — but the headline figure assumes an active session.
+
+---
+
 ## v1.33.5 — Correcting Two Published Numbers That Don't Reproduce
 
 No behavior change. This release retracts and restates measurements from v1.33.3 and v1.33.4, and adds the harness that makes them reproducible: **`npm run measure:routing`**.

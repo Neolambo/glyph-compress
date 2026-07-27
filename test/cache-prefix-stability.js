@@ -299,6 +299,71 @@ async function run() {
     assert.strictEqual(sysA.content, sysB.content, 'wrapOpenAI codebook injection must be deterministic across independently-created clients');
   });
 
+  // Anthropic caching is prefix-based: cache_control means "everything up to
+  // and including this block is cacheable". Until v1.33.6 the conversation's
+  // breakpoint went on the *largest* user block — usually the file attached at
+  // the start, which does not move as the conversation grows. Every later turn
+  // therefore fell outside the cached prefix and was billed at full price on
+  // every request, forever.
+  //
+  // The observable contract is that the breakpoint sits on the last block, so
+  // the prefix covers the whole conversation. Asserted structurally *and* by
+  // the share of tokens inside the prefix, because the first assertion alone
+  // still passes if a second, earlier breakpoint is what actually decides the
+  // billing.
+  await test('the Anthropic cache breakpoint advances with the conversation instead of pinning to the largest block', () => {
+    const bigFile = 'export class PaymentGateway {\n'
+      + Array.from({ length: 60 }, (_, i) =>
+        `  async processTransaction${i}(amount) { return this.submit(this.validate(amount)); }`).join('\n')
+      + '\n}';
+
+    const messages = [
+      { role: 'user', content: 'Review this file:\n```js\n' + bigFile + '\n```' },
+      { role: 'assistant', content: 'Found three issues: null checks, retries, concurrency.' },
+    ];
+    for (let i = 0; i < 8; i++) {
+      messages.push({ role: 'user', content: `Follow-up ${i}: what about the retry path in processTransaction${i}?` });
+      messages.push({ role: 'assistant', content: `For ${i}: validate() throws before submit(), so the retry wrapper never sees it.` });
+    }
+    messages.push({ role: 'user', content: 'Summarise everything we changed.' });
+
+    const compressor = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
+    const payload = compressor._prepareAnthropicPayload('You are a code reviewer.', messages);
+    const msgs = payload.messages;
+
+    const blocksOf = (msg) => (Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }]);
+    const marked = [];
+    msgs.forEach((msg, idx) => {
+      blocksOf(msg).forEach((block) => {
+        if (block.cache_control) marked.push(idx);
+      });
+    });
+
+    assert.strictEqual(marked.length, 1, `expected exactly one conversation breakpoint, got ${marked.length}`);
+    assert.strictEqual(
+      marked[0],
+      msgs.length - 1,
+      `the breakpoint must sit on the final message (index ${msgs.length - 1}), not on the largest one (index ${marked[0]})`,
+    );
+
+    // The point of the fix is billing, so assert on that rather than only on
+    // where the marker sits: with the breakpoint pinned to the big first
+    // message, the eight later exchanges fall outside the prefix.
+    let running = 0;
+    let prefixChars = 0;
+    for (const msg of msgs) {
+      for (const block of blocksOf(msg)) {
+        running += (block.text || '').length;
+        if (block.cache_control) prefixChars = running;
+      }
+    }
+    const covered = prefixChars / running;
+    assert(
+      covered === 1,
+      `the cached prefix should cover the whole conversation, covered ${(covered * 100).toFixed(1)}%`,
+    );
+  });
+
   console.log(`\ncache-prefix-stability: ${passed} passed, ${failed} failed`);
   if (failed > 0) {
     process.exitCode = 1;

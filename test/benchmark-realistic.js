@@ -494,7 +494,7 @@ function benchmarkEnterpriseNominalUsage() {
   }
 
   console.log('Notes: enterprise workloads approximate professional IDE usage such as PR review, incident response, test planning, and release-readiness reviews.');
-  console.log('Notes: Anthropic cacheAdj metrics are best-case billed-token estimates that only discount exact repeated blocks matching wrapAnthropic cache_control placement (system plus largest user block).');
+  console.log('Notes: Anthropic cacheAdj metrics are best-case billed-token estimates that only discount exact repeated blocks matching wrapAnthropic cache_control placement (system plus the conversation-tail breakpoint, as of v1.33.6).');
 }
 
 function benchmarkMultiTurnChat() {
@@ -591,7 +591,7 @@ function benchmarkMultiTurnChat() {
   }
 
   console.log('Notes: cumPayloadSaved sums every API request in the conversation; repeated system codebook injection is counted on each turn.');
-  console.log('Notes: Anthropic cacheAdjSaved is a best-case billed-token estimate using exact repeated-block reuse for the system prompt and largest user block only.');
+  console.log('Notes: Anthropic cacheAdjSaved is a best-case billed-token estimate using exact repeated-block reuse for the system prompt and the conversation-tail cache breakpoint only.');
 }
 
 function benchmarkThroughput() {

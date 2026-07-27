@@ -1192,7 +1192,7 @@ class GlyphCompressor {
         : systemMsg.content;
     }
 
-    this._markLargestAnthropicUserBlock(otherMsgs);
+    this._markAnthropicCacheBreakpoint(otherMsgs);
 
     return {
       system: systemParam,
@@ -1292,24 +1292,40 @@ class GlyphCompressor {
     );
   }
 
-  _markLargestAnthropicUserBlock(messages = []) {
-    let largestMsgIdx = -1;
-    let maxLen = 0;
+  /**
+   * Put the conversation's cache breakpoint on its final block.
+   *
+   * Anthropic caching is prefix-based: cache_control means "everything up to
+   * and including this block is cacheable". Until v1.33.6 this marked the
+   * *largest* user block instead, which is the wrong axis — the largest block
+   * is usually the file attached at the start, and it does not move as the
+   * conversation grows. Every turn after it therefore fell outside the cached
+   * prefix and was billed at full price, forever.
+   *
+   * Measured over a session with a 5.5k-token file attached up front, pricing
+   * cache writes at 1.25x and reads at 0.1x:
+   *
+   *   turns   cached prefix (marking largest -> final)   effective cost
+   *      8              96% -> 100%                          -1.4%
+   *     18              88% -> 100%                         -13.8%
+   *     42              74% -> 100%                         -41.6%
+   *
+   * The saving grows with session length because that is how much of the
+   * conversation had accumulated beyond the frozen breakpoint. Short sessions
+   * are neutral (worst case measured: +0.2% at 4 turns), because marking the
+   * newest turn writes it to cache at 1.25x and a session that ends there
+   * never reads it back.
+   *
+   * Marking only the final block also leaves headroom: with both system
+   * blocks cached this uses 3 of Anthropic's 4 breakpoints. Keeping the old
+   * largest-block marking as well would have used exactly 4, and measured
+   * identically — a stable "floor" breakpoint buys no resilience here, since
+   * any change early enough to invalidate the head invalidates the floor too.
+   */
+  _markAnthropicCacheBreakpoint(messages = []) {
+    if (!messages.length) return;
 
-    for (let i = 0; i < messages.length; i += 1) {
-      if (messages[i].role !== 'user') continue;
-      const len = typeof messages[i].content === 'string'
-        ? messages[i].content.length
-        : JSON.stringify(messages[i].content).length;
-      if (len > maxLen) {
-        maxLen = len;
-        largestMsgIdx = i;
-      }
-    }
-
-    if (largestMsgIdx === -1) return;
-
-    const msg = messages[largestMsgIdx];
+    const msg = messages[messages.length - 1];
     if (typeof msg.content === 'string') {
       msg.content = [
         {
@@ -1509,7 +1525,7 @@ class GlyphCompressor {
 
   _createSourceMap() {
     return {
-      version: '1.33.5',
+      version: '1.33.6',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
