@@ -1,3 +1,32 @@
+## v1.33.2 — Cross-Session Determinism (and a Misattribution Corrected)
+
+Closes the cache-first thread with no new mechanism: the property was already there, undocumented and untested. Getting to it required correcting a wrong conclusion first.
+
+### The Property
+A provider cache keys on bytes, so a compressed body is reusable across sessions only if identical input yields identical output. **By default it does not.** `§N` indices are handed out in session learning order, so the same file emits `const §1 = 'raw'` from a fresh compressor and `const §36 = 'raw'` from one that had already handled other content — different bytes, identical input, no cache hit ever.
+
+Setting **`workspacePath`** fixes it. The cross-session dictionary cache (v1.13.0) persists the assignments and reloads them, so learning order stops mattering. Measured across all four combinations:
+
+| team codebook | `workspacePath` | deterministic |
+|---|---|---|
+| no | no | **no** |
+| no | **yes** | **yes** |
+| yes | no | **no** |
+| yes | yes | yes |
+
+### The Correction
+The first measurement here concluded that the **team codebook** provided this, and that conclusion was stated before it was isolated. It was wrong: that test passed `workspacePath` in the team-codebook case too, so the cache was doing the work and the registry took the credit. The four-way matrix above shows the registry makes no difference to determinism on its own — it is loaded *from* `workspacePath`, and its actual job is cross-machine agreement, a different property. Recording this because the wrong version was asserted out loud first.
+
+### Tests & Verification
+- New test in `test/team-codebook.js` asserting byte-identical output across differently-warmed sessions **with** `workspacePath`, plus a control asserting the divergence still happens **without** it — otherwise the first assertion would pass for reasons unrelated to the mechanism it names.
+- Verified it fails when `_loadCache()` is disabled, with the rebuild step v1.33.1's notes flagged as mandatory for bundled modules.
+- **Complete Suite Validation**: 30 suites, all passing.
+
+### Priority Closed
+This was the last of four compression-performance directions measured in this pass. Two produced shipped gains (differential transmission, −72%; the stale router index), one was refuted (tool schemas: 4.3k tokens and already 9.4% compressed, not the 5–15k untouched surface assumed), and this one turned out to need documentation and a regression guard rather than code.
+
+***
+
 ## v1.33.1 — The Context Router Ran Against a Stale File Index
 
 **A file added since the last `glyph-compress inspect` could never be routed, and the router reported a confident scored list regardless.**

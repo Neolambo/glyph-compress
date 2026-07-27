@@ -29,6 +29,7 @@ import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { loadTeamCodebook, saveTeamCodebook, mergeTeamCodebook, teamCodebookPath } from '../src/team-codebook.js';
 
 const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
 let passed = 0;
 let failed = 0;
@@ -130,6 +131,55 @@ try {
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
+
+// A provider cache keys on bytes, so a compressed body is only reusable across
+// sessions if identical input yields identical output. It does not by default:
+// §N indices are handed out in session learning order, so the same file emits
+// `const §1 = 'raw'` from a fresh compressor and `const §36 = 'raw'` from one
+// that had already handled other content.
+//
+// Setting `workspacePath` is what fixes it — the cross-session dictionary cache
+// (v1.13.0) persists the assignments and reloads them, so learning order stops
+// mattering. Measured across all four combinations, the team registry makes no
+// difference to this on its own; `workspacePath` is the whole factor. (The
+// registry is loaded *from* workspacePath, and its job is cross-machine
+// agreement, which is a different property.)
+//
+// Untested until now, and invisible if it breaks: output would stay valid and
+// simply never hit a cache again.
+test('workspacePath makes the compressed body byte-identical across differently-warmed sessions', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-determinism-'));
+  try {
+    const target = fs.readFileSync(path.join(repoRoot, 'src', 'token-estimator.js'), 'utf8');
+    const unrelated = fs.readFileSync(path.join(repoRoot, 'src', 'logger.js'), 'utf8');
+
+    const warmDifferently = (opts) => {
+      const gc = new GlyphCompressor({ level: 'standard', provider: 'openai', ...opts });
+      gc.compressText(unrelated, 'openai');
+      gc.compressText('deploy the kubernetes service and review the auth flow', 'openai');
+      return gc.compressText(target, 'openai').compressed;
+    };
+    const fromFresh = (opts) =>
+      new GlyphCompressor({ level: 'standard', provider: 'openai', ...opts }).compressText(target, 'openai').compressed;
+
+    assert.strictEqual(
+      warmDifferently({ workspacePath: ws }),
+      fromFresh({ workspacePath: ws }),
+      'identical input produced different bytes depending on what the session had already seen — the compressed body cannot be a cache prefix across sessions',
+    );
+
+    // Control: without workspacePath there is nothing to persist assignments,
+    // so the divergence is expected. Asserting it keeps the test honest about
+    // which mechanism is actually responsible.
+    assert.notStrictEqual(
+      warmDifferently({}),
+      fromFresh({}),
+      'without workspacePath the output should still be session-order dependent — if this now matches, determinism comes from somewhere else and the assertion above proves nothing',
+    );
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true });
+  }
+});
 
 console.log(`\nteam-codebook: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

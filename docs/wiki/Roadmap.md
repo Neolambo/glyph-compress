@@ -3,7 +3,15 @@ This page summarizes the current roadmap. The canonical roadmap is maintained in
 
 ## Current Stable Release
 
-`v1.33.1`: Context Router Ran Against a Stale File Index.
+`v1.33.2`: Cross-Session Determinism (and a Misattribution Corrected).
+
+## Delivered in v1.33.2
+
+- A compressed body is only cacheable across sessions if identical input yields identical bytes. By default it does not: `§N` follows session learning order.
+- `workspacePath` is what fixes it, via the v1.13.0 dictionary cache. Measured across four combinations; the team registry makes no difference on its own.
+- An earlier conclusion crediting the team codebook was wrong — that test passed `workspacePath` in both arms, so the cache did the work. Corrected.
+- New regression test with a control arm, verified to fail when `_loadCache()` is disabled.
+- 30 suites, all passing.
 
 ## Delivered in v1.33.1
 
