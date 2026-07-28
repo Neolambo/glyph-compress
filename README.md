@@ -117,7 +117,7 @@ Every number in this README is measured with `js-tiktoken` against the real enco
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1360) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1361) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -244,7 +244,7 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 
 ### 🆕 What's New
 
-Current release: **v1.36.0** — `glyph-compress measure <file>` puts the headline number on your own code instead of this repository's, the Context Router went from finding the right file in 2 of 6 unambiguous queries to 5 of 6, and a published cache figure was corrected downward after it stopped reproducing.
+Current release: **v1.36.1** — a patch for four defects that made CI red on the v1.36.0 release; the user-facing one was `measure` reporting `NaN` wherever the optional tokenizer is absent. v1.36.0 itself added `glyph-compress measure <file>`, which puts the headline number on your own code instead of this repository's, took the Context Router from finding the right file in 2 of 6 unambiguous queries to 5 of 6, and corrected a published cache figure downward after it stopped reproducing.
 
 Recent work has concentrated on making every claim reproducible, and on the difference between the two things this project is easily confused about: compression is priced against real BPE counts rather than characters, the never-inflate guarantee is stated per session with its bounds measured, and the largest savings are now measured where they actually come from — content that is never sent, rather than content that is made smaller.
 
@@ -254,7 +254,7 @@ Recent work has concentrated on making every claim reproducible, and on the diff
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.36.0)
+### 📏 Benchmark Snapshot (v1.36.1)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -298,7 +298,7 @@ The third command exists because this trade goes the wrong way often enough to n
 ### Compression ratio
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1360) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1361) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|

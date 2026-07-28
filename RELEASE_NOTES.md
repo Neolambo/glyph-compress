@@ -1,3 +1,39 @@
+## v1.36.1 — Four Red Builds, Three Of Them Self-Inflicted
+
+v1.36.0 shipped with CI failing. Every failure was real, and one of them reached users.
+
+### `measure` reported `NaN` wherever the optional tokenizer is absent
+
+`estimateProviderTokens` returns a number. The tokenizer-free branch read `.tokens` off it, so every running total became `NaN`, the report printed nulls, and the percentages — derived from `NaN` — came out as a confident **0.0%**.
+
+A development machine always has `js-tiktoken` installed, so that branch was executed by nothing except the no-optional-deps CI job. The shipped path and the verified path were not the same path. That is the third time this project has found that shape of bug, and it is why the job exists.
+
+Affects `npm install --omit=optional`, or any install where the optional dependency did not land. A normal `npm install glyph-compress` pulls the tokenizer and was never affected. The VS Code extension does not expose this command.
+
+The fix is guarded at runtime, not only by a test: `measureSession` now refuses to return a measurement whose counts are not finite, naming the field in the error. A reporting surface that prints `NaN` is worse than one that fails, because the reader cannot tell a broken counter from a genuine zero. Reintroducing the bug now fails 6 of 9 assertions.
+
+### `npm-pack-smoke` could not pass on the Windows runners added in v1.35.x
+
+Two implementations answer to the name `tar`, and they disagree about one invocation. GNU tar reads a drive-letter colon (`C:\...`) as `host:path` remote-shell syntax and needs `--force-local`; bsdtar handles Windows paths natively and rejects that flag outright. Which one answers depends on the **shell**, not the OS — a Git Bash session resolves to GNU tar 1.35, a `windows-latest` runner resolves to bsdtar in System32. So the local run was never exercising the binary CI uses, and the comment explaining the flag had the two implementations backwards.
+
+It now tries the GNU form and falls back to the portable one, but only when tar objected to the flag itself — a blind retry would turn a corrupt tarball into two confusing errors instead of one. Verified under both binaries.
+
+### Node 18 cannot `require()` an ES module, and two tests were doing so by accident
+
+`require('..')` resolves a *directory*, so it reads `main` — the ESM `src/index.js` — rather than the `exports.require` condition that a real consumer's `require('glyph-compress')` goes through. The two land on different files. It passed on Node 20 and 22, which tolerate `require(ESM)`, and failed only once Node 18 joined the matrix.
+
+**Nothing was broken for users.** Name-based resolution reaches `src/index.cjs` on every supported version, verified against the published package. What was broken is the assertion's aim: a test named for the CommonJS entry point was exercising the ESM one, and passing for the wrong reason. Both now require by name.
+
+### The VSIX job failed on a manifest inconsistency older than this work
+
+`@types/vscode` was declared as a runtime **dependency** though it ships no runtime code, so `vsce`'s production-dependency check failed on a package CI never installs. Moving it to `devDependencies` surfaced a second inconsistency underneath: the types targeted VS Code 1.116 while the extension declares support for **1.85+**.
+
+The types are pinned down to match the engine rather than the engine raised to match the types. Raising `engines.vscode` would drop users on older VS Code, and that is not a decision to make while fixing a build.
+
+### No behaviour change
+
+Compression, routing and the measurement figures are identical to v1.36.0. `npm run measure:routing` still reports 5/6; `npm run benchmark` still reports 26%.
+
 ## v1.36.0 — What A Session Costs, Measured On Your Code
 
 Three pieces of work, one theme: this project's largest savings do not come from compression, and until now nothing in it made that measurable outside this repository.
