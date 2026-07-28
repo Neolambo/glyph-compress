@@ -98,7 +98,7 @@ AFTER (137 chars):
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v13310) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1340) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -223,7 +223,24 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
-### New in v1.33.10 (The guarantee did not hold in the shipped build)
+### New in v1.34.0 (The cheapest codeword does not look like a code — opt-in)
+
+**`codewordDictionary: true`** replaces `§N` markers with ordinary single-token words. Measured end to end: dictionary entries go from 4–10 to **33–49** per file, and savings improve by **139–251 real tokens**.
+
+The reasoning is that BPE is itself a learned variable-length code trained on natural text, so it already gives ordinary words the shortest encodings. Anything that *looks* like a code is outside that distribution and costs more:
+
+| Codeword | Real tokens |
+|---|---|
+| `rgb(163,242,193)` | 8 |
+| `#A3F2` (16-bit colour) | 5 |
+| `§1`, emoji, single CJK | 2 |
+| **an ordinary word** | **1** |
+
+Halving the codeword moves the break-even, and that is the point: most identifiers are 2 tokens and could never pay against a 2-token marker.
+
+**Off by default.** Whether a model decodes `zebra` as reliably as `§1` needs real API calls to establish, and until that comparison exists nothing about comprehension is claimed. All three comprehension checks accept `--codewords` for exactly that test.
+
+### Also recent (v1.33.10 — the guarantee did not hold in the shipped build)
 
 **Corrects v1.33.8**, which stated the never-inflate guarantee held with or without the optional tokenizer. It did not: measured on the packaged artifact, where `js-tiktoken` is absent by design because a VSIX ships no `node_modules`, compression was still inflating by **+5.54%**. Every measurement backing that claim had been taken in the development tree, where the dependency *is* installed — the verified path and the shipped path were not the same path.
 
@@ -324,7 +341,7 @@ v1.32.2 also corrects a **wrong level** that the bug had been hiding: decay's wa
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.33.10)
+### 📏 Benchmark Snapshot (v1.34.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -354,7 +371,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v13310) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1340) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|

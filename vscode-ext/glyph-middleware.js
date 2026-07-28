@@ -27,6 +27,7 @@ import { estimateProviderTokens, normalizeProvider, estimateGlyphTokenCost, PROV
 import { routeContext, recordFileUsage } from '../src/workspace-intelligence.js';
 import { loadTeamCodebook } from '../src/team-codebook.js';
 import { countWordTokens, countGlyphTokens, countRealTokens } from '../src/real-token-counter.js';
+import { availableCodewords } from '../src/codeword-vocabulary.js';
 
 // ═══════════════════════════════════════════════════════════
 // RADICAL ALPHABET (embedded — no external dependencies)
@@ -583,6 +584,10 @@ class GlyphCompressor {
     this.fileCounter = 0;
     this.dynamicDict = new Map();
     this.dynamicCounter = 0;
+    // Codewords are drawn in order from a per-payload pool, so they need their
+    // own cursor: dynamicCounter also counts §N entries seeded from the team
+    // codebook, and reusing it would skip pool slots.
+    this.codewordsUsed = 0;
     this.privacyFirewall = this.requestedPrivacyFirewall || this.trustPolicy === 'privacy';
     this.privacyTokens = new Map();
     this.privacyCounter = 0;
@@ -599,6 +604,12 @@ class GlyphCompressor {
     this.cacheFile = null;
     this._initCache();
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
+    // Opt-in: substitute repeated identifiers with ordinary single-token words
+    // (`zebra`) instead of `§N`. Halves the codeword cost from 2 real tokens to
+    // 1, which is what decides whether a 2-token identifier can pay at all.
+    // Off by default until the three provider comprehension checks confirm
+    // models decode a word-codeword as reliably as a §N marker.
+    this.codewordDictionary = options.codewordDictionary === true;
     this.holographicFolding = options.holographicFolding === true || options.folding === true;
     this.intentDiffs = options.intentDiffs === true || options.intents === true;
   }
@@ -1717,7 +1728,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.33.10',
+      version: '1.34.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -2167,7 +2178,13 @@ class GlyphCompressor {
     // processTransaction0 is 19 characters and 3. The shorter word costs more.
     // Both sides are priced in running-text form (leading space included),
     // because that is what the substitution actually swaps.
-    const GLYPH_TOKEN_COST = countGlyphTokens('§1');
+    // Codeword form. `§N` costs 2 real tokens, an ordinary word costs 1, and
+    // that difference decides whether a 2-token identifier can ever pay: with
+    // §N it cannot, which is why so few entries qualified. Opt-in while the
+    // comprehension checks decide whether models decode it as reliably.
+    const useCodewords = this.codewordDictionary === true;
+    const codewordPool = useCodewords ? availableCodewords(text) : [];
+    const GLYPH_TOKEN_COST = useCodewords ? 1 : countGlyphTokens('§1');
 
     // Without the tokenizer the fallback only admits what is safe on length
     // alone: chars/8 was chosen against counterexamples rather than averages,
@@ -2198,7 +2215,12 @@ class GlyphCompressor {
 
     for (const item of savings) {
       if (!this.dynamicDict.has(item.word) && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
-        const glyph = `§${this.dynamicCounter + 1}`;
+        // Codewords come from a pool already filtered against this payload, so
+        // one can run out where §N never does; falling back to §N for the
+        // remainder keeps those entries working rather than dropping them.
+        const codeword = useCodewords ? codewordPool[this.codewordsUsed] : undefined;
+        const glyph = codeword || `§${this.dynamicCounter + 1}`;
+        if (codeword) this.codewordsUsed++;
         this.dynamicDict.set(item.word, glyph);
         this.sourceMap.dynamic.push({
           glyph,

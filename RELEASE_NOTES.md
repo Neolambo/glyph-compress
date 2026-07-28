@@ -1,3 +1,58 @@
+## v1.34.0 — The Cheapest Codeword Does Not Look Like A Code (opt-in)
+
+**`codewordDictionary: true` replaces `§N` markers with ordinary single-token words. Measured end to end: 4–10 dictionary entries become 33–49, and savings improve by 139–251 real tokens per file.** Off by default — see "What is not verified" below, which is the whole reason it ships opt-in.
+
+### The Reasoning
+
+The dynamic dictionary swaps a repeated identifier for a short stand-in, and this project had been choosing that stand-in as though the alphabet were free to invent. It is not. **BPE is a learned variable-length code trained on natural text** — it already assigns the shortest encodings to ordinary words. Anything that *looks* like a code is by construction outside that distribution and costs more. Measured in running text:
+
+| Codeword form | Real tokens |
+|---|---|
+| `rgb(163,242,193)` | 8 |
+| `#A3F2C1` (24-bit colour) | 7 |
+| `#A3F2` (16-bit colour) | 5 |
+| base64, 4 chars | 3 |
+| `§1`, emoji, single CJK | 2 |
+| **an ordinary English word** | **1** |
+
+A colour map — the intuition that prompted this — is the *worst* option measured, 2.5× worse than what it would replace. The best is a plain word.
+
+### Why Halving The Codeword Matters More Than It Sounds
+
+It moves the break-even. A substitution pays only if the identifier costs more than the codeword, and **most identifiers are 2 tokens**: `AuthenticationManager`, `NotificationDispatcher`, `handleSubmit`. Against a 2-token `§N` those can never pay, which is why v1.33.8's correct economics left the dictionary admitting only a handful of entries. Against a 1-token word, every one of them becomes profitable.
+
+Measured through the real pipeline at `aggressive`:
+
+| File | `§N` | Word codewords | Extra saving |
+|---|---|---|---|
+| `src/compressor.js` | 4 entries, −511 | 33 entries, −650 | **+139 tokens** |
+| `src/proxy.js` | 7, −344 | 37, −568 | **+224 tokens** |
+| `vscode-ext/glyph-middleware.js` | 10, −630 | 49, −881 | **+251 tokens** |
+| `src/workspace-intelligence.js` | 4, −353 | 40, −554 | **+201 tokens** |
+
+### The Risk, And What Guards It
+
+`§1` cannot occur naturally. `zebra` can — and a codeword that also appears as content is undecodable in the direction that corrupts silently, with the model expanding a word the author actually wrote. Two defences:
+
+- **A vocabulary chosen against plausible collisions, not average ones.** Excluded despite being single-token and thematically apt: `salt` (cryptography), `bloom` (filter), `bean` (Java), `leaf` (every tree structure), `spring` and `sage` (frameworks), `delta`, `vector`, `matrix`, `kernel`.
+- **Per-payload withdrawal**, which does the real work, since no static list anticipates every codebase. Matching is case-insensitive and by **substring**: `zebraCrossing` disqualifies `zebra`. A first version matched whole words only, reasoning that the two tokenize differently — but that argument is about the tokenizer while the risk is about the model, which could plausibly read `zebraCrossing` as `AuthenticationManagerCrossing`. Capacity is the cheaper thing to spend: ~89 codewords, and at least 40 survive withdrawal against this repository's largest source file.
+
+### What Is Not Verified
+
+**Whether models decode a word codeword as reliably as a `§N` marker.** That is the question the idea lives or dies on, it needs real API calls, and no key was available here — so nothing about comprehension is claimed. All three comprehension checks now take `--codewords` and report which mode ran, so the same scenario can be compared both ways:
+
+```
+ANTHROPIC_API_KEY=... node test/comprehension-check-anthropic.js --codewords
+```
+
+Until that comparison exists, the flag stays off. A saving that costs comprehension is not a saving.
+
+### Also Recorded: Why Not An Image
+
+Rendering the payload as an image was measured as arithmetic rather than dismissed. Claude bills roughly `width × height / 750`, so a 1092×1092 image costs ~1,590 tokens and holds ~7,300 OCR-legible characters ≈ ~1,800 tokens of text — about 12% saving at best. It is paid for with exact fidelity: no reliable line references, no partial edits, and OCR errors that fail silently. For a coding tool that trade is not close.
+
+---
+
 ## v1.33.10 — The Guarantee Did Not Hold In The Shipped Build
 
 **Corrects v1.33.8.** That release stated the never-inflate guarantee "holds either way", with or without the optional tokenizer. It did not. Measured on the packaged artifact, where `js-tiktoken` is absent by design: **+5.54% via `compressMessages`** and **+0.15% via `compressText`** on this repository's own files.

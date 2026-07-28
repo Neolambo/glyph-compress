@@ -50,6 +50,107 @@ var import_token_estimator = require("./token-estimator.cjs");
 var import_workspace_intelligence = require("./workspace-intelligence.cjs");
 var import_team_codebook = require("./team-codebook.cjs");
 var import_real_token_counter = require("./real-token-counter.cjs");
+
+// src/codeword-vocabulary.js
+var CODEWORD_VOCABULARY = [
+  "zebra",
+  "quartz",
+  "ember",
+  "willow",
+  "cobalt",
+  "maple",
+  "raven",
+  "ivory",
+  "lunar",
+  "amber",
+  "cedar",
+  "comet",
+  "meteor",
+  "glacier",
+  "canyon",
+  "lagoon",
+  "reef",
+  "dune",
+  "oasis",
+  "marsh",
+  "grove",
+  "orchard",
+  "meadow",
+  "prairie",
+  "plateau",
+  "mesa",
+  "gorge",
+  "cavern",
+  "brook",
+  "creek",
+  "cascade",
+  "torrent",
+  "fern",
+  "moss",
+  "ivy",
+  "alder",
+  "olive",
+  "plum",
+  "peach",
+  "cherry",
+  "quince",
+  "pear",
+  "lemon",
+  "lime",
+  "mango",
+  "melon",
+  "thyme",
+  "basil",
+  "ginger",
+  "cumin",
+  "dill",
+  "parsley",
+  "leek",
+  "celery",
+  "spinach",
+  "kale",
+  "pine",
+  "oak",
+  "elm",
+  "fir",
+  "reed",
+  "vine",
+  "bark",
+  "pollen",
+  "nectar",
+  "honey",
+  "syrup",
+  "butter",
+  "cream",
+  "sugar",
+  "flour",
+  "yeast",
+  "dough",
+  "bread",
+  "toast",
+  "waffle",
+  "pancake",
+  "muffin",
+  "biscuit",
+  "noodle",
+  "pasta",
+  "rice",
+  "barley",
+  "wheat",
+  "millet",
+  "quinoa",
+  "almond",
+  "walnut",
+  "peanut",
+  "sesame"
+];
+function availableCodewords(text = "", vocabulary = CODEWORD_VOCABULARY) {
+  if (!text) return [...vocabulary];
+  const haystack = text.toLowerCase();
+  return vocabulary.filter((word) => !haystack.includes(word));
+}
+
+// vscode-ext/glyph-middleware.js
 var DOMAIN_GLYPHS = {
   frontend: "\u25C8",
   ai_ml: "\u25C9",
@@ -604,6 +705,7 @@ var GlyphCompressor = class {
     this.fileCounter = 0;
     this.dynamicDict = /* @__PURE__ */ new Map();
     this.dynamicCounter = 0;
+    this.codewordsUsed = 0;
     this.privacyFirewall = this.requestedPrivacyFirewall || this.trustPolicy === "privacy";
     this.privacyTokens = /* @__PURE__ */ new Map();
     this.privacyCounter = 0;
@@ -620,6 +722,7 @@ var GlyphCompressor = class {
     this.cacheFile = null;
     this._initCache();
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
+    this.codewordDictionary = options.codewordDictionary === true;
     this.holographicFolding = options.holographicFolding === true || options.folding === true;
     this.intentDiffs = options.intentDiffs === true || options.intents === true;
   }
@@ -1455,7 +1558,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.33.10",
+      version: "1.34.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1731,7 +1834,9 @@ ${dynLine}` : "";
         counts.set(bigram, (counts.get(bigram) || 0) + 1);
       }
     }
-    const GLYPH_TOKEN_COST = (0, import_real_token_counter.countGlyphTokens)("\xA71");
+    const useCodewords = this.codewordDictionary === true;
+    const codewordPool = useCodewords ? availableCodewords(text) : [];
+    const GLYPH_TOKEN_COST = useCodewords ? 1 : (0, import_real_token_counter.countGlyphTokens)("\xA71");
     const wordTokensOf = (word) => {
       const real = (0, import_real_token_counter.countWordTokens)(word);
       return real != null ? real : Math.max(1, Math.floor(word.length / 8));
@@ -1745,7 +1850,9 @@ ${dynLine}` : "";
     }).filter((x) => x.freq >= 2 && x.wordTokens > GLYPH_TOKEN_COST && x.save > 0 && x.savedChars > this.providerProfile.dynamicMinSavedChars).sort((a, b) => b.save - a.save);
     for (const item of savings) {
       if (!this.dynamicDict.has(item.word) && this.dynamicCounter < this.providerProfile.maxDynamicEntries) {
-        const glyph = `\xA7${this.dynamicCounter + 1}`;
+        const codeword = useCodewords ? codewordPool[this.codewordsUsed] : void 0;
+        const glyph = codeword || `\xA7${this.dynamicCounter + 1}`;
+        if (codeword) this.codewordsUsed++;
         this.dynamicDict.set(item.word, glyph);
         this.sourceMap.dynamic.push({
           glyph,

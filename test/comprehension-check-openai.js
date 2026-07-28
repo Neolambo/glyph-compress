@@ -26,11 +26,22 @@
  */
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 
+// `--codewords` switches the dynamic dictionary from `§N` markers to ordinary
+// single-token words (`zebra`), which halves the codeword cost from 2 real
+// tokens to 1 and roughly quadruples how many identifiers can profitably be
+// substituted. Whether that is safe is exactly what this script exists to
+// answer: `§1` is unmistakably a placeholder, while `zebra` could be read as
+// content. Run the same scenario both ways and compare the answers — the
+// saving is only real if comprehension is unchanged.
+const USE_CODEWORDS = process.argv.includes('--codewords');
+
+
 const API_KEY = process.env.OPENAI_API_KEY;
 if (!API_KEY) {
   console.error('OPENAI_API_KEY environment variable is required. Usage: OPENAI_API_KEY=... node test/comprehension-check-openai.js [model]');
   process.exit(1);
 }
+const DICT_MODE = process.argv.includes('--codewords') ? 'word codewords (zebra)' : 'glyph markers (§N)';
 const MODEL = process.argv[2] || 'gpt-4o-mini';
 const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
@@ -67,7 +78,7 @@ const userPrompt = `Fix the bug in calculateTotal in src/billing/OrderProcessor.
 // ships, and silently produces model hallucination instead of a real
 // "does decoding work" signal (this is exactly what happened on the first,
 // unrecorded attempt of the Gemini sibling script).
-const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+const gc = new GlyphCompressor({ level: 'standard', provider: 'openai', codewordDictionary: USE_CODEWORDS });
 const result = gc.compressText(userPrompt, 'openai');
 const fullPrompt = gc.getCodebookPrompt() + '\n\n' + result.compressed;
 
@@ -75,6 +86,7 @@ const systemPreamble = 'You are a coding assistant. The user message below uses 
 
 async function run() {
   console.log(`Compression: ${result.stats.ratio} (${result.stats.savedPct} saved), fallback=${result.stats.fallback}`);
+  console.log(`Dictionary: ${DICT_MODE}, ${gc.dynamicDict.size} entries`);
   console.log(`Sending decoded prompt to OpenAI (${MODEL})...\n`);
 
   const res = await fetch(ENDPOINT, {

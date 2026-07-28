@@ -14,6 +14,7 @@ const suites = [
   ['holographic', 'test/holographic-test.js'],
   ['intent', 'test/intent-test.js'],
   ['codebook-completeness', 'test/codebook-completeness.js'],
+  ['codeword-vocabulary', 'test/codeword-vocabulary.js'],
   ['auto-level', 'test/auto-level.js'],
   ['cache-prefix-stability', 'test/cache-prefix-stability.js'],
   ['tech-glyph-economics', 'test/tech-glyph-economics.js'],
