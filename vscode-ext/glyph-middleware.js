@@ -1778,7 +1778,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.35.1',
+      version: '1.35.2',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
