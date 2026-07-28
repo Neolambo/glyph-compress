@@ -382,16 +382,23 @@ const PRIVACY_REDACTION_PATTERNS = [
  * runs per cell:
  *
  *   anthropic haiku-4-5      §N 3-4/4 always   codewords 3-4/4 always
+ *   openai gpt-4o-mini       §N 10/12          codewords 4/12
  *   gemini 2.5-flash-lite    §N 3-4/4 always   codewords 1-2/4, never higher
  *
- * On Anthropic it is a tie on comprehension and a win on cost (8.2% fewer
- * input tokens, 20 dictionary entries against 3), so it is on. Gemini resolves
- * the reference correctly and then answers in the compressed vocabulary —
- * `lagoon` instead of `RefundEligibilityValidator` — ignoring the codebook's
- * instruction to expand back, so it is off. openai is unmeasured and therefore
- * off: the conservative default for an untested provider is the behaviour that
- * has been shipping. raw and local are diagnostic/offline profiles where the
- * `§N` form's unmistakability is worth more than the token.
+ * Only Anthropic sustains codewords, where it is a comprehension tie and a
+ * cost win (8.2% fewer input tokens, 33 dictionary entries against 4). OpenAI
+ * and Gemini fail identically: they resolve the reference correctly and then
+ * answer in the compressed vocabulary — `lagoon` instead of
+ * `RefundEligibilityValidator` — ignoring the codebook's `OUT:` instruction to
+ * expand before answering.
+ *
+ * An earlier reading blamed Gemini's API shape, since `v1beta generateContent`
+ * has no system role and the codebook lands in the user turn. Measuring OpenAI
+ * refuted that: it *has* a system role, receives the codebook there, and fails
+ * the same way. The difference is instruction-following, not transport.
+ *
+ * raw and local stay on `§N` as diagnostic and offline profiles, where the
+ * marker being unmistakable is worth more than the token it costs.
  */
 const PROVIDER_COMPRESSION_PROFILES = {
   raw: {
@@ -405,7 +412,7 @@ const PROVIDER_COMPRESSION_PROFILES = {
   },
   openai: {
     provider: 'openai',
-    // unmeasured — off until test/comprehension-check-codewords.js openai says otherwise
+    // measured: §N 10/12, codewords 4/12 — fails exactly like Gemini
     codewords: false,
     strategy: 'chat-compact',
     dynamicMinSavedChars: 4,
@@ -1771,7 +1778,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.35.0',
+      version: '1.35.1',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

@@ -1,3 +1,31 @@
+## v1.35.1 — OpenAI Measured: The Table Is Complete, And My Explanation Was Wrong
+
+**All three providers now measured.** OpenAI behaves like Gemini, which confirms the conservative default it already had — and refutes the reason I gave for Gemini failing.
+
+### The Complete Table
+
+| Provider | `§N` markers | Word codewords |
+|---|---|---|
+| anthropic `haiku-4-5` | 3–4/4 always | **3–4/4 always** |
+| openai `gpt-4o-mini` | 10/12 | **4/12** |
+| gemini `2.5-flash-lite` | 3–4/4 always | **1–2/4, never higher** |
+
+**Only Anthropic sustains codewords.** OpenAI and Gemini fail identically and every time: they resolve the reference correctly and then answer in the compressed vocabulary — `lagoon`, which *is* the right class, instead of `RefundEligibilityValidator` — ignoring the codebook's `OUT:` instruction to expand before answering.
+
+### The Correction
+
+v1.34.2 attributed Gemini's failure to its API shape: `v1beta generateContent` has no system role, so the codebook is prepended into the user turn where an instruction carries less weight. That was a plausible mechanism and it is **wrong**.
+
+OpenAI *has* a system role, receives the codebook there, and fails the same way. The difference between the providers is **instruction-following, not transport**.
+
+Worth stating because the wrong explanation suggested a fix — restructure the request for Gemini — that would have cost effort and changed nothing.
+
+### No Behaviour Change
+
+`openai` was already defaulted to `§N` as the conservative choice for an untested provider. It stays there, now on evidence rather than caution. The per-provider table introduced in v1.35.0 is unchanged; only the comments backing it move from "unmeasured" to measured, in the profile, the test suite and the harness header.
+
+---
+
 ## v1.35.0 — Each Provider Gets The Strategy It Was Measured With
 
 **v1.34.2 concluded that codewords could not be a global default because comprehension is provider-dependent. That was the wrong shape for the conclusion.** The compressor already resolves a provider profile on every call — the choice belongs there, not in a flag the caller has to reason about.

@@ -500,7 +500,7 @@ var PROVIDER_COMPRESSION_PROFILES = {
   },
   openai: {
     provider: "openai",
-    // unmeasured — off until test/comprehension-check-codewords.js openai says otherwise
+    // measured: §N 10/12, codewords 4/12 — fails exactly like Gemini
     codewords: false,
     strategy: "chat-compact",
     dynamicMinSavedChars: 4,
@@ -1571,7 +1571,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.35.0",
+      version: "1.35.1",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

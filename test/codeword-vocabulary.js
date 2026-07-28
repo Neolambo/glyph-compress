@@ -123,12 +123,13 @@ test('an empty payload withdraws nothing', () => {
 // run and ~6 runs per cell:
 //
 //   anthropic haiku-4-5     §N 3-4/4 always   codewords 3-4/4 always
+//   openai gpt-4o-mini      §N 10/12          codewords 4/12
 //   gemini 2.5-flash-lite   §N 3-4/4 always   codewords 1-2/4, never higher
 //
-// Anthropic is on because it is a tie on understanding and 8.2% cheaper.
-// Gemini is off because it resolves the reference and then answers in the
-// compressed vocabulary. The rest are off as unmeasured — the conservative
-// default for an untested provider is what has been shipping.
+// Only Anthropic sustains codewords. OpenAI and Gemini fail identically:
+// they resolve the reference and then answer in the compressed vocabulary,
+// ignoring the codebook's instruction to expand back. raw and local stay on
+// §N as diagnostic/offline profiles.
 const EXPECTED_STRATEGY = {
   anthropic: true,
   gemini: false,

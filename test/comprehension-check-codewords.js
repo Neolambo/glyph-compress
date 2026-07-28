@@ -28,24 +28,28 @@
  *
  *   provider                  §N markers      word codewords
  *   anthropic haiku-4-5       3-4/4 always    3-4/4 always
+ *   openai gpt-4o-mini        10/12           4/12
  *   gemini 2.5-flash-lite     3-4/4 always    1-2/4, never higher
  *
- * The only difference outside the noise band is Gemini with codewords, and it
- * fails the same way every time: it resolves the reference correctly and then
- * answers in the compressed vocabulary — "lagoon", which IS the right class,
- * instead of RefundEligibilityValidator. Anthropic obeys the codebook's `OUT:`
- * instruction to expand before answering; Gemini does not, plausibly because
- * v1beta generateContent has no system role and the codebook is prepended into
- * the user turn where it carries less weight.
+ * Only Anthropic sustains codewords. OpenAI and Gemini fail identically and
+ * every time: they resolve the reference correctly and then answer in the
+ * compressed vocabulary — "lagoon", which IS the right class, instead of
+ * RefundEligibilityValidator — ignoring the codebook's `OUT:` instruction to
+ * expand before answering.
+ *
+ * A first reading blamed Gemini's API shape, since v1beta generateContent has
+ * no system role and the codebook lands in the user turn. Measuring OpenAI
+ * refuted it: OpenAI *has* a system role, receives the codebook there, and
+ * fails the same way. The difference is instruction-following, not transport.
  *
  * Moving that instruction to the end of the preamble and making it imperative
  * lifted Gemini from 1/4 to 2/4 across three runs — and dropped Anthropic from
  * 12/12 to 9/12, so it was reverted. There is no single placement that serves
  * both.
  *
- * Conclusion: codewords are provider-dependent, so `codewordDictionary` stays
- * opt-in rather than becoming a default. A saving that costs comprehension on
- * one provider is not a saving.
+ * Conclusion: the strategy is chosen per provider (v1.35.0) — codewords on
+ * Anthropic, §N everywhere else. A saving that costs comprehension is not a
+ * saving.
  *
  * Not part of `npm test`: needs a real key, network, and generation quota.
  *
