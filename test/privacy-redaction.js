@@ -257,12 +257,26 @@ test('a word that cannot repay its own codebook definition is rejected', () => {
 test('the same word repeated enough IS admitted, so the rule is amortisation and not a length ban', () => {
   // The control. Without it the assertion above would also pass if entries
   // were rejected for being long, or rejected outright.
+  //
+  // The fixture has to clear the bar under BOTH counters, because both ship.
+  // With js-tiktoken a word is priced at its real BPE cost; without it, at the
+  // conservative floor(length / 8) — and the glyph it would be replaced by
+  // costs 3 rather than 2 under that same fallback. A 28-character word
+  // therefore prices at 3 against a glyph at 3, saves nothing per occurrence,
+  // and can never repay its definition however often it appears. That is
+  // correct behaviour, not a bug: the fallback is deliberately pessimistic and
+  // is why a VSIX admits 1 dictionary entry where an npm install admits 33.
+  //
+  // It did make the earlier fixture assert something true only where the
+  // optional dependency is installed, so this test failed in the one CI job
+  // that runs the shipped configuration. A longer word repeated more clears
+  // amortisation under either counter, which is the rule actually being pinned.
   const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
-  const word = 'ReconciliationWorkerRegistry';
-  gc.compressText(`${word} `.repeat(14).trim() + '.');
+  const word = 'ReconciliationWorkerRegistryCoordinator';
+  gc.compressText(`${word} `.repeat(16).trim() + '.');
   assert(
     gc.dynamicDict.has(word),
-    'the same word repeated 14 times was still rejected — the rule is banning length, not enforcing amortisation',
+    'the same word repeated 16 times was still rejected — the rule is banning length, not enforcing amortisation',
   );
 });
 

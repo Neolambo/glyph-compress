@@ -111,30 +111,50 @@ try {
     if (!/force-local/i.test(complaint)) throw error;
     execFileSync('tar', ['-xf', tarballPath, '-C', tmpDir], { encoding: 'utf8', stdio: 'pipe' });
   }
-  const extractedRoot = path.join(tmpDir, 'package');
-  assert(fs.existsSync(extractedRoot), 'expected npm pack tarball to extract a package/ directory');
+  const unpacked = path.join(tmpDir, 'package');
+  assert(fs.existsSync(unpacked), 'expected npm pack tarball to extract a package/ directory');
+
+  // Move the extracted package to where a consumer's resolver looks for it.
+  //
+  // This is not tidiness. `require('<some>/<path>')` resolves a directory and
+  // reads `main` — the ESM src/index.js — while `require('glyph-compress')`
+  // resolves a package name and goes through the `exports.require` condition,
+  // reaching src/index.cjs. The two land on different files, and only the
+  // second is what a user's require() actually does.
+  //
+  // Requiring by path passed on Node 20 and 22, which tolerate require(ESM),
+  // and failed the moment Node 18 joined the CI matrix — where it does not
+  // exist. The test was named for the entry point it was not exercising.
+  const nodeModules = path.join(tmpDir, 'node_modules');
+  const extractedRoot = path.join(nodeModules, 'glyph-compress');
+  fs.mkdirSync(nodeModules, { recursive: true });
+  fs.renameSync(unpacked, extractedRoot);
 
   test('CJS entry point (require("glyph-compress")) resolves with no missing local dependencies', () => {
+    // cwd is the directory holding node_modules, so the bare specifier below
+    // resolves the way it would in any consuming project.
     const out = execFileSync(process.execPath, ['-e', `
-      const pkg = require('${extractedRoot.replace(/\\/g, '\\\\')}');
+      const pkg = require('glyph-compress');
       if (typeof pkg.GlyphCompressor !== 'function') throw new Error('GlyphCompressor missing from CJS entry point');
       const gc = new pkg.GlyphCompressor({ level: 'standard', provider: 'raw' });
       const r = gc.compressText('fix the error in AuthenticationManager AuthenticationManager AuthenticationManager');
       if (typeof r.compressed !== 'string') throw new Error('compressText did not return compressed text');
       console.log('OK');
-    `], { encoding: 'utf8' });
+    `], { encoding: 'utf8', cwd: tmpDir });
     assert(out.includes('OK'), `expected the CJS entry point smoke script to print OK, got: ${out}`);
   });
 
   test('CJS middleware sub-export (require("glyph-compress/middleware")) resolves with no missing local dependencies', () => {
-    const middlewarePath = path.join(extractedRoot, 'vscode-ext', 'glyph-middleware.cjs');
+    // By name here too. `exports["./middleware"].require` is what maps this
+    // specifier onto vscode-ext/glyph-middleware.cjs; naming the file directly
+    // would not notice if that mapping were wrong, renamed, or absent.
     const out = execFileSync(process.execPath, ['-e', `
-      const { GlyphCompressor, buildTrustWarnings } = require('${middlewarePath.replace(/\\/g, '\\\\')}');
+      const { GlyphCompressor, buildTrustWarnings } = require('glyph-compress/middleware');
       const gc = new GlyphCompressor({ level: 'ultra', provider: 'raw', trustPolicy: 'lossy', workspacePath: '${extractedRoot.replace(/\\/g, '\\\\')}' });
       const r = gc.compressText('\`\`\`js\\nfunction run() { return 1; }\\n\`\`\`');
       if (!Array.isArray(r.sourceMap.trustWarnings)) throw new Error('trustWarnings missing from sourceMap');
       console.log('OK');
-    `], { encoding: 'utf8' });
+    `], { encoding: 'utf8', cwd: tmpDir });
     assert(out.includes('OK'), `expected the middleware smoke script to print OK, got: ${out}`);
   });
 
