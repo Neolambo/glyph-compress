@@ -13,10 +13,10 @@
 </p>
 
 <p align="center">
-  <strong>Semantic compression for IDE↔LLM communication — CLI, VS Code extension, and MCP server, with reversible-by-default compression calibrated against real provider tokenizers.</strong>
+  <strong>Cut the tokens an IDE↔LLM session actually gets billed for — CLI, VS Code extension, and MCP server, measured against real provider tokenizers rather than a character count.</strong>
 </p>
 <p align="center">
-  Up to 90%+ savings on well-suited payloads (see benchmarks below); real aggregate savings on the project's own benchmark suite is a more modest, honestly-reported 26%.
+  <strong>−76.7%</strong> billed on a 10-turn session that re-attaches the same file (<code>npm run measure:differential</code>), because the file is sent once instead of ten times. Compression of the content itself is a separate and smaller <strong>~22%</strong> (<code>npm run benchmark</code>). Both figures are printed by commands in this repository; neither is a best case pulled from a favourable file.
 </p>
 
 <p align="center">
@@ -32,13 +32,13 @@
   <a href="LICENSE">License</a>
 </p>
 
-GlyphCompress uses a compositional radical-based encoding system (inspired by Chinese logograms) to compress the verbose context exchanged between IDEs and Large Language Models. A shared codebook injected into the LLM's system prompt enables it to decode compact glyph sequences back into full semantic concepts.
+GlyphCompress sits between your IDE and the model and reduces what the session costs, on four independent axes: it stops re-transmitting files the model has already been given, places provider cache breakpoints where they actually cover the request, compresses the content that does need sending, and condenses old turns once they stop earning their place. Each axis is measured separately, because they are worth very different amounts — and the one in the project's name is worth the least.
+
+The name comes from a compositional radical-based encoding (inspired by Chinese logograms), introduced with a shared codebook in the system prompt. Measured against real tokenizers it turned out to *cost* tokens on real files rather than save them, so it is gated off by default. That result, and the rule that now enforces it, are described in [When to Use](#-when-to-use-glyphcompress-and-when-to-skip-it) and [Benchmarks](#-benchmarks).
 
 ### 🎬 See it in Action
 
-Watch the latest YouTube video to see how GlyphCompress achieves 90% token savings:
-
-- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)**: A graphical animation showing how the engine minifies and translates verbose code into dense semantic glyphs.
+- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)**: A graphical animation of how the engine minifies and translates verbose code into dense semantic glyphs. It predates the tokenizer measurements above and shows the glyph path at its most favourable.
 
 ---
 
@@ -80,22 +80,34 @@ At 50 requests/day → **500K tokens/day** → $8-15/day on Claude/GPT-4.
 
 ## ✨ The Solution
 
-GlyphCompress intercepts outgoing LLM requests, compresses context using a shared codebook, and utilizes **experimental Attentional Decay Compaction (ADC)** to progressively condense older history into summaries, saving **80-90% of tokens** and enabling **near-infinite multi-turn chats**:
+**The bill is not the compression ratio.** Those two numbers come apart, and once you measure them separately it turns out the ratio is the smaller lever. GlyphCompress optimises the bill.
+
+The reason is in the problem above: the same file is re-attached on every turn, so most of a session's cumulative tokens are content the model has *already been given*. Making that content 25% smaller is worth 25% of it. Not sending it again is worth all of it. So the two largest measured wins in this project compress nothing at all:
+
+| What it does | Session effect | Reproduce |
+| --- | --- | --- |
+| **Send a re-attached file once**, then refer back to it | **−78.5% tokens sent, −76.7% billed** at 10 re-attachments (OpenAI; −80.9% / −77.5% Anthropic) | `npm run measure:differential` |
+| **Put the cache breakpoint where the prefix ends**, not on the biggest block | **−32.9%** effective cost at 42 turns, and it grows with session length | `npm run measure:cache` |
+| **Compress the content itself** (comment/whitespace removal, structural summaries, repeated-word dictionary) | **~22%** aggregate, ~26% on real source at `ultra` | `npm run benchmark` |
+
+Compression is the third row, and it is the one everyone reaches for first.
+
+The glyph substitution this project is named after belongs even further down: measured against real tokenizers it **costs** 5.8 to 10.5 percentage points of savings on real files rather than adding any, because BPE already gives ordinary words short encodings while `◈₍1₎` is several tokens. It is gated off by a rule that refuses any transformation that would send more tokens than it received. The tool keeps the name and drops the technique where the measurement says to.
+
+What that looks like turn by turn, one file re-attached each time (real `js-tiktoken` counts, `standard`, OpenAI):
 
 ```
-BEFORE (1,734 chars):
-  { prompt: "Fix the error in UserProfile.tsx",
-    files: [{ path: "src/components/UserProfile.tsx", content: "...44 lines..." }],
-    diagnostics: [{ code: "TS2339", message: "Property 'department' does not exist on type 'User'" }] }
-
-AFTER (137 chars):
-  [F: ◈₍1₎=src/components/UserProfile.tsx]
-  ⺌✗ ◈₍1₎
-  ◈₍1₎ᵗ [imp:5 exp:1 ◇:4 ⟿:2 ⟳:5 44L]
-  ◈₍1₎:42 ✗∉prop 'department'∉User
-
-→ 12.7x compression, 92% saved
+  turn    raw      GlyphCompress
+     1   3,509 →   3,509     ← unchanged: nothing repeats yet, so the guard sends the original
+     2   7,039 →   4,022
+     4  14,099 →   4,143
+     6  21,159 →   4,249
+     8  28,219 →   4,355     ← −84.6%
 ```
+
+The raw column grows linearly because every turn carries the whole file again. The right-hand column is close to flat: after turn 1 the file is a reference, and what still grows is only the conversation. Turn 1 being identical is the point of the guard, not a gap in it — with nothing repeated yet there is nothing to win, so nothing is risked.
+
+Every number in this README is measured with `js-tiktoken` against the real encoding, never the internal estimator — which has been wrong by 40% before ([v1.30.0](https://github.com/Neolambo/glyph-compress/releases)) and is now used only as a fallback when the tokenizer is absent.
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
@@ -264,6 +276,20 @@ The current realistic benchmark shows a more nuanced picture than the synthetic 
 Use `npm run benchmark` as the stable regression benchmark and `npm run benchmark:realistic` when you want a more honest estimate of repository-scale and chat-payload behavior.
 
 ## 📊 Benchmarks
+
+### Session economics — the axis that is worth the most
+
+Compression benchmarks answer "how much smaller is this payload". They cannot answer "what did the session cost", and on this project the second number is several times larger than the first. Three commands measure it directly:
+
+| Command | Measures | Result |
+|---|---|---|
+| `npm run measure:differential` | A file re-attached on every turn, as an IDE does | 10 re-attachments: 193,940 → 41,722 tokens sent (**−78.5%**), 114,610 → 26,656 billed with implicit caching (**−76.7%**), OpenAI. Anthropic **−80.9% / −77.5%**. |
+| `npm run measure:cache` | Where the Anthropic `cache_control` breakpoint lands | 42 turns: prefix coverage 82% → 100%, full-price tokens 9,059 → 0, effective cost **−32.9%**. Worst short-session case **+0.2%** at 4 turns. |
+| `npm run measure:implicit-cache` | The other side of the trade — compression that breaks a byte prefix costs more than it saves | Reports tokens removed and cache destroyed as two separate columns, so they cannot be netted against each other by accident. |
+
+The third command exists because this trade goes the wrong way often enough to need watching: OpenAI and Gemini match the longest identical **byte** prefix, and re-compressing history every turn changes those bytes. Measured, that has cost 2.1x-4.8x more than sending the conversation uncompressed — which is why the compressed prefix is kept stable rather than re-derived per turn.
+
+### Compression ratio
 
 > [!NOTE]
 > The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1352) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
@@ -528,7 +554,8 @@ console.log(gc.getCodebookPrompt());
 // 2. Compress and send massive files to Antigravity:
 const { compressed, stats } = gc.compressText(massiveProjectContext);
 console.log(compressed); // Send this to the LLM
-console.log(stats);      // → { ratio: '12.7x', savedPct: '92%' }
+console.log(stats);      // → { ratio, savedPct, fallback, selectedLevel } — measured, not assumed;
+                         //   `fallback: true` means the original was sent unchanged
 ```
 
 ### VS Code Extension
@@ -549,7 +576,7 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
 **The Magic Workflow:**
 1. **Optional Codebook Injection:** Enable `glyphCompress.autoUpdateWorkspaceRules` to let GlyphCompress create/update `.github/copilot-instructions.md` and `.cursorrules` in your project root. Copilot and Cursor can then learn the Glyph dictionary from workspace rules.
 2. **One-Click Ask (`Ctrl+Alt+G`):** Highlight a massive chunk of code (or leave unselected to compress the whole file) and press `Ctrl+Alt+G` (or run `GlyphCompress: Ask LLM (Auto-Compress)`).
-3. **Seamless Chat:** The extension instantly compresses the code and **automatically opens your VS Code Chat** with the compressed text pre-filled. Just type your question and hit enter! The AI will parse the `[imp:3 ƒ:2 34L]` glyphs perfectly, saving you 90% of your context window.
+3. **Seamless Chat:** The extension instantly compresses the code and **automatically opens your VS Code Chat** with the compressed text pre-filled. Just type your question and hit enter! The AI parses the `[imp:3 ƒ:2 34L]` structural summaries directly. How much this saves depends entirely on the payload — substantial on code, nothing at all on short prose, where the guard sends your text unchanged rather than inflate it.
 
 **Available Commands:**
 - `GlyphCompress: Ask LLM (Auto-Compress)` (`Ctrl+Alt+G`) — Instantly compress and open VS Code Chat
@@ -833,7 +860,7 @@ glyph-compress/
 ## 🧪 Tests
 
 ```bash
-# Run all 17 test suites
+# Run all 30 test suites
 npm test
 
 # Run focused suites
