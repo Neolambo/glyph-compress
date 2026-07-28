@@ -39,7 +39,10 @@ if (!API_KEY) {
   process.exit(1);
 }
 const DICT_MODE = process.argv.includes('--codewords') ? 'word codewords (zebra)' : 'glyph markers (§N)';
-const MODEL = process.argv[2] || 'claude-haiku-4-5-20251001';
+// Flags must not be mistaken for the model argument: `--codewords` in
+// argv[2] was sent to the API as a model name and failed with
+// not_found_error "model: --codewords".
+const MODEL = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'claude-haiku-4-5-20251001';
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 

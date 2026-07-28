@@ -42,7 +42,10 @@ if (!API_KEY) {
   process.exit(1);
 }
 const DICT_MODE = process.argv.includes('--codewords') ? 'word codewords (zebra)' : 'glyph markers (§N)';
-const MODEL = process.argv[2] || 'gpt-4o-mini';
+// Flags must not be mistaken for the model argument: `--codewords` in
+// argv[2] was sent to the API as a model name and failed with
+// not_found_error "model: --codewords".
+const MODEL = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'gpt-4o-mini';
 const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
 // Same scenario as test/comprehension-check-gemini.js, so the two spot-

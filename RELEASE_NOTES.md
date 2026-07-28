@@ -1,3 +1,60 @@
+## v1.34.1 — The Codebook Never Told The Model How To Answer
+
+**Measured against Anthropic (`claude-haiku-4-5`), 12 runs: word codewords went from 8/12 comprehension checks to 12/12; `§N` markers stayed at 10/12.** The fix is one line in the codebook preamble, and it helps both modes.
+
+### What The Comparison Actually Found
+
+v1.34.0 shipped word codewords opt-in because comprehension was unverified. Running it revealed something neither mode had been getting right.
+
+On a payload large enough to fill the dictionary — 12 classes, 20 codewords — both modes answered with the *right entities* and the wrong *vocabulary*:
+
+- With `§N`: *"**13 classes** are defined in total (including §1, §2, §3 placeholders resolved to their actual names)"* — it counted the placeholders as extra classes.
+- With codewords: *"The class whose zebra is 7 is **lagoon**"* — `lagoon` **is** the correct class. It resolved the reference and then answered in the compressed vocabulary.
+
+Neither is a comprehension failure. The model understood the codebook in both cases; it was never told to expand back on the way out. The preamble said `Respond normally` in one variant and nothing at all in the other.
+
+### The Fix
+
+Both preambles now carry the same explicit output contract:
+
+```
+OUT: decode before answering, and answer in the ORIGINAL names — never echo a code back.
+```
+
+| | Before | After |
+|---|---|---|
+| `§N` markers | 10/12 | 10/12 |
+| Word codewords | 8/12 | **12/12** |
+
+### Where That Leaves The Codeword Experiment
+
+Measured on the same scenario and model, codewords are now better or equal on every axis:
+
+| | `§N` | Codewords |
+|---|---|---|
+| Comprehension (12 runs) | 10/12 | **12/12** |
+| Dictionary entries | 3 | **20** |
+| Input tokens | 2,310 | **2,120** (−8.2%) |
+
+The smaller original scenario passes 4/4 both ways across two runs, so nothing regressed there.
+
+### Still Opt-In, And Why
+
+The evidence is **one provider, one model, one scenario, n=12**. That is enough to say the idea is not broken and is directionally better; it is not enough to flip a default that affects every user on three providers. OpenAI and Gemini are untested because no key was available for them.
+
+Flipping the default is one key away:
+
+```
+OPENAI_API_KEY=...  node test/comprehension-check-codewords.js --codewords
+GEMINI_API_KEY=...  node test/comprehension-check-codewords.js --codewords
+```
+
+### A Note On Method
+
+The first run of this comparison showed codewords 4/4 against `§N` 2/4 — a clean win. Repeating it twice inverted the result to 2/4 against 4/4. A single sample was noise, and reporting it would have been wrong in the confident direction. The conclusion above rests on 12 runs and on diagnosing *what* failed, which is what turned an apparent verdict on codewords into a fixable gap in the preamble.
+
+---
+
 ## v1.34.0 — The Cheapest Codeword Does Not Look Like A Code (opt-in)
 
 **`codewordDictionary: true` replaces `§N` markers with ordinary single-token words. Measured end to end: 4–10 dictionary entries become 33–49, and savings improve by 139–251 real tokens per file.** Off by default — see "What is not verified" below, which is the whole reason it ships opt-in.

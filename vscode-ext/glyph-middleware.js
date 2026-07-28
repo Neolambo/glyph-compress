@@ -536,6 +536,7 @@ SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/
 MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
 DYNFMT: §N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+OUT: decode before answering, and answer in the ORIGINAL names — never echo a code back.
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
 const COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
@@ -545,6 +546,7 @@ SYM: ✗=err ⚠=warn ∉=type_err ∅=missing →=return/yield ƒ=function/def/
 MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: ₍N₎=file_index :L=line [NL]=line_count imp=imports exp=exports ⟳=hooks
 DYNFMT: §N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+OUT: decode before answering, and answer in the ORIGINAL names — never echo a code back.
 Decode:
 [/GLYPH]`;
 const COMPACT_CODEBOOK_SYM_ENTRIES = [
@@ -1728,7 +1730,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.34.0',
+      version: '1.34.1',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,

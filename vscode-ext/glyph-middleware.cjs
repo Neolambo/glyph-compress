@@ -647,6 +647,7 @@ SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \
 MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 DYNFMT: \xA7N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+OUT: decode before answering, and answer in the ORIGINAL names \u2014 never echo a code back.
 Respond normally. Context below uses these glyphs for brevity.
 [/GLYPH]`;
 var COMPACT_CODEBOOK_PROMPT = `[GLYPH PROTOCOL v0.5]
@@ -656,6 +657,7 @@ SYM: \u2717=err \u26A0=warn \u2209=type_err \u2205=missing \u2192=return/yield \
 MOD: +=pub/public -=private #=protected m=mut I=impl ?=match pkg=package s.=self.
 FILE: \u208DN\u208E=file_index :L=line [NL]=line_count imp=imports exp=exports \u27F3=hooks
 DYNFMT: \xA7N=Nth most-frequent repeated word/phrase in this request (see DYN line)
+OUT: decode before answering, and answer in the ORIGINAL names \u2014 never echo a code back.
 Decode:
 [/GLYPH]`;
 var COMPACT_CODEBOOK_SYM_ENTRIES = [
@@ -1558,7 +1560,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.34.0",
+      version: "1.34.1",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
