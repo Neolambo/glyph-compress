@@ -54,6 +54,96 @@ try {
   assert(doctor.checks.some((check) => check.name === 'proxy config' && check.ok), 'doctor should detect proxy config');
   assert(doctor.checks.some((check) => check.name === 'provider credentials' && check.ok), 'doctor should detect provider credentials');
 
+  // ── Indexing defects found by measuring retrieval, not by these tests ──
+  //
+  // The router scored 2/6 on queries with unambiguous answers while every
+  // suite here passed. Nothing below is a refactor: each assertion pins a
+  // reason a correct answer was unreachable.
+
+  fs.mkdirSync(path.join(dir, 'ext'), { recursive: true });
+  // A bundle emitted next to its source — obvious from the layout.
+  fs.writeFileSync(path.join(dir, 'src', 'paired.js'), 'export const paired = 1;\n', 'utf8');
+  fs.writeFileSync(path.join(dir, 'src', 'paired.cjs'), 'module.exports = { paired: 1 };\n', 'utf8');
+  // A bundle emitted into a different directory from its source, where the
+  // layout says nothing and only the bundler's own preamble does.
+  fs.writeFileSync(
+    path.join(dir, 'ext', 'compiled.cjs'),
+    'var __create = Object.create;\nvar __defProp = Object.defineProperty;\nfunction PaymentReconciler() {}\n',
+    'utf8',
+  );
+  // Hand-written CommonJS, which must survive: nothing about it is generated.
+  fs.writeFileSync(
+    path.join(dir, 'test', 'harness.cjs'),
+    "const { AuthenticationManager } = require('../src/services/auth');\nfunction PaymentReconciler() {}\n",
+    'utf8',
+  );
+  // A class whose behaviour lives in methods — the shape the extractor could
+  // not see, since a method has no `function` or `const` in front of it.
+  //
+  // The filler methods are load-bearing. Symbols are collected in file order,
+  // so a per-file cap does not sample a class — it keeps the top of it. The
+  // method this test looks for is declared last, which is the only way to
+  // notice that the cap is set too low: with a handful of symbols any cap
+  // passes, and the defect only appears on the real files that motivated it.
+  const filler = Array.from(
+    { length: 40 },
+    (_, i) => `  handleLedgerEvent${i}(event) { return event; }\n`,
+  ).join('');
+  fs.writeFileSync(
+    path.join(dir, 'src', 'services', 'billing.ts'),
+    'export class BillingService {\n'
+    + filler
+    + '  settle(account) { return account; }\n'
+    + '  async reconcileOutstandingInvoices(account) {\n'
+    + '    if (account) { return this.settle(account); }\n'
+    + '    for (const x of []) { return x; }\n'
+    + '  }\n'
+    + '}\n',
+    'utf8',
+  );
+
+  const rebuilt = buildWorkspaceCodebook(dir, { incremental: false });
+  const indexed = new Set(rebuilt.files.map((file) => file.path));
+
+  assert(!indexed.has('src/paired.cjs'), 'a .cjs beside a .js of the same name is a build artifact and must not be indexed');
+  assert(indexed.has('src/paired.js'), 'the source it was generated from must still be indexed');
+  assert(!indexed.has('ext/compiled.cjs'), "a .cjs opening with a bundler's helper preamble must not be indexed, wherever it sits");
+  assert(indexed.has('test/harness.cjs'), 'hand-written CommonJS has no sibling and no preamble, so it must be kept');
+
+  const billing = rebuilt.files.find((file) => file.path === 'src/services/billing.ts');
+  assert(billing, 'the billing fixture should be indexed');
+  assert(
+    billing.symbols.includes('reconcileOutstandingInvoices'),
+    `class methods must be extracted as symbols, or a class-shaped file is invisible to routing; got ${JSON.stringify(billing.symbols)}`,
+  );
+  assert(billing.symbols.includes('settle'), 'a single-line method is still a method');
+  for (const keyword of ['if', 'for']) {
+    assert(
+      !billing.symbols.includes(keyword),
+      `${keyword}( opens a block and is not a declaration; harvesting it wastes the symbol budget on something no query can match`,
+    );
+  }
+
+  // Field weighting: naming a topic is weaker evidence than implementing it.
+  // Before this, both were worth a flat 4 and the file merely named after the
+  // subject won on the alphabetical tie-break.
+  // The doc is placed where it sorts BEFORE the implementation. Ties are
+  // broken by path, so a doc under test/ would win this comparison on the
+  // alphabet alone and the test would pass without the weighting doing any
+  // work — which is exactly what happened the first time it was written.
+  fs.mkdirSync(path.join(dir, 'aaa-notes'), { recursive: true });
+  const doc = 'aaa-notes/reconcileOutstandingInvoices.md';
+  fs.writeFileSync(path.join(dir, doc), 'Notes about reconciling.\n', 'utf8');
+  const withDoc = buildWorkspaceCodebook(dir, { incremental: false });
+  const ranked = selectRelevantFiles(dir, 'reconcileOutstandingInvoices', { codebook: withDoc }).files;
+  const rankOf = (target) => ranked.findIndex((file) => file.path === target);
+  assert(rankOf('src/services/billing.ts') !== -1, 'the file defining the symbol must be selectable at all');
+  assert(rankOf(doc) !== -1, 'the doc named after the symbol must be a candidate, or the comparison proves nothing');
+  assert(
+    rankOf('src/services/billing.ts') < rankOf(doc),
+    `the file that defines the symbol must outrank the file merely named after it; got ${JSON.stringify(ranked.map((f) => [f.path, f.score]))}`,
+  );
+
   fs.rmSync(fakeHome, { recursive: true, force: true });
   if (previousDoctorHome === undefined) delete process.env.GLYPHCOMPRESS_DOCTOR_HOME;
   else process.env.GLYPHCOMPRESS_DOCTOR_HOME = previousDoctorHome;

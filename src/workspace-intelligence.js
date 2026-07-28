@@ -94,7 +94,13 @@ export function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
       path: rel,
       ext: path.extname(rel).slice(1) || 'text',
       owner,
-      symbols: symbols.slice(0, 20),
+      // 20 was far too few, and the truncation was silent. Symbols arrive in
+      // file order, so a cap of 20 indexed the top of a file and nothing else
+      // — for anything class-shaped that means the imports and a few
+      // constants, never the methods. A file the router cannot see the inside
+      // of is a file it cannot return, while it still reports a confident
+      // ranked list without it.
+      symbols: symbols.slice(0, 120),
       imports: imports.slice(0, 20),
       lines: text ? text.split(/\r?\n/).length : 0,
       mtimeMs,
@@ -239,11 +245,33 @@ export function selectRelevantFiles(rootDir = process.cwd(), query = '', options
     // matched the query at all — not merely how it scored, since several
     // intent bonuses further down can lift a file that matched nothing.
     let termMatches = 0;
-    const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(' ')} ${(file.imports || []).join(' ')}`.toLowerCase();
+    // Where a term matched is evidence about what the file *is*, and flattening
+    // that away was costing real retrieval. Every field used to be one
+    // lowercased haystack worth a flat 4, so `test/privacy-redaction.js` — which
+    // matches two query terms in its filename and defines none of them — scored
+    // above the file implementing the privacy firewall. Naming a topic is
+    // weaker evidence than implementing it.
+    //
+    // A file that DEFINES the symbol is the answer to "where does this
+    // happen". A file merely NAMED after the topic is usually a test, a script
+    // or a doc about it. A file that only IMPORTS it is a caller, which is the
+    // weakest of the three and still worth something, since callers are where
+    // misuse lives.
+    const fields = [
+      [(file.symbols || []).join(' ').toLowerCase(), 5],
+      [`${file.path} ${file.owner}`.toLowerCase(), 3],
+      [(file.imports || []).join(' ').toLowerCase(), 2],
+    ];
     for (const term of terms) {
-      if (!haystack.includes(term)) continue;
+      // Strongest field wins rather than summing: a symbol whose name repeats
+      // in the path would otherwise be counted twice for saying one thing.
+      let best = 0;
+      for (const [text, weight] of fields) {
+        if (weight > best && text.includes(term)) best = weight;
+      }
+      if (best === 0) continue;
       termMatches++;
-      score += 4;
+      score += best;
     }
     if (gitPaths.has(file.path)) score += intents.includes('review_diff') ? 10 : 3;
     if (intents.includes('write_tests') && /(?:test|spec)\./i.test(file.path)) score += 6;
@@ -342,6 +370,58 @@ export function runDoctor(rootDir = process.cwd()) {
   };
 }
 
+/**
+ * True for a `.cjs` file that sits beside a `.js` of the same name.
+ *
+ * That pairing is the standard dual-publish layout, and in this repository
+ * every such `.cjs` is an esbuild bundle of its neighbour. Indexing both puts
+ * two copies of the same code in the ranking, where they split the evidence
+ * for a topic and then compete for the same slot — measured here, a query
+ * about workspace file ranking returned `src/workspace-intelligence.cjs` while
+ * the source it was generated from did not make the top three at all.
+ *
+ * Selecting the bundle is worse than selecting nothing: it spends the token
+ * budget on minified, machine-written code that answers the question no better
+ * than its source and that the user cannot edit, since the next build
+ * overwrites it.
+ *
+ * The rule is deliberately narrow. A hand-written `.cjs` with no `.js` sibling
+ * is still indexed, because nothing about it says "generated".
+ */
+const BUNDLER_PREAMBLE = /var __(?:create|defProp|getOwnPropNames|toCommonJS|toESM)\b|__esbuild|webpackBootstrap|@rollup\/plugin/;
+
+function isGeneratedBundle(fullPath) {
+  if (path.extname(fullPath).toLowerCase() !== '.cjs') return false;
+
+  // The `.js` sibling case: dual ESM/CJS publishing, where the pair is
+  // obvious from the layout alone.
+  const sibling = `${fullPath.slice(0, -'.cjs'.length)}.js`;
+  try {
+    if (fs.statSync(sibling).isFile()) return true;
+  } catch { /* no sibling; fall through to the content check */ }
+
+  // The general case, and the one the sibling rule misses: a bundle emitted
+  // into a different directory from its source. Every `.cjs` under
+  // vscode-ext/ here is built from src/, so nothing beside it says
+  // "generated" — but the file itself opens with the helper preamble every
+  // bundler writes and no human does. Reading the head is cheap and is the
+  // only signal that does not depend on a naming convention.
+  let head = '';
+  try {
+    const handle = fs.openSync(fullPath, 'r');
+    try {
+      const buffer = Buffer.alloc(512);
+      const bytesRead = fs.readSync(handle, buffer, 0, 512, 0);
+      head = buffer.slice(0, bytesRead).toString('utf8');
+    } finally {
+      fs.closeSync(handle);
+    }
+  } catch {
+    return false;
+  }
+  return BUNDLER_PREAMBLE.test(head);
+}
+
 function listWorkspaceFiles(root, options) {
   const maxFiles = options.maxFiles || 250;
   const files = [];
@@ -359,6 +439,7 @@ function listWorkspaceFiles(root, options) {
       if (entry.isDirectory()) {
         if (!IGNORED_DIRS.has(entry.name) && entry.name !== CODEBOOK_DIR) stack.push(fullPath);
       } else if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        if (isGeneratedBundle(fullPath)) continue;
         files.push(fullPath);
         if (files.length >= maxFiles) break;
       }
@@ -405,6 +486,18 @@ function readTextFile(filePath, maxBytes) {
   }
 }
 
+/**
+ * Words that open a block and are not declarations. Without this list the
+ * method pattern below would harvest `if`, `for` and `catch` from every file
+ * in the repository, which is worse than extracting nothing: they match no
+ * query and they consume the per-file symbol budget.
+ */
+const BLOCK_KEYWORDS = new Set([
+  'if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof',
+  'do', 'else', 'try', 'finally', 'with', 'await', 'yield', 'new', 'delete',
+  'void', 'in', 'of', 'case', 'default', 'throw', 'super', 'this',
+]);
+
 function extractSymbols(text) {
   const symbols = new Set();
   const patterns = [
@@ -414,7 +507,20 @@ function extractSymbols(text) {
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) symbols.add(match[1]);
   }
-  return [...symbols].slice(0, 80);
+
+  // Class methods, which none of the patterns above can see: a method is
+  // declared by name and parenthesis alone, with no `function` or `const` in
+  // front of it. That blind spot is severe rather than cosmetic, because the
+  // files worth routing to are usually the class-shaped ones. Measured here,
+  // vscode-ext/glyph-middleware.js — which implements the privacy firewall and
+  // the decay zones — indexed neither `_applyPrivacyFirewall` nor anything
+  // else it does, so no query about either could ever reach it.
+  const METHOD = /^[ \t]+(?:static\s+|async\s+|get\s+|set\s+|\*\s*)*([A-Za-z_$][A-Za-z0-9_$]*)\s*\([^)\n]*\)\s*\{/gm;
+  for (const match of text.matchAll(METHOD)) {
+    if (!BLOCK_KEYWORDS.has(match[1])) symbols.add(match[1]);
+  }
+
+  return [...symbols].slice(0, 200);
 }
 
 function extractImports(text) {

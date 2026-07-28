@@ -130,7 +130,13 @@ function buildWorkspaceCodebook(rootDir = process.cwd(), options = {}) {
       path: rel,
       ext: import_path.default.extname(rel).slice(1) || "text",
       owner,
-      symbols: symbols.slice(0, 20),
+      // 20 was far too few, and the truncation was silent. Symbols arrive in
+      // file order, so a cap of 20 indexed the top of a file and nothing else
+      // — for anything class-shaped that means the imports and a few
+      // constants, never the methods. A file the router cannot see the inside
+      // of is a file it cannot return, while it still reports a confident
+      // ranked list without it.
+      symbols: symbols.slice(0, 120),
       imports: imports.slice(0, 20),
       lines: text ? text.split(/\r?\n/).length : 0,
       mtimeMs
@@ -204,11 +210,19 @@ function selectRelevantFiles(rootDir = process.cwd(), query = "", options = {}) 
   const ranked = candidateFiles.map((file) => {
     let score = 0;
     let termMatches = 0;
-    const haystack = `${file.path} ${file.owner} ${(file.symbols || []).join(" ")} ${(file.imports || []).join(" ")}`.toLowerCase();
+    const fields = [
+      [(file.symbols || []).join(" ").toLowerCase(), 5],
+      [`${file.path} ${file.owner}`.toLowerCase(), 3],
+      [(file.imports || []).join(" ").toLowerCase(), 2]
+    ];
     for (const term of terms) {
-      if (!haystack.includes(term)) continue;
+      let best = 0;
+      for (const [text, weight] of fields) {
+        if (weight > best && text.includes(term)) best = weight;
+      }
+      if (best === 0) continue;
       termMatches++;
-      score += 4;
+      score += best;
     }
     if (gitPaths.has(file.path)) score += intents.includes("review_diff") ? 10 : 3;
     if (intents.includes("write_tests") && /(?:test|spec)\./i.test(file.path)) score += 6;
@@ -284,6 +298,29 @@ function runDoctor(rootDir = process.cwd()) {
     ok: checks.filter((check) => check.name !== "git repository" && !check.optional).every((check) => check.ok)
   };
 }
+var BUNDLER_PREAMBLE = /var __(?:create|defProp|getOwnPropNames|toCommonJS|toESM)\b|__esbuild|webpackBootstrap|@rollup\/plugin/;
+function isGeneratedBundle(fullPath) {
+  if (import_path.default.extname(fullPath).toLowerCase() !== ".cjs") return false;
+  const sibling = `${fullPath.slice(0, -".cjs".length)}.js`;
+  try {
+    if (import_fs.default.statSync(sibling).isFile()) return true;
+  } catch {
+  }
+  let head = "";
+  try {
+    const handle = import_fs.default.openSync(fullPath, "r");
+    try {
+      const buffer = Buffer.alloc(512);
+      const bytesRead = import_fs.default.readSync(handle, buffer, 0, 512, 0);
+      head = buffer.slice(0, bytesRead).toString("utf8");
+    } finally {
+      import_fs.default.closeSync(handle);
+    }
+  } catch {
+    return false;
+  }
+  return BUNDLER_PREAMBLE.test(head);
+}
 function listWorkspaceFiles(root, options) {
   const maxFiles = options.maxFiles || 250;
   const files = [];
@@ -301,6 +338,7 @@ function listWorkspaceFiles(root, options) {
       if (entry.isDirectory()) {
         if (!IGNORED_DIRS.has(entry.name) && entry.name !== CODEBOOK_DIR) stack.push(fullPath);
       } else if (SUPPORTED_EXTENSIONS.has(import_path.default.extname(entry.name).toLowerCase())) {
+        if (isGeneratedBundle(fullPath)) continue;
         files.push(fullPath);
         if (files.length >= maxFiles) break;
       }
@@ -328,6 +366,33 @@ function readTextFile(filePath, maxBytes) {
     }
   }
 }
+var BLOCK_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "for",
+  "while",
+  "switch",
+  "catch",
+  "function",
+  "return",
+  "typeof",
+  "do",
+  "else",
+  "try",
+  "finally",
+  "with",
+  "await",
+  "yield",
+  "new",
+  "delete",
+  "void",
+  "in",
+  "of",
+  "case",
+  "default",
+  "throw",
+  "super",
+  "this"
+]);
 function extractSymbols(text) {
   const symbols = /* @__PURE__ */ new Set();
   const patterns = [
@@ -337,7 +402,11 @@ function extractSymbols(text) {
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) symbols.add(match[1]);
   }
-  return [...symbols].slice(0, 80);
+  const METHOD = /^[ \t]+(?:static\s+|async\s+|get\s+|set\s+|\*\s*)*([A-Za-z_$][A-Za-z0-9_$]*)\s*\([^)\n]*\)\s*\{/gm;
+  for (const match of text.matchAll(METHOD)) {
+    if (!BLOCK_KEYWORDS.has(match[1])) symbols.add(match[1]);
+  }
+  return [...symbols].slice(0, 200);
 }
 function extractImports(text) {
   const imports = /* @__PURE__ */ new Set();
