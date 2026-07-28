@@ -1,3 +1,62 @@
+## v1.36.0 — What A Session Costs, Measured On Your Code
+
+Three pieces of work, one theme: this project's largest savings do not come from compression, and until now nothing in it made that measurable outside this repository.
+
+### `glyph-compress measure <file>`
+
+Every figure GlyphCompress publishes was measured on one codebase, most of them on a single synthetic fixture. That is enough to demonstrate a mechanism and not enough to tell anyone what it does for their code — which is the only number they are deciding on.
+
+```bash
+npx glyph-compress measure src/your-file.ts --turns 10
+```
+
+It simulates what dominates a real IDE session — the same file re-attached to every request while the conversation grows around it — and reports tokens **sent** and tokens **billed**, raw against compressed.
+
+| Fixture | Tokens sent | Billed with cache | Prefix breaks |
+| --- | --- | --- | --- |
+| `src/compressor.js`, 10 turns | 283,525 → 57,472 (**−79.7%**) | 167,547 → 34,304 (**−79.5%**) | 1 of 9 |
+| `README.md`, 6 turns | 321,651 → 155,590 (**−51.6%**) | 206,784 → 154,394 (**−25.3%**) | 5 of 5 |
+
+The second row is the reason both columns are printed. On prose the compression is real, but it re-derives the payload every turn and breaks the byte prefix a provider was matching on — so half the apparent saving never reaches the bill.
+
+Refusals matter more than the arithmetic on a reporting surface. A single turn is **rejected** rather than measured: nothing has repeated yet, so any percentage would be compression wearing a session-economics label. Empty input is rejected rather than reported as a 0% saving. Without `js-tiktoken` the output says the numbers are estimates instead of quietly printing the estimator that was once wrong by 40%.
+
+### Context Router: 2/6 → 5/6
+
+The router scored 2 of 6 on queries whose correct answer is not in dispute, while every test suite passed. Coverage cannot see this class of defect: the router returns a confident, scored list whether or not the answer was ever a candidate. Three separate causes, found by reading the misses.
+
+- **Generated `.cjs` bundles were indexed beside their sources.** The same code sat in the ranking twice, splitting the evidence for a topic and then competing for the same slot — a query about workspace file ranking returned `src/workspace-intelligence.cjs` while the source it was built from missed the top three. Selecting a bundle is worse than selecting nothing: it spends the budget on minified code that answers no better and that the user cannot edit, since the next build overwrites it. Excluded by a same-name `.js` sibling **or** by the helper preamble every bundler writes. The sibling rule alone was insufficient — the `vscode-ext/` bundles are built from `src/`, so nothing beside them says "generated". Hand-written CommonJS with neither marker is kept.
+- **Class methods were not extracted at all.** Symbol extraction required `function`, `class` or `const` in front of a name, and a method has none — so for anything class-shaped the index held the imports and a few constants and nothing the class actually does. `vscode-ext/glyph-middleware.js`, which implements the privacy firewall and the decay zones, was unreachable by any query about either.
+- **The per-file symbol cap was 20, silently.** Symbols arrive in file order, so the cap kept the *top* of a file rather than a sample of it. Raised to 120.
+
+Scoring now weights **where** a term matched, instead of treating one flat haystack as worth 4 points everywhere: defining a symbol (5) beats being named after it (3), which beats importing it (2), and the strongest field wins rather than the fields summing. Before this, `test/privacy-redaction.js` outranked the file implementing the privacy firewall by matching two terms in its own filename.
+
+Retrieval **2/6 → 5/6**, noise **16/18 → 13/18**, measured on a clean tree with no usage history. Reproduce with `npm run measure:routing -- --verbose`.
+
+The remaining miss is left alone deliberately. "Attentional decay compaction zones" names a concept that lives in prose and comments, not in any symbol; reaching it means indexing comments, which is a different feature with its own noise budget. Tuning further against six queries would be fitting the benchmark rather than fixing retrieval.
+
+### A Published Figure Corrected: −41.6% → −32.9%
+
+`measure:cache` now prices **both** breakpoint policies on the same session, instead of describing the old one in a closing paragraph. Doing so revealed that the **−41.6%** recorded for v1.33.6 does not reproduce on current code: the same comparison is **−32.9%** at 42 turns, with coverage 82% → 100% and 9,059 full-price tokens rather than the 20,763 measured then.
+
+The v1.33.6 number was true when it was taken. v1.33.9 changed which copy of an elided block survives, which changed the session it was being measured against — and nothing re-ran it, because the comparison was prose rather than code. The shape of the result holds: the gain grows without bound with session length, and the worst short-session case is +0.2% at 4 turns, bounded by the one-turn write premium.
+
+Earlier release notes keep their original, correctly-dated numbers. What has changed is that the current ones are printed by a command in the repository.
+
+### Mutation Testing The Economics Guards
+
+Eight mutations against the rules that decide whether a substitution pays for itself. Six caught, two real gaps, one equivalent mutant.
+
+- **`definitionCost` forced to 0** — so a word never has to repay the codebook entry that introduces it — survived. Nothing checked that a word appearing twice is rejected while the same word appearing often is admitted. Now asserted in both directions, so the test cannot be satisfied by a blanket length ban.
+- **The tokenizer-free estimate `floor(length / 8)` doubled to `/ 4`** survived in *every* configuration, including the CI job built to exercise it. That divisor is not an average; it is the safety margin behind the never-inflate guarantee in the configuration most users run, since a VSIX ships no `node_modules`. The first test written for it *also* passed under the mutation, because it re-derived the formula inside the test instead of calling the code. The formula now lives in `real-token-counter.js` as `conservativeWordTokens`, exported so the assertion reaches the same function the middleware uses: across 2,688 identifiers from this codebase the estimate must never exceed the real count. Doubled, it over-estimates 707 of them.
+- **`freq >= 2` relaxed to `>= 1`** survived and **stays**. At frequency 1 the saving is `-2g-1`, negative for every glyph and word size, so the economics check rejects the word regardless and no test can distinguish the two versions. Recorded so the next person does not spend an afternoon hunting a counterexample that does not exist.
+
+### Also
+
+- The README now leads with what a session gets billed rather than a character count. Its first concrete number used to be "1,734 chars → 137 chars, 12.7x compression, 92% saved", describing the glyph substitution — the one technique here that measurement showed to be a net cost, gated off by default since v1.33.8.
+- Three overclaims removed: "saving you 90% of your context window", an SDK example advertising a hardcoded `{ ratio: '12.7x', savedPct: '92%' }` as typical output, and a test section still citing 17 suites where there are 30.
+- `package-lock.json` had been stuck at **1.30.0** for six releases, which `release:prepare` checks and would have refused. Synced.
+
 ## v1.35.2 — Documentation Realigned With The Code
 
 A full audit of `README.md` against the source, treating the code as the only source of truth. **Seven discrepancies found and corrected.** No documented-but-unimplemented feature was found — the drift was entirely in figures superseded by recent releases and in omissions from accretion.

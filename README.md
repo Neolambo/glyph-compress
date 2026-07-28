@@ -16,7 +16,7 @@
   <strong>Cut the tokens an IDE↔LLM session actually gets billed for — CLI, VS Code extension, and MCP server, measured against real provider tokenizers rather than a character count.</strong>
 </p>
 <p align="center">
-  <strong>−78.5%</strong> billed on a 10-turn session that re-attaches the same file (<code>npm run measure:differential</code>, or <code>npx glyph-compress measure &lt;your-file&gt;</code> to run it on your own code), because the file is sent once instead of ten times. Compression of the content itself is a separate and smaller <strong>~22%</strong> (<code>npm run benchmark</code>). Both figures are printed by commands in this repository; neither is a best case pulled from a favourable file.
+  <strong>−78.5%</strong> billed on a 10-turn session that re-attaches the same file (<code>npm run measure:differential</code>, or <code>npx glyph-compress measure &lt;your-file&gt;</code> to run it on your own code), because the file is sent once instead of ten times. Compression of the content itself is a separate and smaller <strong>26%</strong> (<code>npm run benchmark</code>). Both figures are printed by commands in this repository; neither is a best case pulled from a favourable file.
 </p>
 
 <p align="center">
@@ -88,7 +88,7 @@ The reason is in the problem above: the same file is re-attached on every turn, 
 | --- | --- | --- |
 | **Send a re-attached file once**, then refer back to it | **−78.7% tokens sent, −78.5% billed** at 10 re-attachments (OpenAI; −81.1% / −80.7% Anthropic) | `npm run measure:differential` |
 | **Put the cache breakpoint where the prefix ends**, not on the biggest block | **−32.9%** effective cost at 42 turns, and it grows with session length | `npm run measure:cache` |
-| **Compress the content itself** (comment/whitespace removal, structural summaries, repeated-word dictionary) | **~22%** aggregate, ~26% on real source at `ultra` | `npm run benchmark` |
+| **Compress the content itself** (comment/whitespace removal, structural summaries, repeated-word dictionary) | **26%** aggregate; 0% on the three provider chat payloads, 71% on `ultra` code summarisation | `npm run benchmark` |
 
 Compression is the third row, and it is the one everyone reaches for first.
 
@@ -117,7 +117,7 @@ Every number in this README is measured with `js-tiktoken` against the real enco
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1352) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1360) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -244,9 +244,9 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 
 ### 🆕 What's New
 
-Current release: **v1.35.2** — a documentation audit against the source, which found and corrected seven discrepancies. The headline one: this README claimed 22% aggregate savings while `npm run benchmark` reports **26%**, because the figure predated the economics fixes that removed losing substitutions and therefore *raised* the aggregate.
+Current release: **v1.36.0** — `glyph-compress measure <file>` puts the headline number on your own code instead of this repository's, the Context Router went from finding the right file in 2 of 6 unambiguous queries to 5 of 6, and a published cache figure was corrected downward after it stopped reproducing.
 
-Recent work has concentrated on making every claim reproducible: compression is now priced against real BPE counts rather than characters, the never-inflate guarantee is stated per session with its bounds measured, and the codeword strategy is chosen per provider from comprehension checks against live APIs.
+Recent work has concentrated on making every claim reproducible, and on the difference between the two things this project is easily confused about: compression is priced against real BPE counts rather than characters, the never-inflate guarantee is stated per session with its bounds measured, and the largest savings are now measured where they actually come from — content that is never sent, rather than content that is made smaller.
 
 > **Full version history lives in [GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and [RELEASE_NOTES.md](RELEASE_NOTES.md) — deliberately not duplicated here, so this page stays about what the tool does rather than how it got here. See [ROADMAP.md](ROADMAP.md) for what is planned next.
 
@@ -254,7 +254,7 @@ Recent work has concentrated on making every claim reproducible: compression is 
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.35.2)
+### 📏 Benchmark Snapshot (v1.36.0)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -298,7 +298,7 @@ The third command exists because this trade goes the wrong way often enough to n
 ### Compression ratio
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1352) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1360) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
