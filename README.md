@@ -16,7 +16,7 @@
   <strong>Semantic compression for IDE↔LLM communication — CLI, VS Code extension, and MCP server, with reversible-by-default compression calibrated against real provider tokenizers.</strong>
 </p>
 <p align="center">
-  Up to 90%+ savings on well-suited payloads (see benchmarks below); real aggregate savings on the project's own benchmark suite is a more modest, honestly-reported 22%.
+  Up to 90%+ savings on well-suited payloads (see benchmarks below); real aggregate savings on the project's own benchmark suite is a more modest, honestly-reported 26%.
 </p>
 
 <p align="center">
@@ -50,6 +50,7 @@ Watch the latest YouTube video to see how GlyphCompress achieves 90% token savin
 - [🔍 Realistic Session Showcase](#-realistic-session-showcase)
 - [🧠 Advanced Features: Holographic Folding, Intent Diffs & History Decay](#-advanced-features-holographic-folding-intent-diffs--history-decay)
 - [📊 Benchmarks](#-benchmarks)
+- [📋 Requirements](#-requirements)
 - [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
 - [🚀 Quick Start (Code & Extension)](#-quick-start)
 - [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy-v050)
@@ -107,7 +108,7 @@ This project reports honest numbers, not just best cases — so here's the direc
 - **Long-running conversations** that would otherwise blow a context window — Attentional Decay Compaction trades old-turn fidelity for indefinite session length, on purpose.
 
 **Weak fit — GlyphCompress says so itself:**
-- **Short, Unicode-light prose requests.** The ~400-token codebook header can outweigh what a small payload saves; the net-negative fallback (as of v1.30.0, requiring a real measured 10% improvement) detects this and sends the original unchanged rather than risking a silent regression.
+- **Short, Unicode-light prose requests.** The ~450-token codebook header can outweigh what a small payload saves; the net-negative fallback detects this and sends the original unchanged rather than risking a silent regression. With `js-tiktoken` installed the rule is exact — never more tokens out than in; without it a 10% margin stands in for the tokenizer's own error band (see [Requirements](#-requirements)).
 - **One-off, single-turn requests on plain English text** — there's no repeated content for the dynamic dictionary to amortize, and no multi-turn cache to spread the codebook cost over.
 - **Anything where you need the LLM to see exact original text** (e.g., verbatim quoting requirements, legal/contract review) — use `trustPolicy: lossless` or skip compression for that specific payload; `lossy`/`ultra` levels are explicitly irreversible by design.
 
@@ -245,7 +246,9 @@ The compressor already knows which provider it is talking to, so the codeword ch
 | Gemini | `§N` markers | codewords score 1–2/4, never higher — it resolves the reference then answers `lagoon` instead of the real class |
 | OpenAI, raw, local | `§N` markers | unmeasured; the conservative default is what has been shipping |
 
-Verified end to end against the real APIs with no flag passed: Anthropic picks codewords and scores 4/4 three times, Gemini picks `§N` and scores 3–4/4. An explicit `codewordDictionary` still wins, and the strategy follows a per-call provider change — a compressor built for one provider and retargeted with `compressText(text, provider)` adopts the new provider's setting rather than carrying the old one.
+Verified end to end against the real APIs with no flag passed: Anthropic picks codewords and scores 4/4 three times, Gemini picks `§N` and scores 3–4/4.
+
+**Note for the VS Code extension:** a VSIX ships no `node_modules`, so `js-tiktoken` is never present there and the conservative fallback applies. The dictionary admits far fewer entries — measured on this repository's own source, 1 against 33 — so most of the codeword advantage is absent in the extension. Installing from npm is not affected. See [Requirements](#-requirements). An explicit `codewordDictionary` still wins, and the strategy follows a per-call provider change — a compressor built for one provider and retargeted with `compressText(text, provider)` adopts the new provider's setting rather than carrying the old one.
 
 ### Also recent (v1.34.2 — word codewords do not survive Gemini)
 
@@ -283,7 +286,7 @@ The reasoning is that BPE is itself a learned variable-length code trained on na
 
 Halving the codeword moves the break-even, and that is the point: most identifiers are 2 tokens and could never pay against a 2-token marker.
 
-**Off by default.** Whether a model decodes `zebra` as reliably as `§1` needs real API calls to establish, and until that comparison exists nothing about comprehension is claimed. All three comprehension checks accept `--codewords` for exactly that test.
+~~**Off by default.** Whether a model decodes `zebra` as reliably as `§1` needs real API calls to establish, and until that comparison exists nothing about comprehension is claimed.~~ — **superseded by v1.35.0**, which measured all three providers and moved the choice into the provider profile: on for Anthropic, off elsewhere. See the v1.35.1 section above. All three comprehension checks accept `--codewords`.
 
 ### Also recent (v1.33.10 — the guarantee did not hold in the shipped build)
 
@@ -388,7 +391,7 @@ For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CON
 
 ### 📏 Benchmark Snapshot (v1.35.1)
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
 ### 🧪 Realistic Benchmark Notes
 
@@ -416,7 +419,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1351) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1351) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
@@ -450,6 +453,16 @@ Token savings are meaningless if the model can no longer understand the compress
 | Anthropic | `claude-haiku-4-5` | ✅ `calculateTotal`/`OrderProcessor` | ✅ | Most complete of the three: correct percentage-based discount logic, not just a flat subtraction. |
 
 **Honest scope**: one scenario, one comprehension check per provider — a first, honestly-scoped step, not a statistical benchmark. These scripts (`npm run check:comprehension:gemini|openai|anthropic`) are dev-only/manual: they need a real, live API key and are deliberately excluded from `npm test`. Broader task coverage and real-repository evaluation remain open in [ROADMAP.md](ROADMAP.md)'s "Real Task Evaluation" item.
+
+## 📋 Requirements
+
+- **Node.js 18 or newer.** The proxy and the Anthropic bridge use the global `fetch`, which is only available from Node 18. There is no `engines` field in `package.json`, so npm will not stop an older runtime — it will fail at first request instead.
+- **Runtime dependencies:** `@modelcontextprotocol/sdk` and `zod`, both required by the MCP server (`glyph-compress mcp`).
+- **Optional dependency: `js-tiktoken`.** Installed by default with `npm install`. It is what lets compression price itself against real BPE counts.
+
+Without `js-tiktoken` nothing breaks and the never-inflate guarantee still holds — compression falls back to a deliberately conservative length rule. What changes is how much it can save: far fewer identifiers clear the bar, so the dynamic dictionary admits a fraction of the entries it otherwise would. Measured on this repository's own source, 1 entry against 33.
+
+This matters most for the **VS Code extension**, because a VSIX ships no `node_modules` and therefore never has the tokenizer. Installing from npm does.
 
 ## 🚀 Usage: Command Line (CLI)
 
@@ -517,6 +530,7 @@ npx glyph-compress [file|command] [options]
 | `--git-diff-only` | flag | Restrict `route` to git staged/unstaged files only, for "review what I changed" workflows. | `npx glyph-compress route "review my changes" --git-diff-only` |
 | `--json` | flag | Print machine-readable JSON for supported commands such as `inspect`, `doctor`, and `route`. | `npx glyph-compress inspect "review diff" --json` |
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. Default port: `8080`. | `npx glyph-compress --proxy 8080` |
+| `--target <url>` | string | Upstream base URL the proxy forwards to. Default: `https://api.openai.com`. Alias: `--target-api-url`. | `npx glyph-compress --proxy --target https://api.anthropic.com` |
 | `--log-file <path>` | file path | Append structured, redacted JSONL diagnostics from the proxy (timestamps, trust/routing metadata) to this file. | `npx glyph-compress --proxy --log-file ~/.glyphcompress/proxy.log` |
 | `-h, --help` | flag | Show built-in CLI help. | `npx glyph-compress --help` |
 
@@ -931,15 +945,21 @@ The **codebook** (~150 tokens) is injected once into the system prompt. The LLM 
 ```
 glyph-compress/
 ├── bin/
-│   ├── cli.js                    # `glyph-compress` CLI (compress/inspect/doctor/benchmark/route/team-codebook)
-│   └── mcp-server.js             # `glyph-compress-mcp` MCP server (compress_text/compress_file/route_context/get_codebook)
+│   ├── cli.js                    # `glyph-compress` CLI (compress/inspect/doctor/benchmark/route/team-codebook/mcp)
+│   └── mcp-server.js             # `glyph-compress-mcp` MCP server (compress_text/compress_file/compress_to_budget/route_context/get_codebook)
 ├── src/
 │   ├── index.js                  # Library entry point (ESM)
 │   ├── index.cjs / index.d.ts    # CommonJS entry point + stable TypeScript declarations
 │   ├── glyph-middleware.js       # Thin re-export of the compiled middleware (see vscode-ext/)
 │   ├── workspace-intelligence.js # Workspace codebook, intent detection, file ranking, and the Context Router's file reader
 │   ├── team-codebook.js          # Team Codebook Registry (glyphcompress.team.json read/write/merge)
-│   ├── token-estimator.js        # Provider-aware token estimators
+│   ├── token-estimator.js        # Provider-aware token estimators (length-based heuristic)
+│   ├── real-token-counter.js     # Optional js-tiktoken bridge; degrades safely when absent
+│   ├── codeword-vocabulary.js    # Single-token codeword pool + per-payload collision withdrawal
+│   ├── anthropic-bridge.js       # Native Anthropic request detection and translation
+│   ├── proxy.js                  # Transparent proxy server
+│   ├── dashboard.js              # Proxy telemetry dashboard (HTML)
+│   ├── logger.js                 # Structured, redacted JSONL logging
 │   ├── radical-alphabet.js / compressor.js / system-prompt-generator.js  # Legacy standalone engine (used by `npm run demo`)
 │   └── workspace-intelligence.cjs, team-codebook.cjs, ...  # esbuild-generated CJS builds (see scripts/build-middleware.js)
 ├── vscode-ext/
@@ -947,7 +967,7 @@ glyph-compress/
 │   ├── extension.js              # Extension activation & commands
 │   └── glyph-middleware.js       # Core middleware: GlyphCompressor, wrapOpenAI/wrapAnthropic, routeAndCompress
 ├── test/
-│   ├── run-suites.js             # Runs all 17 test suites
+│   ├── run-suites.js             # Runs all 30 test suites
 │   ├── unit.js, cli.js, workspace.js, metadata.js, snapshots.js, integration.js, holographic-test.js, intent-test.js
 │   ├── codebook-completeness.js, auto-level.js, cache-prefix-stability.js, tech-glyph-economics.js
 │   ├── context-router.js, mcp-server.js, team-codebook.js  # newest suites — router, MCP protocol, shared dictionary
