@@ -84,10 +84,33 @@ try {
   const tarballPath = path.join(tmpDir, tarballName);
   assert(fs.existsSync(tarballPath), `expected npm pack to produce ${tarballPath}`);
 
-  // --force-local: without it, bsdtar (Windows' bundled tar) misreads a
-  // Windows path with a drive-letter colon (C:\...) as "host:path" remote-
-  // shell syntax and fails with "Cannot execute remote shell".
-  execFileSync('tar', ['--force-local', '-xf', tarballPath, '-C', tmpDir], { encoding: 'utf8' });
+  // Two tar implementations answer to the name `tar`, and they disagree about
+  // this exact invocation:
+  //
+  //   GNU tar   reads a drive-letter colon (C:\...) as "host:path" remote-shell
+  //             syntax and fails with "Cannot execute remote shell" unless
+  //             --force-local is passed.
+  //   bsdtar    handles Windows paths natively and rejects --force-local
+  //             outright: "Option --force-local is not supported".
+  //
+  // So neither form works everywhere, and which binary answers depends on the
+  // shell rather than the OS. A Git Bash session on Windows resolves to GNU
+  // tar 1.35; a GitHub windows-latest runner resolves to bsdtar in System32.
+  // That difference is why adding Windows to the CI matrix turned this suite
+  // red while it stayed green locally — the local run was never exercising the
+  // binary CI uses.
+  //
+  // Try the GNU form, fall back to the portable one. The fallback is not a
+  // blind retry: it runs only when tar rejected the flag itself, so a genuine
+  // extraction failure still fails instead of being retried into a
+  // confusing second error.
+  try {
+    execFileSync('tar', ['--force-local', '-xf', tarballPath, '-C', tmpDir], { encoding: 'utf8', stdio: 'pipe' });
+  } catch (error) {
+    const complaint = `${error.stderr || ''}${error.stdout || ''}${error.message || ''}`;
+    if (!/force-local/i.test(complaint)) throw error;
+    execFileSync('tar', ['-xf', tarballPath, '-C', tmpDir], { encoding: 'utf8', stdio: 'pipe' });
+  }
   const extractedRoot = path.join(tmpDir, 'package');
   assert(fs.existsSync(extractedRoot), 'expected npm pack tarball to extract a package/ directory');
 
