@@ -7,11 +7,12 @@
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
         "privacy": [],
-        "version": "1.34.2",
+        "version": "1.35.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
           "provider": "raw",
+          "codewords": false,
           "strategy": "balanced",
           "dynamicMinSavedChars": 4,
           "maxDynamicEntries": 80,
@@ -106,11 +107,12 @@
             "placeholder": "⟦IPV4_4⟧"
           }
         ],
-        "version": "1.34.2",
+        "version": "1.35.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
           "provider": "raw",
+          "codewords": false,
           "strategy": "balanced",
           "dynamicMinSavedChars": 4,
           "maxDynamicEntries": 80,
@@ -196,11 +198,12 @@
       ],
       "sourceMap": {
         "privacy": [],
-        "version": "1.34.2",
+        "version": "1.35.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
           "provider": "openai",
+          "codewords": false,
           "strategy": "chat-compact",
           "dynamicMinSavedChars": 4,
           "maxDynamicEntries": 80,
@@ -260,11 +263,12 @@
       ],
       "sourceMap": {
         "privacy": [],
-        "version": "1.34.2",
+        "version": "1.35.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {
           "provider": "anthropic",
+          "codewords": true,
           "strategy": "cache-stable",
           "dynamicMinSavedChars": 6,
           "maxDynamicEntries": 64,

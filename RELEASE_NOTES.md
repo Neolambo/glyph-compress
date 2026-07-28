@@ -1,3 +1,37 @@
+## v1.35.0 — Each Provider Gets The Strategy It Was Measured With
+
+**v1.34.2 concluded that codewords could not be a global default because comprehension is provider-dependent. That was the wrong shape for the conclusion.** The compressor already resolves a provider profile on every call — the choice belongs there, not in a flag the caller has to reason about.
+
+### The Table
+
+`codewords` is now a field on each provider profile, set from measurement rather than preference:
+
+| Provider | Strategy | Evidence |
+|---|---|---|
+| **anthropic** | **word codewords** | comprehension tie (3–4/4 either way), 8.2% fewer input tokens, 33 dictionary entries against 4 |
+| gemini | `§N` markers | codewords 1–2/4 across six runs, never higher |
+| openai | `§N` markers | unmeasured — the conservative default is what has been shipping |
+| raw, local | `§N` markers | diagnostic and offline profiles; `§N` being unmistakable is worth more than the token |
+
+### Verified Without A Flag
+
+Against the real APIs, nothing passed on the command line:
+
+```
+anthropic  mode: word codewords [provider default]   4/4, 4/4, 4/4
+gemini     mode: glyph markers  [provider default]   3/4, 4/4, 4/4
+```
+
+Each provider picks the form it was measured best with, automatically.
+
+### Two Details That Matter
+
+**The strategy follows a per-call provider change.** `compressText(text, provider)` can retarget a compressor built for someone else, and without this a request to Gemini would carry Anthropic's codewords — the exact combination measured at 1–2/4. An explicit `codewordDictionary` still wins, and survives retargeting, so a caller who has measured their own model is not overruled.
+
+**The harness had been lying about the defaults.** It passed `codewordDictionary: USE_CODEWORDS` unconditionally, so when no flag was given it sent an *explicit* `false` — which overrides the provider profile. It reported "glyph markers" for Anthropic while claiming to test the default path. It now passes the option only when a flag is present, and reports the compressor's *resolved* state rather than the requested one.
+
+---
+
 ## v1.34.2 — Word Codewords Do Not Survive Gemini: The Experiment Stays Opt-In
 
 **Measured across two providers. `codewordDictionary` will not become the default.** The idea is sound on Anthropic and consistently fails on Gemini, and a compression scheme that only some models decode is not one to turn on for everyone.

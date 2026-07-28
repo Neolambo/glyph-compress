@@ -23,6 +23,7 @@ import assert from 'assert';
 import { readFileSync } from 'fs';
 import { encodingForModel } from 'js-tiktoken';
 import { CODEWORD_VOCABULARY, availableCodewords } from '../src/codeword-vocabulary.js';
+import { GlyphCompressor } from '../src/glyph-middleware.js';
 
 let passed = 0;
 let failed = 0;
@@ -113,6 +114,66 @@ test('withdrawing on substrings still leaves enough vocabulary for a real payloa
 
 test('an empty payload withdraws nothing', () => {
   assert.strictEqual(availableCodewords('').length, CODEWORD_VOCABULARY.length);
+});
+
+// ─── Per-provider strategy ────────────────────────────────────────────────
+//
+// Comprehension turned out to be provider-dependent, so the choice lives in
+// the provider profile rather than in a global flag. Measured, 4 checks per
+// run and ~6 runs per cell:
+//
+//   anthropic haiku-4-5     §N 3-4/4 always   codewords 3-4/4 always
+//   gemini 2.5-flash-lite   §N 3-4/4 always   codewords 1-2/4, never higher
+//
+// Anthropic is on because it is a tie on understanding and 8.2% cheaper.
+// Gemini is off because it resolves the reference and then answers in the
+// compressed vocabulary. The rest are off as unmeasured — the conservative
+// default for an untested provider is what has been shipping.
+const EXPECTED_STRATEGY = {
+  anthropic: true,
+  gemini: false,
+  openai: false,
+  raw: false,
+  local: false,
+};
+
+for (const [provider, expected] of Object.entries(EXPECTED_STRATEGY)) {
+  test(`${provider} defaults to ${expected ? 'word codewords' : '§N markers'}`, () => {
+    const compressor = new GlyphCompressor({ level: 'standard', provider });
+    assert.strictEqual(
+      compressor.codewordDictionary,
+      expected,
+      `${provider} must default to ${expected ? 'codewords' : '§N'} — this encodes a measured comprehension result, not a preference`,
+    );
+  });
+}
+
+test('an explicit option overrides the provider default, both ways', () => {
+  // A caller who has measured their own model must be able to say so.
+  assert.strictEqual(new GlyphCompressor({ provider: 'gemini', codewordDictionary: true }).codewordDictionary, true);
+  assert.strictEqual(new GlyphCompressor({ provider: 'anthropic', codewordDictionary: false }).codewordDictionary, false);
+});
+
+test('changing provider per call carries the strategy with it', () => {
+  // compressText(text, provider) can retarget a compressor built for another
+  // provider. Without this, a Gemini request would go out carrying Anthropic's
+  // codewords — the exact combination measured at 1-2/4.
+  const compressor = new GlyphCompressor({ level: 'standard', provider: 'raw' });
+  assert.strictEqual(compressor.codewordDictionary, false, 'precondition: raw starts on §N');
+  compressor.compressText('function handleRequest(payload) { return payload; }', 'anthropic');
+  assert.strictEqual(compressor.codewordDictionary, true, 'retargeting to anthropic should adopt its strategy');
+  compressor.compressText('function handleRequest(payload) { return payload; }', 'gemini');
+  assert.strictEqual(compressor.codewordDictionary, false, 'retargeting to gemini should drop back to §N');
+});
+
+test('an explicit option survives a per-call provider change', () => {
+  const compressor = new GlyphCompressor({ level: 'standard', provider: 'raw', codewordDictionary: true });
+  compressor.compressText('function handleRequest(payload) { return payload; }', 'gemini');
+  assert.strictEqual(
+    compressor.codewordDictionary,
+    true,
+    'an explicit choice must not be silently overwritten by a provider default',
+  );
 });
 
 console.log(`\ncodeword-vocabulary: ${passed} passed, ${failed} failed`);

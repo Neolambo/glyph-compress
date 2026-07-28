@@ -371,9 +371,33 @@ const PRIVACY_REDACTION_PATTERNS = [
   { kind: 'ipv4', label: 'IPv4 address', pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g },
 ];
 
+/**
+ * `codewords` is per-provider because comprehension turned out to be, and the
+ * compressor already knows which provider it is talking to — so the choice
+ * belongs here rather than in a global flag the caller has to reason about.
+ *
+ * Substituting a repeated identifier with an ordinary single-token word
+ * (`zebra`) instead of `§N` halves the codeword cost, which decides whether a
+ * 2-token identifier can pay at all. Measured with 4 checks per run and ~6
+ * runs per cell:
+ *
+ *   anthropic haiku-4-5      §N 3-4/4 always   codewords 3-4/4 always
+ *   gemini 2.5-flash-lite    §N 3-4/4 always   codewords 1-2/4, never higher
+ *
+ * On Anthropic it is a tie on comprehension and a win on cost (8.2% fewer
+ * input tokens, 20 dictionary entries against 3), so it is on. Gemini resolves
+ * the reference correctly and then answers in the compressed vocabulary —
+ * `lagoon` instead of `RefundEligibilityValidator` — ignoring the codebook's
+ * instruction to expand back, so it is off. openai is unmeasured and therefore
+ * off: the conservative default for an untested provider is the behaviour that
+ * has been shipping. raw and local are diagnostic/offline profiles where the
+ * `§N` form's unmistakability is worth more than the token.
+ */
 const PROVIDER_COMPRESSION_PROFILES = {
   raw: {
     provider: 'raw',
+    // diagnostic profile; §N is unmistakable, which matters more here than the token
+    codewords: false,
     strategy: 'balanced',
     dynamicMinSavedChars: 4,
     maxDynamicEntries: 80,
@@ -381,6 +405,8 @@ const PROVIDER_COMPRESSION_PROFILES = {
   },
   openai: {
     provider: 'openai',
+    // unmeasured — off until test/comprehension-check-codewords.js openai says otherwise
+    codewords: false,
     strategy: 'chat-compact',
     dynamicMinSavedChars: 4,
     maxDynamicEntries: 80,
@@ -388,6 +414,8 @@ const PROVIDER_COMPRESSION_PROFILES = {
   },
   anthropic: {
     provider: 'anthropic',
+    // measured: comprehension tie, 8.2% cheaper, 20 dictionary entries against 3
+    codewords: true,
     strategy: 'cache-stable',
     dynamicMinSavedChars: 6,
     maxDynamicEntries: 64,
@@ -395,6 +423,8 @@ const PROVIDER_COMPRESSION_PROFILES = {
   },
   gemini: {
     provider: 'gemini',
+    // measured: 1-2/4 comprehension, never higher — resolves references then answers in codewords
+    codewords: false,
     strategy: 'structure-preserving',
     dynamicMinSavedChars: 4,
     maxDynamicEntries: 72,
@@ -402,6 +432,8 @@ const PROVIDER_COMPRESSION_PROFILES = {
   },
   local: {
     provider: 'local',
+    // unmeasured, and local models vary too widely to assume
+    codewords: false,
     strategy: 'aggressive-local',
     dynamicMinSavedChars: 3,
     maxDynamicEntries: 96,
@@ -606,12 +638,21 @@ class GlyphCompressor {
     this.cacheFile = null;
     this._initCache();
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
-    // Opt-in: substitute repeated identifiers with ordinary single-token words
-    // (`zebra`) instead of `§N`. Halves the codeword cost from 2 real tokens to
-    // 1, which is what decides whether a 2-token identifier can pay at all.
-    // Off by default until the three provider comprehension checks confirm
-    // models decode a word-codeword as reliably as a §N marker.
-    this.codewordDictionary = options.codewordDictionary === true;
+    // Substitute repeated identifiers with ordinary single-token words
+    // (`zebra`) instead of `§N`, halving the codeword cost from 2 real tokens
+    // to 1 — which is what decides whether a 2-token identifier can pay at all.
+    //
+    // Defaults per PROVIDER, because comprehension turned out to be
+    // provider-dependent and the compressor already knows which one it is
+    // talking to: on for Anthropic (measured tie on understanding, 8.2%
+    // cheaper), off for Gemini (measured 1-2/4, it answers in the compressed
+    // vocabulary), off for the rest as unmeasured. An explicit option still
+    // wins, so a caller who has measured their own model can override either
+    // way.
+    this.codewordDictionaryExplicit = options.codewordDictionary !== undefined;
+    this.codewordDictionary = this.codewordDictionaryExplicit
+      ? options.codewordDictionary === true
+      : this.providerProfile.codewords === true;
     this.holographicFolding = options.holographicFolding === true || options.folding === true;
     this.intentDiffs = options.intentDiffs === true || options.intents === true;
   }
@@ -1730,7 +1771,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.34.2',
+      version: '1.35.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1761,6 +1802,15 @@ class GlyphCompressor {
   _setProvider(provider) {
     this.provider = normalizeProvider(provider || this.provider || 'raw');
     this.providerProfile = this._resolveProviderProfile(this.provider);
+    // The codeword strategy follows the provider, since that is what it is a
+    // property of: comprehension was measured to differ between them. A
+    // compressor constructed for one provider and then used with another —
+    // which compressText(text, provider) allows — must pick up the new
+    // provider's setting, or a Gemini request would go out with Anthropic's
+    // codewords. An explicit constructor option still wins.
+    if (this.codewordDictionaryExplicit !== true) {
+      this.codewordDictionary = this.providerProfile.codewords === true;
+    }
   }
 
   _resolveTrustPolicy(policy) {

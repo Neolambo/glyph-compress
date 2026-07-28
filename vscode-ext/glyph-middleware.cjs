@@ -491,6 +491,8 @@ var PRIVACY_REDACTION_PATTERNS = [
 var PROVIDER_COMPRESSION_PROFILES = {
   raw: {
     provider: "raw",
+    // diagnostic profile; §N is unmistakable, which matters more here than the token
+    codewords: false,
     strategy: "balanced",
     dynamicMinSavedChars: 4,
     maxDynamicEntries: 80,
@@ -498,6 +500,8 @@ var PROVIDER_COMPRESSION_PROFILES = {
   },
   openai: {
     provider: "openai",
+    // unmeasured — off until test/comprehension-check-codewords.js openai says otherwise
+    codewords: false,
     strategy: "chat-compact",
     dynamicMinSavedChars: 4,
     maxDynamicEntries: 80,
@@ -505,6 +509,8 @@ var PROVIDER_COMPRESSION_PROFILES = {
   },
   anthropic: {
     provider: "anthropic",
+    // measured: comprehension tie, 8.2% cheaper, 20 dictionary entries against 3
+    codewords: true,
     strategy: "cache-stable",
     dynamicMinSavedChars: 6,
     maxDynamicEntries: 64,
@@ -512,6 +518,8 @@ var PROVIDER_COMPRESSION_PROFILES = {
   },
   gemini: {
     provider: "gemini",
+    // measured: 1-2/4 comprehension, never higher — resolves references then answers in codewords
+    codewords: false,
     strategy: "structure-preserving",
     dynamicMinSavedChars: 4,
     maxDynamicEntries: 72,
@@ -519,6 +527,8 @@ var PROVIDER_COMPRESSION_PROFILES = {
   },
   local: {
     provider: "local",
+    // unmeasured, and local models vary too widely to assume
+    codewords: false,
     strategy: "aggressive-local",
     dynamicMinSavedChars: 3,
     maxDynamicEntries: 96,
@@ -724,7 +734,8 @@ var GlyphCompressor = class {
     this.cacheFile = null;
     this._initCache();
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
-    this.codewordDictionary = options.codewordDictionary === true;
+    this.codewordDictionaryExplicit = options.codewordDictionary !== void 0;
+    this.codewordDictionary = this.codewordDictionaryExplicit ? options.codewordDictionary === true : this.providerProfile.codewords === true;
     this.holographicFolding = options.holographicFolding === true || options.folding === true;
     this.intentDiffs = options.intentDiffs === true || options.intents === true;
   }
@@ -1560,7 +1571,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.34.2",
+      version: "1.35.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -1587,6 +1598,9 @@ ${parsed.dynamicLine}`
   _setProvider(provider) {
     this.provider = (0, import_token_estimator.normalizeProvider)(provider || this.provider || "raw");
     this.providerProfile = this._resolveProviderProfile(this.provider);
+    if (this.codewordDictionaryExplicit !== true) {
+      this.codewordDictionary = this.providerProfile.codewords === true;
+    }
   }
   _resolveTrustPolicy(policy) {
     const requested = String(policy || "auto").toLowerCase();

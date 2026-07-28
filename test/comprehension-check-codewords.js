@@ -70,7 +70,8 @@ if (!PROVIDER || !PROVIDERS[PROVIDER].key) {
 }
 const API_KEY = PROVIDERS[PROVIDER].key;
 
-const USE_CODEWORDS = process.argv.includes('--codewords');
+const FORCE_CODEWORDS = process.argv.includes('--codewords');
+const FORCE_GLYPHS = process.argv.includes('--glyphs');
 const MODEL = process.argv.slice(2).find((a) => !a.startsWith('--') && !PROVIDERS[a]) || PROVIDERS[PROVIDER].defaultModel;
 
 /**
@@ -114,10 +115,15 @@ const QUESTION = [
   '3. Name the class that comes immediately after FraudSignalAggregator.',
 ].join('\n');
 
+// The option is only passed when a flag was actually given. Passing
+// `codewordDictionary: false` unconditionally is an EXPLICIT false, which
+// overrides the provider profile — so an earlier version of this harness
+// reported "§N" for Anthropic while claiming to test the defaults.
 const compressor = new GlyphCompressor({
   level: 'standard',
   provider: PROVIDER,
-  codewordDictionary: USE_CODEWORDS,
+  ...(FORCE_CODEWORDS ? { codewordDictionary: true } : {}),
+  ...(FORCE_GLYPHS ? { codewordDictionary: false } : {}),
 });
 
 const prompt = `${QUESTION}\n\n\`\`\`js\n${source}\n\`\`\``;
@@ -125,7 +131,8 @@ const result = compressor.compressText(prompt, PROVIDER);
 const codebook = compressor.getCodebookPrompt();
 
 console.log(`provider    : ${PROVIDER} (${MODEL})`);
-console.log(`mode        : ${USE_CODEWORDS ? 'word codewords (zebra)' : 'glyph markers (§N)'}`);
+console.log(`mode        : ${compressor.codewordDictionary ? 'word codewords (zebra)' : 'glyph markers (§N)'}`
+  + `${FORCE_CODEWORDS || FORCE_GLYPHS ? ' [forced]' : ' [provider default]'}`);
 console.log(`dictionary  : ${compressor.dynamicDict.size} entries`);
 console.log(`compression : ${result.stats.ratio} (${result.stats.savedPct} saved), fallback=${result.stats.fallback}`);
 console.log(`sample      : ${[...compressor.dynamicDict.entries()].slice(0, 4).map(([w, g]) => `${g}=${w}`).join(', ')}`);
