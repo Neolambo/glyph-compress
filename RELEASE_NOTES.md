@@ -1,3 +1,28 @@
+## v1.35.2 — Documentation Realigned With The Code
+
+A full audit of `README.md` against the source, treating the code as the only source of truth. **Seven discrepancies found and corrected.** No documented-but-unimplemented feature was found — the drift was entirely in figures superseded by recent releases and in omissions from accretion.
+
+### The Headline Figure Was Stale, In Three Places
+
+The README claimed **22%** aggregate savings while `npm run benchmark` reports **26%**. The 22% predates the measured-loss gating and the v1.33.x economics fixes, which removed losing substitutions and therefore *raised* the aggregate. The project was under-reporting its own result, including in the subtitle.
+
+### The Other Six
+
+- **`--target` / `--target-api-url`** existed in `bin/cli.js` and in the CLI's own `--help`, but were absent from the README's options table. The internal documentation was more current than the external.
+- **The net-negative fallback** was described as "requiring a real measured 10% improvement (as of v1.30.0)". Since v1.33.8 the rule is two-part: exact with `js-tiktoken` — no margin, because the margin existed to cover the heuristic's error band — and 10% only without it.
+- **`codewordDictionary`** was still marked "off by default" after v1.35.0 moved the choice into the provider profile. The README contradicted itself a few lines apart. Marked superseded rather than deleted, since release notes are a chronological record.
+- **Project Structure** omitted 6 of 14 `src/` files. The `bin/` comments also listed 4 of 5 MCP tools and 6 of 7 CLI subcommands.
+- **No Requirements section existed.** Added: Node 18+ (the proxy and Anthropic bridge use global `fetch`, and there is no `engines` field so npm will not stop an older runtime), plus `zod`, which the README had never mentioned.
+- **The VSIX limitation was undocumented** — the most user-relevant omission. A VSIX ships no `node_modules`, so `js-tiktoken` is never present and the conservative fallback applies: measured on this repository's source, the dictionary admits **1 entry against 33**. Most of the codeword advantage is absent in the extension; npm installs are unaffected.
+
+Also: "~400-token codebook header" measured at 448, and "Runs all 17 test suites" is now 30 — verified by counting both the registry and the executed suites, after a first correction to 31 was itself wrong.
+
+### Why A Patch Release For Documentation
+
+v1.35.1 was already published when the audit landed, and npm does not allow republishing a version — the tarball on the registry still carried the stale README. No code changed: the middleware, CLI and MCP server are byte-identical to v1.35.1.
+
+---
+
 ## v1.35.1 — OpenAI Measured: The Table Is Complete, And My Explanation Was Wrong
 
 **All three providers now measured.** OpenAI behaves like Gemini, which confirms the conservative default it already had — and refutes the reason I gave for Gemini failing.

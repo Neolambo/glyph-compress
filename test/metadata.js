@@ -14,7 +14,18 @@ const vscodeSettingsSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test'
 const readmeLinksSnapshot = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', 'readme-links.snapshot.json'), 'utf8'));
 
 assert(pkg.version === extPkg.version, 'root package and VS Code extension should share the same release version');
-assert(readme.includes(`New in v${pkg.version}`), 'README should advertise the current release version');
+// Asserts the version is advertised, NOT that it appears under a heading
+// shaped `New in vX`. Requiring that phrasing is what made the README grow a
+// changelog: each release added a "New in" section and demoted the previous
+// one to "Also recent" rather than removing it, until 15 sections and ~170
+// lines of history sat on the repository's front page — which is precisely
+// what GitHub Releases is for, and what the project had deliberately moved
+// there. The version must be visible; where the history lives is a separate
+// decision this test should not force.
+assert(
+  readme.includes(`v${pkg.version}`),
+  `README should advertise the current release version (v${pkg.version})`,
+);
 assert(pkg.scripts['test:unit'], 'unit test script should exist');
 assert(pkg.scripts['test:cli'], 'CLI test script should exist');
 assert(pkg.scripts['test:workspace'], 'workspace test script should exist');
