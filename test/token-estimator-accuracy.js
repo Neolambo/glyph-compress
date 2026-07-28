@@ -46,12 +46,18 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { getEncoding } from 'js-tiktoken';
 import { estimateProviderTokens, estimateGlyphTokenCost, PROVIDER_TOKEN_PROFILES } from '../src/token-estimator.js';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
+import { loadEncoder, skipSuite } from './helpers/optional-tokenizer.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const enc = getEncoding('o200k_base');
+// See test/helpers/optional-tokenizer.js: this suite calibrates the internal
+// estimator AGAINST the real tokenizer, so without it there is nothing to
+// calibrate against and skipping is the only honest outcome.
+const enc = await loadEncoder();
+if (!enc) {
+  skipSuite('token-estimator-accuracy', 'js-tiktoken not installed; this suite exists to compare the estimator against real counts');
+}
 const require = createRequire(import.meta.url);
 
 let passed = 0;

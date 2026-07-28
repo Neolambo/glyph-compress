@@ -54,18 +54,22 @@ if (fs.existsSync(gc1.cacheFile)) {
   fs.unlinkSync(gc1.cacheFile);
 }
 
-// Ten occurrences, not three. Since v1.33.8 dictionary admission is priced in
-// real tokens: this word costs 4, a §N glyph costs 2, so each substitution
-// saves 2 while the entry's own "word=§N" definition costs ~7. Three
-// occurrences is a net loss of one token; ten amortises the definition.
-const textToCompress = 'SuperUniqueIdentifierName '.repeat(10).trim();
+// Long enough and repeated enough to qualify under BOTH admission regimes.
+//
+// Since v1.33.8 the dictionary is priced in tokens, and there are two pricings:
+// with js-tiktoken the real count decides, without it a conservative chars/8
+// rule does. `SuperUniqueIdentifierName` x10 qualifies under the first and is
+// rejected by the second — so this assertion held in development and failed in
+// the shipped configuration, which is exactly the split the no-optional CI job
+// exists to surface. A 35-character identifier repeated 12 times clears both.
+const textToCompress = 'SuperUniqueIdentifierNameForTesting '.repeat(12).trim();
 gc1.compressText(textToCompress);
 
 assert(fs.existsSync(gc1.cacheFile), 'cache file should be written after compressText');
-assert(gc1.dynamicDict.has('SuperUniqueIdentifierName'), 'dynamicDict should map the unique word');
+assert(gc1.dynamicDict.has('SuperUniqueIdentifierNameForTesting'), 'dynamicDict should map the unique word');
 
 const gc2 = new GlyphCompressor({ cacheKey, level: 'standard' });
-assert(gc2.dynamicDict.has('SuperUniqueIdentifierName'), 'cached dynamicDict entries should be restored (warm-start)');
+assert(gc2.dynamicDict.has('SuperUniqueIdentifierNameForTesting'), 'cached dynamicDict entries should be restored (warm-start)');
 assert(gc2.dynamicCounter === gc1.dynamicCounter, 'dynamicCounter should be restored');
 
 if (fs.existsSync(gc1.cacheFile)) {

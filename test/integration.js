@@ -262,7 +262,12 @@ test('OpenAI: may compress assistant history when it reduces transcript cost', (
 });
 
 test('Provider profiles: tune dynamic dictionary thresholds by provider', () => {
-  const text = 'Fix ' + 'ProviderProfileAlphaIdentifier '.repeat(10) + 'now.';
+  // 35 characters and 12 repetitions: long enough to qualify under BOTH
+  // admission pricings. With js-tiktoken the real count decides; without it a
+  // conservative chars/8 rule does, and the shorter identifiers used before
+  // cleared only the first — so this passed in development and failed in the
+  // shipped configuration, which the no-optional CI job now catches.
+  const text = 'Fix ' + 'ProviderProfileAlphaLongIdentifier '.repeat(12) + 'now.';
   const mapOf = (provider) => {
     const c = new GlyphCompressor({ level: 'standard', provider });
     encodeOnly(c, text);
@@ -321,17 +326,22 @@ test('Dynamic Dictionary replaces repeated words', () => {
   const gc = new GlyphCompressor({ level: 'standard' });
   // Priced in real tokens since v1.33.8: AuthenticationManager is 2 tokens and
   // a §N glyph is 2, so it was always a losing swap.
-  const r = { compressed: encodeOnly(gc, 'The ' + 'SuperUniqueIdentifierName '.repeat(10) + 'logic.') };
+  const r = { compressed: encodeOnly(gc, 'The ' + 'SuperUniqueIdentifierNameForTesting '.repeat(12) + 'logic.') };
   // Dynamic entries are §N references (e.g. §1), not single Greek/Cyrillic
   // letters — that pool collided with the reserved TECH_GLYPHS symbols for
   // "Agent" (α) and "prompt" (π) and exhausted after 54 entries.
-  assert(/§\d+/.test(r.compressed), 'Should replace SuperUniqueIdentifierName with a §N dynamic-dictionary reference');
-  assert(!r.compressed.includes('SuperUniqueIdentifierName'), 'SuperUniqueIdentifierName should be gone');
+  assert(/§\d+/.test(r.compressed), 'Should replace SuperUniqueIdentifierNameForTesting with a §N dynamic-dictionary reference');
+  assert(!r.compressed.includes('SuperUniqueIdentifierNameForTesting'), 'SuperUniqueIdentifierNameForTesting should be gone');
 });
 
 test('Dynamic Dictionary glyphs never collide with reserved TECH_GLYPHS symbols', () => {
   const gc = new GlyphCompressor({ level: 'standard' });
-  const r = gc.compressText('Agent Agent Agent orchestrates the Agent workflow while the AuthenticationManager AuthenticationManager AuthenticationManager runs.');
+  // Encoded below the economics gate, and with an identifier long enough to be
+  // admitted under both pricings — the real-token one when js-tiktoken is
+  // installed, and the conservative chars/8 one when it is not. The assertion
+  // is about glyph *collision*, so it needs a dynamic entry to exist at all.
+  const compressed = encodeOnly(gc, 'Agent Agent Agent orchestrates the Agent workflow while ' + 'SuperUniqueIdentifierNameForTesting '.repeat(12) + 'runs.');
+  const r = { compressed, sourceMap: gc.getSourceMap() };
   // "Agent" itself is both a TECH_GLYPHS entry (agent -> 'α') and, before
   // the §N redesign, would have been the *exact* symbol the dynamic
   // dictionary assigned first — producing an unresolvable ambiguity where
@@ -629,12 +639,12 @@ test('Source maps: dynamic dictionary can be read after compression', () => {
   // consume every occurrence — repeating one word ten times even forms the
   // bigram "X X" — leaving no single-word span to assert on. Punctuation
   // between the identifiers stops a bigram forming at all.
-  encodeOnly(gc, 'SuperUniqueIdentifierName, AnotherDistinctIdentifierName. '.repeat(10));
+  encodeOnly(gc, 'SuperUniqueIdentifierNameForTesting, AnotherDistinctIdentifierNameHere. '.repeat(12));
   const r = { sourceMap: gc.getSourceMap() };
   const dictionaries = gc.getReversibleDictionaries();
-  assert(r.sourceMap.dynamic.some(entry => entry.original === 'SuperUniqueIdentifierName'), 'Should expose dynamic source map entry');
-  assert(dictionaries.dynamic.some(entry => entry.original === 'SuperUniqueIdentifierName'), 'Should expose reversible dynamic dictionary');
-  assert(dictionaries.symbols.some(entry => entry.kind === 'dynamic' && entry.original === 'SuperUniqueIdentifierName'), 'Should expose reversible dynamic spans');
+  assert(r.sourceMap.dynamic.some(entry => entry.original === 'SuperUniqueIdentifierNameForTesting'), 'Should expose dynamic source map entry');
+  assert(dictionaries.dynamic.some(entry => entry.original === 'SuperUniqueIdentifierNameForTesting'), 'Should expose reversible dynamic dictionary');
+  assert(dictionaries.symbols.some(entry => entry.kind === 'dynamic' && entry.original === 'SuperUniqueIdentifierNameForTesting'), 'Should expose reversible dynamic spans');
 });
 
 test('Source maps: record line and column spans across multiple lines', () => {

@@ -27,6 +27,7 @@ import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { loadTeamCodebook, saveTeamCodebook, mergeTeamCodebook, teamCodebookPath } from '../src/team-codebook.js';
+import { loadEncoder } from './helpers/optional-tokenizer.js';
 
 const cliPath = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -94,12 +95,12 @@ try {
     // is 4, and repeated enough to amortise its own definition. The team entry
     // itself is seeded regardless of economics — that is the point of a team
     // codebook — so AuthenticationManager stays as the seeded word.
-    const r = gc.compressText('AuthenticationManager calls ' + 'ReconciliationWorkerIdentifier '.repeat(8) + 'now.');
+    const r = gc.compressText('AuthenticationManager calls ' + 'ReconciliationWorkerIdentifierRegistry '.repeat(12) + 'now.');
     assert(r.compressed.includes('§1'), 'team entry should still be used');
     // The newly-learned word must get its own, later index — never reuse
     // §1, which the team codebook already claimed for a different word.
     assert.strictEqual(gc.dynamicDict.get('AuthenticationManager'), '§1', 'team entry keeps its assigned index');
-    const newGlyph = gc.dynamicDict.get('ReconciliationWorkerIdentifier');
+    const newGlyph = gc.dynamicDict.get('ReconciliationWorkerIdentifierRegistry');
     assert(newGlyph && newGlyph !== '§1', `session-learned word must get a fresh index, not reuse §1, got: ${newGlyph}`);
   });
 
@@ -126,7 +127,7 @@ try {
       // entry's own definition costs ~7 — two occurrences is a net loss, and
       // since v1.33.8 the dictionary correctly declines to learn it, leaving
       // `team-codebook sync` with nothing to promote.
-      fs.writeFileSync(path.join(cliDir, 'sample.txt'), `${'RepeatedIdentifierWord '.repeat(8)}appears often.\n`, 'utf8');
+      fs.writeFileSync(path.join(cliDir, 'sample.txt'), `${'RepeatedIdentifierWordForTesting '.repeat(12)}appears often.\n`, 'utf8');
       execFileSync(process.execPath, [cliPath, 'sample.txt', '--level', 'standard'], { cwd: cliDir, encoding: 'utf8' });
       const syncOut = execFileSync(process.execPath, [cliPath, 'team-codebook', 'sync', '--json'], { cwd: cliDir, encoding: 'utf8' });
       const syncResult = JSON.parse(syncOut);
@@ -157,10 +158,28 @@ try {
 //
 // Untested until now, and invisible if it breaks: output would stay valid and
 // simply never hit a cache again.
+// Requires the real tokenizer, and not for convenience.
+//
+// The property under test is that §N indices are handed out in session
+// learning order, so a warmed session numbers them differently from a fresh
+// one unless workspacePath persists the assignments. Under the conservative
+// pricing that applies when js-tiktoken is absent the dictionary admits
+// almost nothing — measured, 0 entries on src/proxy.js — so no index exists
+// whose numbering could differ, and the control assertion below becomes
+// vacuously true. That is unobservable, not passing.
+const determinismEncoder = await loadEncoder();
+if (!determinismEncoder) {
+  console.log('  ~ workspacePath determinism: SKIPPED (needs js-tiktoken; without it the dictionary admits no entries, so §N ordering is unobservable)');
+} else {
 test('workspacePath makes the compressed body byte-identical across differently-warmed sessions', () => {
   const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-determinism-'));
   try {
-    const target = fs.readFileSync(path.join(repoRoot, 'src', 'token-estimator.js'), 'utf8');
+    // src/proxy.js, not src/token-estimator.js: the target has to actually
+    // compress, and under the conservative pricing that applies when
+    // js-tiktoken is absent the smaller file falls back in both arms —
+    // making them trivially identical and the control assertion below
+    // vacuous. Verified: proxy.js compresses in both configurations.
+    const target = fs.readFileSync(path.join(repoRoot, 'src', 'proxy.js'), 'utf8');
     const unrelated = fs.readFileSync(path.join(repoRoot, 'src', 'logger.js'), 'utf8');
 
     const warmDifferently = (opts) => {
@@ -178,7 +197,7 @@ test('workspacePath makes the compressed body byte-identical across differently-
       // nothing. These identifiers are 4+ real tokens and repeated enough to
       // pay for their own definitions.
       gc.compressText(
-        `${'UnrelatedWarmupIdentifierAlpha '.repeat(8)}${'UnrelatedWarmupIdentifierBeta '.repeat(8)}`,
+        `${'UnrelatedWarmupIdentifierAlphaRegistry '.repeat(12)}${'UnrelatedWarmupIdentifierBetaRegistry '.repeat(12)}`,
         'openai',
       );
       return gc.compressText(target, 'openai').compressed;
@@ -204,6 +223,8 @@ test('workspacePath makes the compressed body byte-identical across differently-
     fs.rmSync(ws, { recursive: true, force: true });
   }
 });
+}
+
 
 console.log(`\nteam-codebook: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

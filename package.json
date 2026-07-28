@@ -133,14 +133,14 @@
   "bugs": {
     "url": "https://github.com/Neolambo/glyph-compress/issues"
   },
-  "devDependencies": {
-    "js-tiktoken": "^1.0.21"
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
     "js-tiktoken": "^1.0.15"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

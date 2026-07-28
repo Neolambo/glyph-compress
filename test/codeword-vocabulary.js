@@ -21,9 +21,9 @@
  */
 import assert from 'assert';
 import { readFileSync } from 'fs';
-import { encodingForModel } from 'js-tiktoken';
 import { CODEWORD_VOCABULARY, availableCodewords } from '../src/codeword-vocabulary.js';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
+import { loadEncoder, skipSuite } from './helpers/optional-tokenizer.js';
 
 let passed = 0;
 let failed = 0;
@@ -39,7 +39,15 @@ function test(name, fn) {
   }
 }
 
-const enc = encodingForModel('gpt-4o');
+// Loaded through the optional-tokenizer helper: this suite's central premise
+// is that every codeword costs exactly one REAL token, which cannot be checked
+// without a tokenizer. Rather than assert it against the heuristic — the
+// instrument whose error caused the bug this vocabulary exists to fix — the
+// suite skips loudly when js-tiktoken is absent.
+const enc = await loadEncoder();
+if (!enc) {
+  skipSuite('codeword-vocabulary', 'js-tiktoken not installed; every assertion here needs real token counts');
+}
 const tokens = (text) => enc.encode(text).length;
 
 test('every codeword costs exactly one real token in running text', () => {

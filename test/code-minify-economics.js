@@ -69,10 +69,22 @@ for (const { lang, glyph, keyword, code } of cases) {
   });
 }
 
+
+// Encoding vs economics. This asserts what the minifier PRODUCES, which is a
+// different question from whether the result is cheap enough to ship — and
+// since v1.33.8 the second is decided on tokens, so a six-line snippet is
+// returned untouched and the glyphs never appear. Calling the encoder
+// directly keeps the test about minification; the economics are covered in
+// test/integration.js.
+const encodeOnly = (compressor, text) => {
+  const safeText = compressor._applyPrivacyFirewall(text, false);
+  compressor._buildDynamicDictionary(safeText);
+  return compressor._compressUserMessage(text, safeText);
+};
 test('raw provider is unaffected: code-keyword minification still applies unconditionally', () => {
   const gc = new GlyphCompressor({ level: 'aggressive', provider: 'raw', trustPolicy: 'lossy' });
   const prompt = 'Explain:\n```js\nfunction run(id) {\n  const x = id;\n  return x;\n}\n```\n';
-  const r = gc.compressText(prompt);
+  const r = { compressed: encodeOnly(gc, prompt) };
   assert(r.compressed.includes('ƒ'), 'raw mode should still minify function -> ƒ (demo/character-level mode)');
   assert(r.compressed.includes('◇'), 'raw mode should still minify const -> ◇ (demo/character-level mode)');
 });

@@ -162,8 +162,13 @@ test('a word seen only once never earns a dynamic-dictionary entry', () => {
 
 test('a repeated word does earn an entry, so the filter is not simply off', () => {
   const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+  // Ten occurrences, not four. Admission has two pricings — the real token
+  // count when js-tiktoken is present, a conservative chars/8 rule when it is
+  // not — and four occurrences clear only the first. This control existed to
+  // prove the filter is not simply off, so it has to hold in the shipped
+  // configuration too, or it stops proving that exactly where it matters.
   const word = 'ExtraordinarilyLongRepeatedIdentifier';
-  gc.compressText(`${word} calls ${word}, and later ${word} again in ${word}.`);
+  gc.compressText(`${word} calls ${word}, and later ${word} again in ${word}. `.repeat(3) + `Finally ${word}.`);
   assert(
     gc.dynamicDict.has(word),
     'a genuinely repeated word was rejected — the economics filter is too aggressive, not just correct',

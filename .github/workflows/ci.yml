@@ -7,13 +7,21 @@ on:
     branches: [master, main]
 
 jobs:
+  # 18.x is the documented minimum (the proxy and the Anthropic bridge use the
+  # global fetch, which lands in Node 18) and was previously untested.
+  #
+  # windows-latest is here because development happens on Windows and CI did
+  # not: this repository has already hit Windows-only failures that ubuntu
+  # never sees — bsdtar rejecting a drive-letter path without --force-local,
+  # and an intermittent 0xC0000409 in test/proxy.js.
   node:
-    name: Node ${{ matrix.node-version }}
-    runs-on: ubuntu-latest
+    name: Node ${{ matrix.node-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.x, 22.x]
+        os: [ubuntu-latest, windows-latest]
+        node-version: [18.x, 20.x, 22.x]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +33,38 @@ jobs:
       - run: npm run benchmark
       - run: npm run check:links
       - run: npm pack --dry-run
+
+  # The job that matters most, and the one that did not exist.
+  #
+  # js-tiktoken is an OPTIONAL dependency, so the shipped artifacts routinely
+  # run without it — a VSIX carries no node_modules at all. Every other job
+  # here runs `npm ci`, which installs it, so nothing tested the code path most
+  # users actually execute. That gap let a real bug reach the published
+  # package: v1.33.8 claimed the never-inflate guarantee held with or without
+  # the tokenizer, and on the packaged build it was still inflating by 5.54%
+  # (corrected in v1.33.10).
+  #
+  # `--omit=optional` reproduces that path, and test/npm-pack-smoke.js asserts
+  # the guarantee against the real tarball, refusing to run if the tokenizer
+  # turns out to be reachable after all.
+  no-optional-deps:
+    name: Shipped path (no js-tiktoken)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci --omit=optional
+      - name: Confirm the optional tokenizer really is absent
+        run: |
+          if [ -d node_modules/js-tiktoken ]; then
+            echo "js-tiktoken is installed — this job would test the wrong path"
+            exit 1
+          fi
+          echo "js-tiktoken absent, as shipped"
+      - run: npm test
 
   vscode-extension:
     name: VS Code Extension Package

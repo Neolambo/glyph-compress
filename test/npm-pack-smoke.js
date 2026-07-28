@@ -33,6 +33,7 @@ import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { loadEncoder, skipSuite } from './helpers/optional-tokenizer.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -65,8 +66,14 @@ function test(name, fn) {
 // Real BPE counting, in THIS process — the packaged artifact under test
 // deliberately runs where js-tiktoken cannot resolve, but the judge of its
 // output must not be the estimator the artifact itself falls back to.
-const { encodingForModel } = await import('js-tiktoken');
-const encoder = encodingForModel('gpt-4o');
+// This suite has two halves with opposite requirements: one runs the packaged
+// artifact where the tokenizer must be ABSENT, and judges its output from
+// here, where the tokenizer must be PRESENT. Without it there is no honest
+// judge, so the whole suite skips rather than grade itself with the estimator.
+const encoder = await loadEncoder();
+if (!encoder) {
+  skipSuite('npm-pack-smoke', 'js-tiktoken not installed; the packaged artifact could only be judged by the estimator it is meant to outrank');
+}
 const countTokens = (text) => (text ? encoder.encode(text).length : 0);
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glyph-npm-pack-smoke-'));

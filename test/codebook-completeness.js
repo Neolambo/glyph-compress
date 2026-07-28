@@ -91,18 +91,22 @@ test('Every DOMAIN_GLYPHS value used as a file-ref prefix is documented', () => 
 
 test('Dynamic dictionary glyphs from compressText() are documented via getCodebookPrompt()', () => {
   const gc = new GlyphCompressor({ level: 'standard', provider: 'raw' });
-  // Repeated eight times, not four, and AuthenticationManager is gone.
-  // Since v1.33.8 dictionary admission is priced in real tokens: an entry has
-  // to save more than it costs to define. RateLimiterService and
-  // AuditTrailRecorder are 3 tokens against a 2-token §N glyph, so each
-  // occurrence saves 1 and the definition costs ~6 — seven occurrences is the
-  // break-even. AuthenticationManager measures at 2 tokens and can never
-  // qualify: substituting it would cost exactly as much as leaving it.
+  // Dictionary admission is priced in tokens, and there are two pricings: the
+  // real count when js-tiktoken is installed, and a conservative chars/8 rule
+  // when it is not. These identifiers are long enough and repeated often
+  // enough to be admitted under both.
+  //
+  // Earlier fixtures cleared only the first. `AuthenticationManager` is 2 real
+  // tokens against a 2-token §N glyph and can never pay; `RateLimiterService`
+  // is 3 and pays only with the tokenizer present — so this test passed in
+  // development and produced an empty dictionary in the shipped
+  // configuration, which the no-optional CI job now catches.
   const paragraph = `
-    The RateLimiterService throttles RateLimiterService requests, and the
-    RateLimiterService logs every RateLimiterService decision to the AuditTrailRecorder,
-    which the AuditTrailRecorder later replays for the AuditTrailRecorder compliance report.
-  `.repeat(3);
+    The RateLimiterServiceCoordinatorRegistry throttles RateLimiterServiceCoordinatorRegistry requests, and
+    the RateLimiterServiceCoordinatorRegistry logs every RateLimiterServiceCoordinatorRegistry decision to
+    the AuditTrailRecorderRegistryService, which the AuditTrailRecorderRegistryService later replays for
+    the AuditTrailRecorderRegistryService compliance report.
+  `.repeat(4);
   const r = gc.compressText(paragraph);
   const dynGlyphsUsed = [...r.compressed.matchAll(/§\d+/g)].map((m) => m[0]);
   assert(dynGlyphsUsed.length > 0, 'fixture should trigger the dynamic dictionary');
@@ -118,8 +122,8 @@ test('Dynamic dictionary glyphs from compressMessages() are documented in the in
   // codebook-skip threshold — a short message legitimately falls back to
   // the original text (see the adaptive fallback covered elsewhere), which
   // would make this fixture vacuously pass for the wrong reason.
-  const clause = (n) => `OrderReconciliationWorker instance ${n} retried the OrderReconciliationWorker job queue while `
-    + `PaymentSettlementGateway and PaymentSettlementGateway confirmed the PaymentSettlementGateway ledger entry.`;
+  const clause = (n) => `OrderReconciliationWorkerRegistryService instance ${n} retried the OrderReconciliationWorkerRegistryService job queue while `
+    + `PaymentSettlementGatewayCoordinatorService and PaymentSettlementGatewayCoordinatorService confirmed the PaymentSettlementGatewayCoordinatorService ledger entry.`;
   // Sixteen clauses, not six. The threshold this fixture has to clear became a
   // real-token one in v1.33.8 rather than a character one, and six clauses of
   // English prose no longer reach it — long phrases are already close to
