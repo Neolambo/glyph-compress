@@ -10,36 +10,35 @@
  * GlyphCompress — the cost of re-sending a file the model has already read
  *
  * Run with:  npm run measure:differential
+ * On your own code:  npx glyph-compress measure <file> --turns 10
  *
- * Every other measurement in this repository attaches the file once. This one
- * attaches it on *every* turn, because that is what an IDE actually does: open
- * files are re-serialised into each request, unchanged, for the whole session.
- * The duplication is inside a single request, so an earlier copy is redundant
- * with a later one the model can already see — which is what makes eliding it
- * safe, and what `_elideRepeatedBlocks` does.
+ * Every other measurement in this repository attaches the file once, which is
+ * the one case where there is nothing to elide. This one re-attaches it on
+ * every turn, the way an IDE actually serialises open files. The duplication
+ * sits inside a single request, so an earlier copy is redundant with a later
+ * one the model can already see — which is what makes eliding it safe, and
+ * what `_elideRepeatedBlocks` does.
  *
- * The number this reports is not a compression ratio. Nothing here is
- * compressed: the file is transmitted once instead of ten times, and the
- * savings come entirely from bytes that were never sent. That is the point of
- * running it — the largest wins in this project come from not sending things,
- * not from making things smaller.
+ * What comes back is not a compression ratio. Nothing here is compressed to
+ * get it: the file is transmitted once instead of ten times, and the savings
+ * are bytes that were never sent. That is the point of running it — the
+ * largest wins in this project come from not sending things.
  *
- * Two columns, because they answer different questions. "Tokens sent" is what
- * leaves the machine, provider-neutral. "Billed with cache" prices those
- * tokens the way a provider with a prefix cache actually charges for them, and
- * can move in the opposite direction: re-compressing history every turn
- * changes bytes a cache was matching on, and a destroyed prefix costs more
- * than the compression saved. Both are measured with js-tiktoken.
+ * The measurement itself lives in src/session-measure.js, shared with the
+ * `measure` CLI command, so the number this prints and the number a user gets
+ * on their own repository come from the same code. Two copies of a
+ * measurement eventually disagree, and this project has already shipped a test
+ * that re-derived a formula instead of calling it and passed against a
+ * mutation as a result.
  */
-import { encodingForModel } from 'js-tiktoken';
-import { GlyphCompressor } from '../src/glyph-middleware.js';
+import { measureSession } from '../src/session-measure.js';
+import { hasRealTokenizer } from '../src/real-token-counter.js';
 
-// OpenAI bills cached input at 0.5x. Gemini implicit caching is ~0.25x, so the
-// same prefix loss costs more there, not less.
-const CACHED_INPUT_RATE = 0.5;
-
-const enc = encodingForModel('gpt-4o');
-const tokens = (text) => (text ? enc.encode(text).length : 0);
+if (!hasRealTokenizer()) {
+  console.error('js-tiktoken is not installed, so this would report estimates rather than');
+  console.error('measurements. Install it and re-run:  npm install js-tiktoken');
+  process.exit(1);
+}
 
 /** Identifier-repetitive source, the shape an IDE keeps re-attaching. */
 const ATTACHED_FILE = 'export class PaymentGateway {\n'
@@ -49,83 +48,21 @@ const ATTACHED_FILE = 'export class PaymentGateway {\n'
     + '    return this.submit(validated, currency);\n  }').join('\n')
   + '\n}';
 
-/**
- * A session where the open file rides along on every user turn — the case the
- * other scripts deliberately exclude.
- */
-function buildSession(userTurns) {
-  const turns = [];
-  for (let i = 0; i < userTurns; i++) {
-    turns.push({
-      role: 'user',
-      content: `Question ${i}: does processTransaction${i} stay idempotent across a currency mismatch?\n`
-        + '```js\n' + ATTACHED_FILE + '\n```',
-    });
-    turns.push({
-      role: 'assistant',
-      content: `For ${i}: validate() throws before submit(), so the retry wrapper never observes it.`,
-    });
-  }
-  return turns;
-}
-
-const textOf = (message) => (typeof message.content === 'string'
-  ? message.content
-  : (Array.isArray(message.content) ? message.content.map((b) => b.text || '').join('') : ''));
-
-/** Serialise the way a provider sees it: role and content, in order. */
-const wire = (messages) => messages.map((m) => `${m.role}:${textOf(m)}`).join('\n');
-
-function commonPrefixLength(a, b) {
-  const limit = Math.min(a.length, b.length);
-  let i = 0;
-  while (i < limit && a[i] === b[i]) i++;
-  return i;
-}
-
-function runSession(userTurns, compress, provider) {
-  const turns = buildSession(userTurns);
-  const compressor = compress ? new GlyphCompressor({ level: 'standard', provider }) : null;
-  let previous = null;
-  let billed = 0;
-  let sent = 0;
-  let breaks = 0;
-
-  for (let turn = 0; turn < turns.length; turn += 2) {
-    const slice = turns.slice(0, turn + 1).map((m) => ({ ...m }));
-    const payload = compress ? compressor.compressMessages(slice, provider).messages : slice;
-    const text = wire(payload);
-
-    const shared = previous === null ? 0 : commonPrefixLength(previous, text);
-    // A prefix that no longer covers what the previous request established has
-    // been broken, and everything after it is billed fresh again.
-    if (previous !== null && shared < previous.length * 0.995) breaks++;
-
-    const cached = tokens(text.slice(0, shared));
-    const fresh = tokens(text) - cached;
-    billed += cached * CACHED_INPUT_RATE + fresh;
-    sent += tokens(text);
-    previous = text;
-  }
-
-  return { billed, sent, breaks, requests: Math.ceil(turns.length / 2) };
-}
-
 const sign = (n) => (n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1));
+const pad = (n, w) => String(n).padStart(w);
 
 console.log('Re-attached file, cumulative over the session (js-tiktoken, gpt-4o encoding)\n');
+
 for (const provider of ['openai', 'anthropic']) {
-  console.log(`${provider} — cached input priced at ${CACHED_INPUT_RATE}x`);
+  const first = measureSession({ text: ATTACHED_FILE, turns: 2, provider });
+  console.log(`${provider} — cached input priced at ${first.cachedRate}x`);
   console.log('  re-attachments | tokens sent (raw -> glyph) | billed with cache (raw -> glyph) | prefix breaks');
-  for (const userTurns of [2, 5, 10, 20]) {
-    const raw = runSession(userTurns, false, provider);
-    const glyph = runSession(userTurns, true, provider);
-    const sentDelta = ((glyph.sent - raw.sent) / raw.sent) * 100;
-    const billedDelta = ((glyph.billed - raw.billed) / raw.billed) * 100;
+  for (const turns of [2, 5, 10, 20]) {
+    const r = measureSession({ text: ATTACHED_FILE, turns, provider });
     console.log(
-      `  ${String(userTurns).padStart(14)} | ${String(raw.sent).padStart(6)} -> ${String(glyph.sent).padStart(6)} (${sign(sentDelta).padStart(6)}%)`
-      + ` | ${String(Math.round(raw.billed)).padStart(6)} -> ${String(Math.round(glyph.billed)).padStart(6)} (${sign(billedDelta).padStart(6)}%)`
-      + ` | ${glyph.breaks}/${glyph.requests - 1} vs ${raw.breaks}/${raw.requests - 1}`,
+      `  ${pad(turns, 14)} | ${pad(r.raw.sent, 6)} -> ${pad(r.glyph.sent, 6)} (${pad(sign(r.sentDeltaPct), 6)}%)`
+      + ` | ${pad(r.raw.billed, 6)} -> ${pad(r.glyph.billed, 6)} (${pad(sign(r.billedDeltaPct), 6)}%)`
+      + ` | ${r.glyph.prefixBreaks}/${r.raw.requests - 1} vs ${r.raw.prefixBreaks}/${r.raw.requests - 1}`,
     );
   }
   console.log('');
@@ -135,3 +72,5 @@ console.log('Negative percentages are savings. The savings here are not compress
 console.log('transmitted once and referred to afterwards, so what disappears is repetition, not');
 console.log('detail. Compare against `npm run measure:implicit-cache`, where the same file is');
 console.log('attached only once and there is nothing to elide.');
+console.log('\nRun it on your own code — the numbers above are one synthetic fixture:');
+console.log('  npx glyph-compress measure path/to/your/file.ts --turns 10');

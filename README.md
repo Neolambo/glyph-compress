@@ -16,7 +16,7 @@
   <strong>Cut the tokens an IDE↔LLM session actually gets billed for — CLI, VS Code extension, and MCP server, measured against real provider tokenizers rather than a character count.</strong>
 </p>
 <p align="center">
-  <strong>−76.7%</strong> billed on a 10-turn session that re-attaches the same file (<code>npm run measure:differential</code>), because the file is sent once instead of ten times. Compression of the content itself is a separate and smaller <strong>~22%</strong> (<code>npm run benchmark</code>). Both figures are printed by commands in this repository; neither is a best case pulled from a favourable file.
+  <strong>−78.5%</strong> billed on a 10-turn session that re-attaches the same file (<code>npm run measure:differential</code>, or <code>npx glyph-compress measure &lt;your-file&gt;</code> to run it on your own code), because the file is sent once instead of ten times. Compression of the content itself is a separate and smaller <strong>~22%</strong> (<code>npm run benchmark</code>). Both figures are printed by commands in this repository; neither is a best case pulled from a favourable file.
 </p>
 
 <p align="center">
@@ -86,7 +86,7 @@ The reason is in the problem above: the same file is re-attached on every turn, 
 
 | What it does | Session effect | Reproduce |
 | --- | --- | --- |
-| **Send a re-attached file once**, then refer back to it | **−78.5% tokens sent, −76.7% billed** at 10 re-attachments (OpenAI; −80.9% / −77.5% Anthropic) | `npm run measure:differential` |
+| **Send a re-attached file once**, then refer back to it | **−78.7% tokens sent, −78.5% billed** at 10 re-attachments (OpenAI; −81.1% / −80.7% Anthropic) | `npm run measure:differential` |
 | **Put the cache breakpoint where the prefix ends**, not on the biggest block | **−32.9%** effective cost at 42 turns, and it grows with session length | `npm run measure:cache` |
 | **Compress the content itself** (comment/whitespace removal, structural summaries, repeated-word dictionary) | **~22%** aggregate, ~26% on real source at `ultra` | `npm run benchmark` |
 
@@ -94,15 +94,21 @@ Compression is the third row, and it is the one everyone reaches for first.
 
 The glyph substitution this project is named after belongs even further down: measured against real tokenizers it **costs** 5.8 to 10.5 percentage points of savings on real files rather than adding any, because BPE already gives ordinary words short encodings while `◈₍1₎` is several tokens. It is gated off by a rule that refuses any transformation that would send more tokens than it received. The tool keeps the name and drops the technique where the measurement says to.
 
-What that looks like turn by turn, one file re-attached each time (real `js-tiktoken` counts, `standard`, OpenAI):
+These are one synthetic fixture, which is exactly the limitation of every published compression figure. Run it on your own code and get your own number:
+
+```bash
+npx glyph-compress measure src/your-largest-file.ts --turns 10
+```
+
+What the shape looks like turn by turn, one file re-attached each time (real `js-tiktoken` counts, `standard`, OpenAI):
 
 ```
   turn    raw      GlyphCompress
-     1   3,509 →   3,509     ← unchanged: nothing repeats yet, so the guard sends the original
-     2   7,039 →   4,022
-     4  14,099 →   4,143
-     6  21,159 →   4,249
-     8  28,219 →   4,355     ← −84.6%
+     1   3,499 →   3,499     ← unchanged: nothing repeats yet, so the guard sends the original
+     2   7,020 →   4,003
+     4  14,062 →   4,095
+     6  21,104 →   4,187
+     8  28,146 →   4,279     ← −84.8%
 ```
 
 The raw column grows linearly because every turn carries the whole file again. The right-hand column is close to flat: after turn 1 the file is a reference, and what still grows is only the conversation. Turn 1 being identical is the point of the guard, not a gap in it — with nothing repeated yet there is nothing to win, so nothing is risked.
@@ -283,7 +289,7 @@ Compression benchmarks answer "how much smaller is this payload". They cannot an
 
 | Command | Measures | Result |
 |---|---|---|
-| `npm run measure:differential` | A file re-attached on every turn, as an IDE does | 10 re-attachments: 193,940 → 41,722 tokens sent (**−78.5%**), 114,610 → 26,656 billed with implicit caching (**−76.7%**), OpenAI. Anthropic **−80.9% / −77.5%**. |
+| `npm run measure:differential` | A file re-attached on every turn, as an IDE does | 10 re-attachments: 193,435 → 41,182 tokens sent (**−78.7%**), 114,312 → 24,526 billed with implicit caching (**−78.5%**), OpenAI. Anthropic **−81.1% / −80.7%**. |
 | `npm run measure:cache` | Where the Anthropic `cache_control` breakpoint lands | 42 turns: prefix coverage 82% → 100%, full-price tokens 9,059 → 0, effective cost **−32.9%**. Worst short-session case **+0.2%** at 4 turns. |
 | `npm run measure:implicit-cache` | The other side of the trade — compression that breaks a byte prefix costs more than it saves | Reports tokens removed and cache destroyed as two separate columns, so they cannot be netted against each other by accident. |
 
@@ -379,6 +385,7 @@ npx glyph-compress [file|command] [options]
 | `inspect [query]` | Build `.glyphcompress/codebook.json`, detect intent, and rank relevant workspace files. | `npx glyph-compress inspect "fix auth error"` |
 | `doctor` | Check repository readiness plus optional local checks for installed extension version, Glyph settings, proxy config, and provider credentials. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
+| `measure <file>` *(v1.36.0+)* | Measure what a session costs **on your own file**: simulate an IDE re-attaching it every turn and report tokens sent and tokens billed, raw vs compressed. Every other figure in this README comes from one codebase; this is how you get yours. | `npx glyph-compress measure src/app.ts --turns 10` |
 | `route <query>` *(v1.17.0+)* | Context Router: rank workspace files relevant to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
 | `team-codebook show` *(v1.18.0+)* | Print the shared team codebook (`glyphcompress.team.json`), if any. | `npx glyph-compress team-codebook show` |
 | `team-codebook sync` *(v1.18.0+)* | Promote this machine's locally-learned dynamic dictionary into `glyphcompress.team.json` for the whole team. | `npx glyph-compress team-codebook sync` |
@@ -400,6 +407,7 @@ npx glyph-compress [file|command] [options]
 | `--intents` | flag | Enable generative intent diffs compression for code changes. | `npx glyph-compress --intents` |
 | `--budget <tokens>` | integer | Token budget for the `route` command. Default: `2000`. | `npx glyph-compress route "fix the bug" --budget 3000` |
 | `--max-files <n>` | integer | Max candidate files to rank for the `route` command. Default: `8`. | `npx glyph-compress route "fix the bug" --max-files 12` |
+| `--turns <n>` | integer | Turns to simulate for the `measure` command. Default: `10`. Fewer than 2 is rejected — with one turn nothing has repeated yet. | `npx glyph-compress measure src/app.ts --turns 20` |
 | `--git-diff-only` | flag | Restrict `route` to git staged/unstaged files only, for "review what I changed" workflows. | `npx glyph-compress route "review my changes" --git-diff-only` |
 | `--json` | flag | Print machine-readable JSON for supported commands such as `inspect`, `doctor`, and `route`. | `npx glyph-compress inspect "review diff" --json` |
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. Default port: `8080`. | `npx glyph-compress --proxy 8080` |

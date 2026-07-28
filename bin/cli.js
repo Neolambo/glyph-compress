@@ -16,6 +16,7 @@
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { buildWorkspaceCodebook, saveWorkspaceCodebook, selectRelevantFiles, runDoctor } from '../src/workspace-intelligence.js';
 import { loadTeamCodebook, mergeTeamCodebook, readLocalDynamicDictWords, teamCodebookPath } from '../src/team-codebook.js';
+import { measureSession } from '../src/session-measure.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -45,13 +46,14 @@ let tokenBudget = 2000;
 // the Context Budget Planner when they explicitly did.
 let budgetSet = false;
 let maxFiles = 8;
+let sessionTurns = 10;
 let gitDiffOnly = false;
 let logFile = null;
 
 // Simple argument parser
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
-  if (!command && ['inspect', 'doctor', 'benchmark', 'route', 'team-codebook', 'mcp'].includes(arg)) {
+  if (!command && ['inspect', 'doctor', 'benchmark', 'measure', 'route', 'team-codebook', 'mcp'].includes(arg)) {
     command = arg;
   } else if (arg === '--level' || arg === '-l') {
     level = args[++i];
@@ -64,6 +66,8 @@ for (let i = 0; i < args.length; i++) {
     budgetSet = true;
   } else if (arg === '--max-files') {
     maxFiles = parseInt(args[++i], 10) || maxFiles;
+  } else if (arg === '--turns') {
+    sessionTurns = parseInt(args[++i], 10) || sessionTurns;
   } else if (arg === '--git-diff-only') {
     gitDiffOnly = true;
   } else if (arg === '--source-map') {
@@ -101,6 +105,9 @@ Commands:
   inspect [query]       Build .glyphcompress/codebook.json and rank relevant files
   doctor                Check repository readiness for GlyphCompress workflows
   benchmark             Run the repository benchmark script
+  measure <file>        Measure what a session costs on YOUR file: simulate an IDE
+                        re-attaching it every turn and report tokens sent and tokens
+                        billed, raw vs compressed (see --turns)
   route <query>         Rank relevant workspace files for a query and compress as many
                         as fit inside a token budget (Context Router, v1.17.0)
   team-codebook show    Print the shared team codebook (glyphcompress.team.json), if any
@@ -118,6 +125,7 @@ Options:
                         escalate light→standard→aggressive→ultra and use the lightest
                         level whose payload (codebook included) fits the budget.
   --max-files <n>       Max candidate files to rank for the 'route' command (default: 8)
+  --turns <n>           Turns to simulate for the 'measure' command (default: 10)
   --git-diff-only       Restrict 'route' to git staged/unstaged files ("review what I changed")
   --source-map          Print the reversible source map JSON
   --privacy             Redact secrets and sensitive identifiers before compression
@@ -405,6 +413,54 @@ function runCommand(command, args, { jsonOutput, level, provider, trustPolicy, t
       console.log(report.ok ? 'Repository looks ready.' : 'Repository needs attention.');
     }
     process.exit(report.ok ? 0 : 1);
+  }
+
+  if (command === 'measure') {
+    if (!fileToCompress) {
+      console.error('Error: measure needs a file. Usage: glyph-compress measure <file> [--turns 10] [--provider openai]');
+      process.exit(1);
+    }
+    if (!fs.existsSync(fileToCompress)) {
+      console.error(`Error: file not found: ${fileToCompress}`);
+      process.exit(1);
+    }
+
+    const text = fs.readFileSync(fileToCompress, 'utf8');
+    const ext = path.extname(fileToCompress).replace('.', '') || 'txt';
+    let result;
+    try {
+      result = measureSession({
+        text,
+        turns: sessionTurns,
+        provider: providerSet ? provider : 'openai',
+        language: ext,
+      });
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+      process.exit(1);
+    }
+
+    if (jsonOutput) {
+      console.log(JSON.stringify({ file: fileToCompress, ...result }, null, 2));
+      process.exit(0);
+    }
+
+    const pct = (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`;
+    console.log(`\nSession cost for ${fileToCompress}`);
+    console.log(`${result.turns} turns, re-attached every turn, provider ${result.provider}, cached input at ${result.cachedRate}x`);
+    console.log('----------------------------------------------------');
+    console.log(`Tokens sent      ${String(result.raw.sent).padStart(9)} -> ${String(result.glyph.sent).padStart(9)}   ${pct(result.sentDeltaPct)}`);
+    console.log(`Billed w/ cache  ${String(result.raw.billed).padStart(9)} -> ${String(result.glyph.billed).padStart(9)}   ${pct(result.billedDeltaPct)}`);
+    console.log(`Prefix breaks    ${String(result.raw.prefixBreaks).padStart(9)} -> ${String(result.glyph.prefixBreaks).padStart(9)}   out of ${result.raw.requests - 1}`);
+    console.log('----------------------------------------------------');
+    console.log('Negative is cheaper. "Sent" is what leaves your machine; "billed" prices it');
+    console.log('after the provider matches the repeated prefix, and the two can disagree —');
+    console.log('a prefix broken by re-compression can cost more than the compression saved.');
+    if (!result.exact) {
+      console.log('\nNOTE: js-tiktoken is not installed, so these are ESTIMATES, not real token');
+      console.log('counts. Install it for exact numbers:  npm install js-tiktoken');
+    }
+    process.exit(0);
   }
 
   if (command === 'benchmark') {
