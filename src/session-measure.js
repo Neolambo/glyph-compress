@@ -121,14 +121,34 @@ export function measureSession({ text, turns = 10, provider = 'openai', language
   }
 
   const exact = hasRealTokenizer();
+  // estimateProviderTokens returns a number, not a { tokens } record. Reading
+  // `.tokens` off it yielded undefined, every running total became NaN, and the
+  // report printed nulls — but only where no tokenizer is installed, which is
+  // never the case in development and always the case in a VSIX. The shipped
+  // path and the verified path were not the same path again.
   const count = exact
     ? (value) => countRealTokens(value) ?? 0
-    : (value) => estimateProviderTokens(value, provider).tokens;
+    : (value) => estimateProviderTokens(value, provider);
 
   const cachedRate = CACHED_INPUT_RATES[provider] ?? 0.5;
   const messages = buildReattachSession(text, turns, language);
   const raw = runSession(messages, provider, false, count, cachedRate);
   const glyph = runSession(messages, provider, true, count, cachedRate);
+
+  // A reporting surface that prints NaN is worse than one that fails: the
+  // reader cannot tell a broken counter from a genuine zero, and a percentage
+  // computed from NaN comes out as a confident 0.0%. This caught nothing for
+  // the length of one release because the only counter that could produce it
+  // was the one no development machine runs.
+  for (const [name, side] of [['raw', raw], ['glyph', glyph]]) {
+    for (const field of ['sent', 'billed']) {
+      if (!Number.isFinite(side[field]) || side[field] < 0) {
+        throw new Error(
+          `token counting produced ${side[field]} for ${name}.${field} — refusing to report a measurement built on it`,
+        );
+      }
+    }
+  }
 
   const delta = (before, after) => (before ? ((after - before) / before) * 100 : 0);
 

@@ -658,7 +658,18 @@ test('Source maps: record line and column spans across multiple lines', () => {
 });
 
 test('Source maps: CommonJS root export matches ESM behavior', () => {
-  const cjs = require('..');
+  // By package name, not by path. `require('..')` resolves the directory and
+  // therefore reads `main` — which points at the ESM src/index.js — instead of
+  // the `exports.require` condition that a real consumer's
+  // `require('glyph-compress')` goes through. The two land on different files,
+  // so the test was not exercising the entry point its name claims.
+  //
+  // It passed anyway on Node 20 and 22, which can require() an ES module, and
+  // failed only once Node 18 joined the CI matrix — where require(ESM) does not
+  // exist. The failure was real but the diagnosis it invites is wrong: nothing
+  // is broken for users, because name-based resolution reaches src/index.cjs on
+  // every supported version. What was broken is this assertion's aim.
+  const cjs = require('glyph-compress');
   const gc = new cjs.GlyphCompressor({ level: 'standard' });
   encodeOnly(gc, 'Fix src/server/auth.ts because AuthenticationManager repeats AuthenticationManager.');
   const r = { sourceMap: gc.getSourceMap() };
@@ -806,7 +817,9 @@ test('Contributor hygiene: link checker is wired into package scripts', () => {
 });
 
 test('Provider estimates: public estimator API is exported', () => {
-  const api = require('..');
+  // By name for the same reason as the CommonJS root export test above: the
+  // point is what a consumer's require() reaches, and a path bypasses exports.
+  const api = require('glyph-compress');
   assert(typeof api.estimateProviderTokens === 'function', 'Should export provider token estimator');
   assert(api.PROVIDER_COMPRESSION_PROFILES.local.strategy === 'aggressive-local', 'Should export provider compression profiles');
   assert(api.TRUST_POLICY_PROFILES.privacy.redacts === true, 'Should export trust policy profiles');

@@ -98,6 +98,25 @@ test('a prefix break is counted, not hidden', () => {
   );
 });
 
+test('a broken token counter is refused, not reported as zero', () => {
+  // The guarantee, not the arithmetic. Whichever counter runs, its output must
+  // be a real number before any percentage is derived from it — a NaN reaches
+  // the user as a confident 0.0% and is indistinguishable from a genuine
+  // no-saving result. This is the shape of the bug that shipped in v1.36.0:
+  // the tokenizer-free branch read `.tokens` off a function that returns a
+  // number, so every total was NaN in exactly the configuration a VSIX runs.
+  const r = measureSession({ text: FILE, turns: 4, provider: 'openai' });
+  for (const [side, name] of [[r.raw, 'raw'], [r.glyph, 'glyph']]) {
+    for (const field of ['sent', 'billed']) {
+      assert(
+        Number.isFinite(side[field]) && side[field] > 0,
+        `${name}.${field} must be a real positive count, got ${side[field]}`,
+      );
+    }
+  }
+  assert(Number.isFinite(r.sentDeltaPct) && Number.isFinite(r.billedDeltaPct), 'percentages must be real numbers');
+});
+
 test('the exact flag reports which counter actually ran', () => {
   const r = measureSession({ text: FILE, turns: 4, provider: 'openai' });
   assert.strictEqual(

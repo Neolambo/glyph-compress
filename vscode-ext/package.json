@@ -162,7 +162,7 @@
   "scripts": {
     "test": "node ../test/integration.js"
   },
-  "dependencies": {
-    "@types/vscode": "^1.116.0"
+  "devDependencies": {
+    "@types/vscode": "^1.85.0"
   }
 }
