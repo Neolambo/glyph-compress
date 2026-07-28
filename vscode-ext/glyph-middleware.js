@@ -26,7 +26,7 @@ import os from 'node:os';
 import { estimateProviderTokens, normalizeProvider, estimateGlyphTokenCost, PROVIDER_TOKEN_PROFILES } from '../src/token-estimator.js';
 import { routeContext, recordFileUsage } from '../src/workspace-intelligence.js';
 import { loadTeamCodebook } from '../src/team-codebook.js';
-import { countWordTokens, countGlyphTokens, countRealTokens } from '../src/real-token-counter.js';
+import { countWordTokens, countGlyphTokens, countRealTokens, conservativeWordTokens } from '../src/real-token-counter.js';
 import { availableCodewords } from '../src/codeword-vocabulary.js';
 
 // ═══════════════════════════════════════════════════════════
@@ -2253,7 +2253,7 @@ class GlyphCompressor {
     // ~113 tokens).
     const wordTokensOf = (word) => {
       const real = countWordTokens(word);
-      return real != null ? real : Math.max(1, Math.floor(word.length / 8));
+      return real != null ? real : conservativeWordTokens(word);
     };
 
     const savings = [...counts.entries()].map(([word, freq]) => {

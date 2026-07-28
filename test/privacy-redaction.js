@@ -226,6 +226,46 @@ for (const entry of ['compressText', 'compressMessages']) {
   });
 }
 
+
+// A dictionary entry must repay the cost of its own definition.
+//
+// Every substitution saves (wordTokens - glyphCost) per occurrence, but the
+// entry also ships a `word=CODE` line in the codebook, paid once. An entry
+// whose occurrences do not cover that line is a net loss dressed up as a
+// saving — and the admission rule exists to prevent exactly that.
+//
+// Found by mutation testing: zeroing definitionCost admitted words that never
+// repay it — a 3-token word seen twice goes from -4 to +2, a 4-token word seen
+// twice from -3 to +4 — and the entire suite stayed green. Nothing asserted
+// the amortisation half of the economics.
+test('a word that cannot repay its own codebook definition is rejected', () => {
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+  // Chosen by measurement, not by looking long. `ReconciliationWorkerRegistry`
+  // is 4 real tokens: at two occurrences it saves 2x(4-2)=4 against a
+  // definition costing 7, so it is a net loss of 3. A first attempt used a
+  // 35-character name that measures at 8 tokens, where two occurrences DO
+  // repay — the test asserted something false because the fixture was picked
+  // for its length rather than its cost.
+  const word = 'ReconciliationWorkerRegistry';
+  gc.compressText(`${word} appears here, and ${word} appears once more.`);
+  assert(
+    !gc.dynamicDict.has(word),
+    'a word seen twice was given an entry although its occurrences cannot repay the codebook line defining it',
+  );
+});
+
+test('the same word repeated enough IS admitted, so the rule is amortisation and not a length ban', () => {
+  // The control. Without it the assertion above would also pass if entries
+  // were rejected for being long, or rejected outright.
+  const gc = new GlyphCompressor({ level: 'standard', provider: 'openai' });
+  const word = 'ReconciliationWorkerRegistry';
+  gc.compressText(`${word} `.repeat(14).trim() + '.');
+  assert(
+    gc.dynamicDict.has(word),
+    'the same word repeated 14 times was still rejected — the rule is banning length, not enforcing amortisation',
+  );
+});
+
 console.log(`\nprivacy-redaction: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exitCode = 1;

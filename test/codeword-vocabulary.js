@@ -22,6 +22,7 @@
 import assert from 'assert';
 import { readFileSync } from 'fs';
 import { CODEWORD_VOCABULARY, availableCodewords } from '../src/codeword-vocabulary.js';
+import { conservativeWordTokens } from '../src/real-token-counter.js';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
 import { loadEncoder, skipSuite } from './helpers/optional-tokenizer.js';
 
@@ -183,6 +184,46 @@ test('an explicit option survives a per-call provider change', () => {
     true,
     'an explicit choice must not be silently overwritten by a provider default',
   );
+});
+
+
+// The conservative fallback must never OVER-estimate a word's token cost.
+//
+// Without js-tiktoken, admission prices a word at floor(length / 8). That
+// divisor is the entire safety margin behind the never-inflate guarantee in
+// the shipped configuration: over-estimating the word being replaced makes a
+// substitution look profitable when it is not, which is precisely how a
+// payload grows. Under-estimating only forfeits savings.
+//
+// Found by mutation testing: changing the divisor from 8 to 4 — doubling every
+// estimate — was caught by nothing, in either configuration. The property is
+// checkable here, where the real counts are available.
+test('the tokenizer-free estimate never exceeds the real token cost', () => {
+  const source = readFileSync(new URL('../vscode-ext/glyph-middleware.js', import.meta.url), 'utf8')
+    + readFileSync(new URL('../src/workspace-intelligence.js', import.meta.url), 'utf8');
+  const identifiers = [...new Set(source.match(/[A-Za-z_][A-Za-z0-9_]{2,}/g) || [])];
+  assert(identifiers.length > 500, `expected a substantial corpus, got ${identifiers.length}`);
+
+  const overEstimates = identifiers
+    .map((word) => ({ word, guess: conservativeWordTokens(word), real: tokens(` ${word}`) }))
+    .filter((entry) => entry.guess > entry.real);
+
+  assert.strictEqual(
+    overEstimates.length,
+    0,
+    `the fallback over-estimated ${overEstimates.length} of ${identifiers.length} identifiers, which lets losing substitutions through: ${JSON.stringify(overEstimates.slice(0, 5))}`,
+  );
+});
+
+test('the tokenizer-free estimate is not so low that it rejects everything', () => {
+  // The control. An estimate of always-1 would satisfy the assertion above
+  // perfectly and disable the dictionary entirely, which is safe and useless.
+  for (const word of ['ReconciliationWorkerRegistryService', 'PaymentSettlementGatewayCoordinator']) {
+    assert(
+      conservativeWordTokens(word) > 2,
+      `${word} (${word.length} chars) must still clear the 2-token codeword bar under the fallback, or nothing ever qualifies`,
+    );
+  }
 });
 
 console.log(`\ncodeword-vocabulary: ${passed} passed, ${failed} failed`);

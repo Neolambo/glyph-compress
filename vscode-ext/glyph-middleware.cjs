@@ -1855,7 +1855,7 @@ ${dynLine}` : "";
     const GLYPH_TOKEN_COST = useCodewords ? 1 : (0, import_real_token_counter.countGlyphTokens)("\xA71");
     const wordTokensOf = (word) => {
       const real = (0, import_real_token_counter.countWordTokens)(word);
-      return real != null ? real : Math.max(1, Math.floor(word.length / 8));
+      return real != null ? real : (0, import_real_token_counter.conservativeWordTokens)(word);
     };
     const savings = [...counts.entries()].map(([word, freq]) => {
       const wordTokens = wordTokensOf(word);

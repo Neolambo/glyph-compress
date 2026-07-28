@@ -19,6 +19,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/real-token-counter.js
 var real_token_counter_exports = {};
 __export(real_token_counter_exports, {
+  conservativeWordTokens: () => conservativeWordTokens,
   countGlyphTokens: () => countGlyphTokens,
   countRealTokens: () => countRealTokens,
   countWordTokens: () => countWordTokens,
@@ -66,12 +67,17 @@ function countWordTokens(word) {
   if (typeof word !== "string" || word.length === 0) return 0;
   return countRealTokens(` ${word}`);
 }
+function conservativeWordTokens(word) {
+  if (typeof word !== "string" || word.length === 0) return 0;
+  return Math.max(1, Math.floor(word.length / 8));
+}
 function countGlyphTokens(glyph) {
   const measured = countRealTokens(` ${glyph}`);
   return measured == null ? 3 : measured;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  conservativeWordTokens,
   countGlyphTokens,
   countRealTokens,
   countWordTokens,

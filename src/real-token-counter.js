@@ -117,6 +117,29 @@ export function countWordTokens(word) {
 }
 
 /**
+ * What a word costs when there is no tokenizer to ask — the VSIX case, which
+ * ships no node_modules at all and is therefore the configuration most users
+ * actually run.
+ *
+ * The divisor is not a guess at the average token length; it is a safety
+ * margin, and it is deliberately far below the real ratio (~4 chars/token for
+ * identifiers). The asymmetry is the whole point. Dictionary admission decides
+ * whether replacing a word pays for itself, so over-estimating the word makes
+ * a losing substitution look profitable and the payload grows — the one
+ * outcome this project promises cannot happen. Under-estimating only forfeits
+ * savings, silently and safely.
+ *
+ * Kept here, exported, rather than inline at the call site: a test can only
+ * hold the margin to its promise if it can call the same function the
+ * middleware calls. Re-deriving the formula inside the test proves nothing,
+ * which mutation testing demonstrated by leaving a doubled divisor unnoticed.
+ */
+export function conservativeWordTokens(word) {
+  if (typeof word !== 'string' || word.length === 0) return 0;
+  return Math.max(1, Math.floor(word.length / 8));
+}
+
+/**
  * Token cost of a dynamic glyph in the same running-text form, so callers
  * compare like with like. `§` is non-ASCII and the digits are cheap, but the
  * total is what matters and it is not 1.
