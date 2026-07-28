@@ -18,6 +18,8 @@ npx glyph-compress [file|command] [options]
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
 | `route <query>` | Context Router: rank relevant workspace files and compress as many as fit inside a token budget. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
 | `team-codebook show` / `sync` | Team Codebook Registry: inspect or promote entries into the shared, git-committable `glyphcompress.team.json`. | `npx glyph-compress team-codebook sync` |
+| `measure <file>` | Measure what a session costs **on your own file**: simulate an IDE re-attaching it every turn and report tokens sent and tokens billed, raw against compressed. | `npx glyph-compress measure src/app.ts --turns 10` |
+| `mcp` | Start the MCP stdio server (same as `npx glyph-compress-mcp`). | `npx glyph-compress mcp` |
 
 ## Options
 
@@ -35,6 +37,14 @@ npx glyph-compress [file|command] [options]
 | `-p, --proxy [port]` | optional port | Start the Zero-Command Transparent Proxy. |
 | `--decay` | flag | Enable experimental Attentional Decay Compaction to progressively compress older chat history. |
 | `--experimental-decay` | flag | Alias for `--decay`. |
+| `--budget <tokens>` | integer | For `route`: how many tokens of file context to select. For a single file: engage the Context Budget Planner, escalating `light`→`ultra` and using the lightest level whose payload fits. |
+| `--max-files <n>` | integer | Max candidate files to rank for `route`. Default: `8`. |
+| `--turns <n>` | integer | Turns to simulate for `measure`. Default: `10`. Fewer than 2 is rejected — with one turn nothing has repeated yet. |
+| `--git-diff-only` | flag | Restrict `route` to git staged/unstaged files ("review what I changed"). |
+| `--folding` | flag | Holographic context folding for overlapping files. `--holographic-folding` is an alias. |
+| `--intents` | flag | Generative intent diffs for code changes. `--intent-diffs` is an alias. |
+| `--target <url>` | URL | Proxy upstream base URL. Default: `https://api.openai.com`. `--target-api-url` is an alias. |
+| `--log-file <path>` | path | Append structured, redacted JSONL diagnostics from the proxy to this file. |
 | `-h, --help` | flag | Show built-in CLI help. |
 
 ## Practical Examples

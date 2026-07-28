@@ -1,8 +1,8 @@
 # Welcome to the glyph-compress wiki!
 
-GlyphCompress is a semantic compression layer for IDE-to-LLM communication. It compresses repeated developer prompts, file paths, diagnostics, code blocks, provider payloads, and workspace metadata so coding assistants can receive richer context with fewer tokens.
+GlyphCompress reduces the tokens an IDE-to-LLM session is **billed** for. It works on four axes, measured separately because they are worth very different amounts: it stops re-transmitting files the model already has, places provider cache breakpoints where they cover the request, compresses the content that does need sending, and condenses old turns. The largest wins compress nothing at all — see [Benchmarks](https://github.com/Neolambo/glyph-compress#-benchmarks), and run `npx glyph-compress measure <your-file>` for the figure on your own code.
 
-Current stable release: `v1.14.0`.
+Current stable release: `v1.36.0`.
 
 ## What GlyphCompress Does
 
@@ -15,10 +15,10 @@ Current stable release: `v1.14.0`.
 
 ## Release Status
 
-- npm: `glyph-compress@1.14.0`
-- GitHub release: `v1.14.0`
+- npm: `glyph-compress@1.36.0`
+- GitHub release: `v1.36.0`
 - VS Code Marketplace id: `neolambo.glyph-compress`
-- VSIX artifact: `glyph-compress-1.14.0.vsix`
+- VSIX artifact: `glyph-compress-1.36.0.vsix`
 - Marketplace verification: `npx @vscode/vsce show Neolambo.glyph-compress`
 
 ### v1.14.0 Highlights (Attentional Decay Compaction)
@@ -36,7 +36,7 @@ Current stable release: `v1.14.0`.
 - Isolated caching keying computes SHA-256 hashes of workspace paths and working directories.
 - Auto-save cache triggers inside successful `compressText` and `compressMessages` executions.
 - ESM and CommonJS middleware compilation synchronization with full public profile and trust policy exports.
-- Passing 51/51 automated integration and snapshot tests.
+- Passing 51/51 automated integration and snapshot tests *(as of v1.13.0; the suite is now 30 registered suites — run `npm test`)*.
 
 ### v1.12.0 Highlights (Performance Engine Overhaul)
 

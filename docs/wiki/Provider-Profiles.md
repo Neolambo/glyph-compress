@@ -27,7 +27,9 @@ Provider profiles can affect:
 - Dynamic dictionary savings thresholds (`dynamicMinSavedChars` tuned per provider).
 - Dynamic dictionary entry caps (`maxDynamicEntries` tuned per provider).
 - Per-glyph breakeven checks: tech name and dictionary substitutions are individually validated to ensure net-positive token savings.
-- Codebook-skip threshold: the ~400-token protocol header is omitted when text-level savings are below 80 tokens.
+- Codebook-skip threshold: the protocol header (measured at 448 tokens) is omitted when text-level savings are below 80 tokens.
+- **The dictionary codeword form** (`codewords`), chosen per provider from comprehension checks against the live APIs rather than set globally. `anthropic` uses ordinary English words, which BPE encodes in 1 token where `§N` costs 2 — a comprehension tie and 8.2% fewer input tokens. `openai`, `gemini`, `raw` and `local` stay on `§N`: measured, Anthropic scores 3-4/4 with words while Gemini manages 1-2/4 and OpenAI 4/12, both failing the same way — they resolve the reference and then answer in the compressed vocabulary. An explicit option still overrides the profile.
+- **Whether the cache-stable codebook header is worth its cost**, which depends on the provider having a prefix cache at all. The full header is exempt from the per-call never-inflate rule only when there is assistant history *and* a provider that can cache it; `raw` and `local` have no cache to repay it, so they do not get the exemption.
 - Source map provider metadata.
 - Future provider-specific routing and trust warnings.
 
