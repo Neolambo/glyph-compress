@@ -1,3 +1,54 @@
+## v1.34.2 — Word Codewords Do Not Survive Gemini: The Experiment Stays Opt-In
+
+**Measured across two providers. `codewordDictionary` will not become the default.** The idea is sound on Anthropic and consistently fails on Gemini, and a compression scheme that only some models decode is not one to turn on for everyone.
+
+### The Result
+
+Four checks per run, roughly six runs per cell:
+
+| Provider | `§N` markers | Word codewords |
+|---|---|---|
+| Anthropic `haiku-4-5` | 3–4/4, always | 3–4/4, always |
+| Gemini `2.5-flash-lite` | 3–4/4, always | **1–2/4, never higher** |
+
+Anthropic is a tie once variance is accounted for — earlier runs suggested codewords were ahead 12/12 to 10/12, and later runs put them at 7/8, so the honest reading is that the two are indistinguishable at this sample size, with codewords costing 8.2% fewer input tokens and admitting 20 dictionary entries against 3.
+
+**Gemini is not a tie and not noise.** Six runs, never above 2/4.
+
+### Why Gemini Fails
+
+Diagnosed rather than assumed. Gemini answers `lagoon` and `dune` — which **are** the correct classes. It resolves the references and then replies in the compressed vocabulary instead of expanding back, exactly the failure v1.34.1 fixed on Anthropic by adding `OUT: decode before answering`. Anthropic obeys that instruction; Gemini does not.
+
+The plausible mechanism is placement: `v1beta generateContent` has no system role, so the codebook is prepended into the user turn, where an instruction carries less weight than in a dedicated system block.
+
+### What Was Tried
+
+Moving the instruction to the end of the preamble and making it imperative:
+
+| | Before | After |
+|---|---|---|
+| Gemini codewords | 3/12 | **6/12** |
+| Anthropic codewords | 12/12 | **9/12** |
+
+Better for one, worse for the other. **There is no single placement that serves both**, so it was reverted to the v1.34.1 form and the finding recorded instead of shipped.
+
+### The Decision
+
+`codewordDictionary` stays opt-in, and the roadmap item to make it default is closed as **rejected on evidence** rather than left open. The token argument that motivated it is still correct — an ordinary word costs 1 token where `§N` costs 2, and that moves the break-even for the majority of identifiers — but comprehension is a precondition, not a tradeable quantity. It remains available for Anthropic-only deployments, where it measures as a tie on understanding and a win on cost.
+
+### Also In This Release
+
+`test/comprehension-check-codewords.js` now runs against all three providers from one scenario and one set of checks, selected by whichever key is present:
+
+```
+GEMINI_API_KEY=...    node test/comprehension-check-codewords.js gemini --codewords
+OPENAI_API_KEY=...    node test/comprehension-check-codewords.js openai --codewords
+```
+
+OpenAI remains the one untested arm. The measured table above is recorded in the harness's own header, so the next person to run it starts from what is already known rather than re-deriving it.
+
+---
+
 ## v1.34.1 — The Codebook Never Told The Model How To Answer
 
 **Measured against Anthropic (`claude-haiku-4-5`), 12 runs: word codewords went from 8/12 comprehension checks to 12/12; `§N` markers stayed at 10/12.** The fix is one line in the codebook preamble, and it helps both modes.

@@ -98,7 +98,7 @@ AFTER (137 chars):
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1341) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1342) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -223,7 +223,20 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 ***
 
 
-### New in v1.34.1 (The codebook never told the model how to answer)
+### New in v1.34.2 (Word codewords do not survive Gemini — the experiment stays opt-in)
+
+The codeword experiment was measured across two providers, and **will not become the default**:
+
+| Provider | `§N` markers | Word codewords |
+|---|---|---|
+| Anthropic `haiku-4-5` | 3–4/4, always | 3–4/4, always |
+| Gemini `2.5-flash-lite` | 3–4/4, always | **1–2/4, never higher** |
+
+Anthropic is a tie once variance is counted, with codewords costing 8.2% fewer input tokens. Gemini is not a tie and not noise: six runs, never above 2/4. It resolves references correctly and then answers in the compressed vocabulary — `lagoon` instead of `RefundEligibilityValidator` — ignoring the codebook's instruction to expand back, plausibly because Gemini has no system role and the codebook lands in the user turn.
+
+Repositioning that instruction helped Gemini (3/12 → 6/12) and hurt Anthropic (12/12 → 9/12). No single placement serves both, so the finding was recorded rather than shipped. The token argument still holds — an ordinary word costs 1 token where `§N` costs 2 — but comprehension is a precondition, not a tradeable quantity.
+
+### Also recent (v1.34.1 — the codebook never told the model how to answer)
 
 Running the codeword comparison against Anthropic exposed a gap that affected **both** modes: on a payload large enough to fill the dictionary, the model returned the right *entities* in the wrong *vocabulary* — `§N` counted its own placeholders as extra classes, and codewords answered `lagoon` where `lagoon` genuinely **is** the correct class. Neither was a comprehension failure; the preamble simply never said to expand back on the way out.
 
@@ -349,7 +362,7 @@ v1.32.2 also corrects a **wrong level** that the bug had been hiding: decay's wa
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.34.1)
+### 📏 Benchmark Snapshot (v1.34.2)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **22% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -379,7 +392,7 @@ Use `npm run benchmark` as the stable regression benchmark and `npm run benchmar
 ## 📊 Benchmarks
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1341) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1342) below (`npm run benchmark`: **1.3x ratio, 22% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
