@@ -71,15 +71,24 @@ const asSystemBlocks = (system) => {
   return [];
 };
 
+/**
+ * Both breakpoint policies, priced side by side on the same session.
+ *
+ * `shipped` reads the cache_control markers the compressor actually emits.
+ * `legacy` reproduces what this project did before v1.33.6 — pin the
+ * breakpoint to the largest user block — by ignoring those markers and
+ * ending the prefix at the largest user block instead. Nothing else differs:
+ * same session, same compression, same prices. The comparison is the point,
+ * so it is computed here rather than asserted in a comment.
+ */
 function measure(followUpPairs) {
   const turns = buildSession(followUpPairs);
   const compressor = new GlyphCompressor({ level: 'standard', provider: 'anthropic' });
 
-  let cachedRead = 0;
-  let cachedWrite = 0;
-  let fullPrice = 0;
-  let previousPrefix = 0;
-  let lastCoverage = 0;
+  const state = {
+    shipped: { cachedRead: 0, cachedWrite: 0, fullPrice: 0, previousPrefix: 0, coverage: 0 },
+    legacy: { cachedRead: 0, cachedWrite: 0, fullPrice: 0, previousPrefix: 0, coverage: 0 },
+  };
 
   for (let turn = 0; turn < turns.length; turn += 2) {
     const payload = compressor._prepareAnthropicPayload(
@@ -87,46 +96,63 @@ function measure(followUpPairs) {
       turns.slice(0, turn + 1).map((m) => ({ ...m })),
     );
 
-    // The cached prefix runs to the last block carrying cache_control.
     let running = 0;
-    let prefix = 0;
+    let shippedPrefix = 0;
+    let largestUserBlock = 0;
+    let legacyPrefix = 0;
+
     for (const block of asSystemBlocks(payload.system)) {
       running += tokens(block.text);
-      if (block.cache_control) prefix = running;
+      // The shipped prefix runs to the last block carrying cache_control.
+      if (block.cache_control) shippedPrefix = running;
     }
     for (const message of payload.messages) {
       for (const block of asBlocks(message.content)) {
-        running += tokens(block.text);
-        if (block.cache_control) prefix = running;
+        const size = tokens(block.text);
+        running += size;
+        if (block.cache_control) shippedPrefix = running;
+        if (message.role === 'user' && size > largestUserBlock) {
+          largestUserBlock = size;
+          legacyPrefix = running;
+        }
       }
     }
 
-    // A prefix reads from cache only as far as it matches what was written
-    // before; anything beyond that is a fresh write this turn.
-    const reused = Math.min(prefix, previousPrefix);
-    cachedRead += reused;
-    cachedWrite += prefix - reused;
-    fullPrice += running - prefix;
-    previousPrefix = prefix;
-    lastCoverage = running ? prefix / running : 0;
+    for (const [policy, prefix] of [['shipped', shippedPrefix], ['legacy', legacyPrefix]]) {
+      const s = state[policy];
+      // A prefix reads from cache only as far as it matches what was written
+      // before; anything beyond that is a fresh write this turn.
+      const reused = Math.min(prefix, s.previousPrefix);
+      s.cachedRead += reused;
+      s.cachedWrite += prefix - reused;
+      s.fullPrice += running - prefix;
+      s.previousPrefix = prefix;
+      s.coverage = running ? prefix / running : 0;
+    }
   }
 
-  const cost = cachedRead * CACHE_READ_MULTIPLIER
-    + cachedWrite * CACHE_WRITE_MULTIPLIER
-    + fullPrice;
+  const priced = (s) => ({
+    coverage: s.coverage,
+    fullPrice: s.fullPrice,
+    cost: s.cachedRead * CACHE_READ_MULTIPLIER + s.cachedWrite * CACHE_WRITE_MULTIPLIER + s.fullPrice,
+  });
 
-  return { turns: turns.length, coverage: lastCoverage, cost, cachedRead, cachedWrite, fullPrice };
+  return { turns: turns.length, shipped: priced(state.shipped), legacy: priced(state.legacy) };
 }
 
 console.log('Anthropic prompt-cache coverage (write 1.25x, read 0.1x, TTL assumed not to expire)\n');
-console.log('  turns   prefix coverage   full-price tokens   effective cost');
+console.log('  turns   coverage legacy -> shipped   full-price tokens legacy -> shipped   effective cost');
 for (const pairs of [0, 1, 3, 8, 20]) {
   const r = measure(pairs);
+  const delta = r.legacy.cost ? (r.shipped.cost - r.legacy.cost) / r.legacy.cost : 0;
   console.log(
-    `  ${String(r.turns).padStart(5)}   ${(r.coverage * 100).toFixed(0).padStart(14)}%   `
-    + `${String(r.fullPrice).padStart(17)}   ${String(Math.round(r.cost)).padStart(14)}`,
+    `  ${String(r.turns).padStart(5)}   `
+    + `${`${(r.legacy.coverage * 100).toFixed(0)}% -> ${(r.shipped.coverage * 100).toFixed(0)}%`.padStart(21)}   `
+    + `${`${r.legacy.fullPrice} -> ${r.shipped.fullPrice}`.padStart(33)}   `
+    + `${`${(delta * 100).toFixed(1)}%`.padStart(13)}`,
   );
 }
 console.log('\nFull-price tokens are the ones falling outside the cached prefix — paid in full on every');
-console.log('request. Before v1.33.6 the breakpoint pinned to the largest user block, so this column');
-console.log('grew without bound as the conversation moved past it (20,763 tokens over a 42-turn session).');
+console.log('request. Pinning the breakpoint to the largest user block leaves that column growing');
+console.log('without bound as the conversation moves past it; the effective-cost column is what the');
+console.log('move to a trailing breakpoint is worth, and it grows with session length.');

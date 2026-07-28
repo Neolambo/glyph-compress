@@ -102,7 +102,8 @@
     "measure:routing": "node scripts/measure-routing.mjs",
     "measure:cache": "node scripts/measure-cache.mjs",
     "measure:implicit-cache": "node scripts/measure-implicit-cache.mjs",
-    "measure:showcase": "node scripts/measure-showcase.mjs"
+    "measure:showcase": "node scripts/measure-showcase.mjs",
+    "measure:differential": "node scripts/measure-differential.mjs"
   },
   "keywords": [
     "compression",
