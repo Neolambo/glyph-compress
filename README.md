@@ -152,7 +152,10 @@ This project reports honest numbers, not just best cases — so here's the direc
 
 ## 🔍 Realistic Session Showcase
 
-GlyphCompress includes a built-in interactive demo benchmark (`npm run demo`) simulating real-world developer tasks (React debugging, SQL optimization, Python ML pipelines, YAML config) to measure character and token reduction. 
+GlyphCompress includes a built-in interactive demo benchmark (`npm run demo`) simulating real-world developer tasks (React debugging, SQL optimization, Python ML pipelines, YAML config).
+
+> [!NOTE]
+> **The figures in this section are character counts, and they are best cases.** They show what the encoder emits on payloads chosen to suit it — not what a session gets billed, which is measured in tokens [above](#-the-solution), and not the aggregate, which is **26%**. A percentage of characters is not a percentage of your bill; that gap is the whole reason this page leads with the second number.
 
 Here is what a typical compressed session telemetry looks like:
 
