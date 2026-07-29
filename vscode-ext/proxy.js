@@ -1226,6 +1226,14 @@ function startProxyServer(port = 8080, targetApiUrl = "https://api.openai.com", 
       req.on("end", () => forwardRequest(req, res, targetApiUrl, body, structuredLogger));
     }
   });
+  server.on("error", (err) => {
+    const detail = err && err.code === "EADDRINUSE" ? `port ${port} is already in use \u2014 another GlyphProxy (or another process) is holding it. Stop it and retry, or start this one on a different port.` : err && err.message || String(err);
+    log(`[Proxy] Failed to start: ${detail}`);
+    if (typeof options.onError === "function") options.onError(err, detail);
+    else if (!server.listening) {
+      structuredLogger.error("[Proxy] No onError handler supplied; the proxy is not running.");
+    }
+  });
   server.listen(port, () => {
     log(`
 GlyphProxy is running on http://localhost:${server.address().port}`);
@@ -1260,7 +1268,10 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
     intentDiffs: Boolean(raw.intentDiffs || raw.intents || raw.compressor?.intentDiffs),
     compressor: raw.compressor || sharedCompressor || null,
     outputChannel: raw.outputChannel || outputChannel || null,
-    logFile: raw.logFile || null
+    logFile: raw.logFile || null,
+    // Called when the server cannot bind. Without it a bind failure is an
+    // uncaught async exception the caller never sees — see server.on('error').
+    onError: typeof raw.onError === "function" ? raw.onError : null
   };
 }
 var fallbackLogger = createStructuredLogger();

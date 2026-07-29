@@ -27,6 +27,41 @@ let outputChannel;
 let globalState;
 let proxyServer = null;
 
+/**
+ * Every option the compressor is constructed with, derived from settings.
+ *
+ * This exists as one function because it used to exist as two: activate() and
+ * the configuration-change listener each built the option object by hand, and
+ * the listener's copy was already missing fields. Changing any GlyphCompress
+ * setting therefore rebuilt the compressor without the price override and
+ * without provider resolution — silently undoing them until the next reload.
+ * A construction that happens twice is a construction that will drift.
+ *
+ * 'auto' is the shipped default for `provider`, and the compressor does not
+ * know what it means: normalizeProvider() falls it through to 'raw'. The proxy
+ * resolved it correctly all along via normalizeProxyOptions, so the inference
+ * is imported from there rather than restated here.
+ */
+function buildCompressorOptions(config, workspacePath) {
+  const { inferProviderFromTarget } = require('./proxy.js');
+  const configuredProvider = config.get('provider', 'auto');
+  return {
+    enabled: config.get('enabled', true),
+    level: config.get('compressionLevel', 'standard'),
+    provider: configuredProvider === 'auto'
+      ? inferProviderFromTarget(config.get('targetApiUrl', 'https://api.openai.com'))
+      : configuredProvider,
+    trustPolicy: config.get('trustPolicy', 'auto'),
+    // Unset is null here, not undefined — the compressor treats any non-finite
+    // value as "no override" and falls back to the provider rate.
+    inputPricePerMillion: config.get('inputPricePerMillion'),
+    workspacePath,
+    attentionalDecay: config.get('experimentalDecay', false),
+    holographicFolding: config.get('holographicFolding', false),
+    intentDiffs: config.get('intentDiffs', false),
+  };
+}
+
 function activate(context) {
   outputChannel = vscode.window.createOutputChannel('GlyphCompress');
   outputChannel.appendLine('GlyphCompress activated');
@@ -36,32 +71,7 @@ function activate(context) {
   const config = vscode.workspace.getConfiguration('glyphCompress');
   const folders = vscode.workspace.workspaceFolders;
   const workspacePath = folders && folders.length > 0 ? folders[0].uri.fsPath : null;
-  // 'auto' is the shipped default, and the compressor does not know what it
-  // means — normalizeProvider() falls it through to 'raw'. The proxy resolved
-  // it correctly all along (normalizeProxyOptions infers from the target URL)
-  // while this path did not, so the extension's own compressor ran the raw
-  // profile for every user on defaults: raw's strategy and codeword settings,
-  // not the configured provider's. Invisible until pricing was made
-  // provider-derived and the panel started rendering an em dash.
-  const { inferProviderFromTarget } = require('./proxy.js');
-  const configuredProvider = config.get('provider', 'auto');
-  const effectiveProvider = configuredProvider === 'auto'
-    ? inferProviderFromTarget(config.get('targetApiUrl', 'https://api.openai.com'))
-    : configuredProvider;
-
-  compressor = new GlyphCompressor({
-    enabled: config.get('enabled', true),
-    level: config.get('compressionLevel', 'standard'),
-    provider: effectiveProvider,
-    trustPolicy: config.get('trustPolicy', 'auto'),
-    // Unset is null here, not undefined — the compressor treats any
-    // non-finite value as "no override" and falls back to the provider rate.
-    inputPricePerMillion: config.get('inputPricePerMillion'),
-    workspacePath,
-    attentionalDecay: config.get('experimentalDecay', false),
-    holographicFolding: config.get('holographicFolding', false),
-    intentDiffs: config.get('intentDiffs', false),
-  });
+  compressor = new GlyphCompressor(buildCompressorOptions(config, workspacePath));
 
   if (config.get('autoUpdateWorkspaceRules', false)) {
     updateWorkspaceRules();
@@ -220,6 +230,13 @@ function activate(context) {
           trustPolicy: proxyConfig.get('trustPolicy', 'auto'),
           compressor,
           outputChannel,
+          // A bind failure arrives asynchronously, long after this try/catch
+          // has returned. Without this the command looked like a no-op.
+          onError: (err, detail) => {
+            proxyServer = null;
+            vscode.window.showErrorMessage(`GlyphProxy could not start: ${detail}`);
+            outputChannel.appendLine(`GlyphProxy failed to start: ${detail}`);
+          },
         });
         vscode.window.showInformationMessage(`GlyphProxy started on http://localhost:8080. Forwarding to ${targetUrl}`);
         outputChannel.appendLine('GlyphProxy started on port 8080');
@@ -336,9 +353,15 @@ function activate(context) {
   // ─── VS Code Language Model API Integration ──────────────
   // Hook into VS Code's native LM API if available (v1.90+)
   if (vscode.lm) {
-    outputChannel.appendLine('VS Code Language Model API detected — hooking in');
-    // The lm API manages context internally, but we can provide
-    // compressed context via chat participants
+    // This said "hooking in" and hooked nothing — there was no code under the
+    // comment, only an intention. A user reading the output channel reasonably
+    // concluded their Language Model API traffic was being compressed; it was
+    // not, and nothing in the log contradicted them. Announcing an integration
+    // that does not exist is worse than staying silent about one that does.
+    outputChannel.appendLine(
+      'VS Code Language Model API detected — not intercepted. '
+      + 'Only traffic routed through the GlyphCompress proxy is compressed.'
+    );
   }
 
   // ─── Configuration Change Listener ───────────────────────
@@ -348,18 +371,10 @@ function activate(context) {
         const newConfig = vscode.workspace.getConfiguration('glyphCompress');
         const folders = vscode.workspace.workspaceFolders;
         const workspacePath = folders && folders.length > 0 ? folders[0].uri.fsPath : null;
-        compressor = new GlyphCompressor({
-          enabled: newConfig.get('enabled', true),
-          level: newConfig.get('compressionLevel', 'standard'),
-          provider: newConfig.get('provider', 'auto'),
-          trustPolicy: newConfig.get('trustPolicy', 'auto'),
-          workspacePath,
-          attentionalDecay: newConfig.get('experimentalDecay', false),
-          holographicFolding: newConfig.get('holographicFolding', false),
-          intentDiffs: newConfig.get('intentDiffs', false),
-        });
+        compressor = new GlyphCompressor(buildCompressorOptions(newConfig, workspacePath));
         outputChannel.appendLine(
-          `Config updated: enabled=${compressor.enabled}, level=${compressor.level}, trust=${compressor.trustPolicy}`
+          `Config updated: enabled=${compressor.enabled}, level=${compressor.level}, `
+          + `provider=${compressor.provider}, trust=${compressor.trustPolicy}`
         );
       }
     })
@@ -370,7 +385,14 @@ function activate(context) {
   context.subscriptions.push({ dispose: () => clearInterval(statusInterval) });
 
   outputChannel.appendLine('GlyphCompress ready');
-  outputChannel.appendLine(`  Provider: ${config.get('provider', 'auto')}`);
+  // Report what is in effect, not what is configured. Logging the raw setting
+  // is what let 'auto' run as 'raw' unnoticed: the channel said "auto", the
+  // compressor did something else, and both statements looked consistent.
+  const configuredProvider = config.get('provider', 'auto');
+  outputChannel.appendLine(
+    `  Provider: ${compressor.provider}`
+    + (configuredProvider === 'auto' ? `  (auto, inferred from targetApiUrl)` : '')
+  );
   outputChannel.appendLine(`  Level: ${config.get('compressionLevel', 'standard')}`);
   outputChannel.appendLine(`  Trust: ${config.get('trustPolicy', 'auto')}`);
   outputChannel.appendLine(`  Codebook: ${CODEBOOK_PROMPT.length} chars (≈${Math.ceil(CODEBOOK_PROMPT.length / 4)} tokens)`);

@@ -186,6 +186,26 @@ export function startProxyServer(port = 8080, targetApiUrl = 'https://api.openai
     }
   });
 
+  // Without this handler a failed bind is an *asynchronous* 'error' event with
+  // no listener, which Node escalates to an uncaught exception. In the VS Code
+  // extension host that never reaches the try/catch around this call, so the
+  // command reported nothing at all: no "running" line, no error toast, no
+  // proxy. The commonest cause is the port already being held — often by a
+  // previous proxy that outlived the window that started it.
+  server.on('error', (err) => {
+    const detail = err && err.code === 'EADDRINUSE'
+      ? `port ${port} is already in use — another GlyphProxy (or another process) is holding it. `
+        + `Stop it and retry, or start this one on a different port.`
+      : (err && err.message) || String(err);
+    log(`[Proxy] Failed to start: ${detail}`);
+    if (typeof options.onError === 'function') options.onError(err, detail);
+    else if (!server.listening) {
+      // No caller-supplied handler: re-throwing here would be the same uncaught
+      // exception this guard exists to remove, so surface it and stop quietly.
+      structuredLogger.error('[Proxy] No onError handler supplied; the proxy is not running.');
+    }
+  });
+
   server.listen(port, () => {
     log(`\nGlyphProxy is running on http://localhost:${server.address().port}`);
     log(`Forwarding to: ${targetApiUrl}`);
@@ -225,6 +245,9 @@ function normalizeProxyOptions(levelOrOptions, sharedCompressor, outputChannel, 
     compressor: raw.compressor || sharedCompressor || null,
     outputChannel: raw.outputChannel || outputChannel || null,
     logFile: raw.logFile || null,
+    // Called when the server cannot bind. Without it a bind failure is an
+    // uncaught async exception the caller never sees — see server.on('error').
+    onError: typeof raw.onError === 'function' ? raw.onError : null,
   };
 }
 
