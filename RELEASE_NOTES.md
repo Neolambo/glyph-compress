@@ -1,3 +1,13 @@
+## v1.36.3 — The Registry Page Points At The Right Video
+
+No behaviour change, and no code change. `README.md` ships inside the package and is what npm renders as the landing page, so it can only be corrected by publishing.
+
+The page carried the current opening but still linked the earlier demo — the cut that leads on glyph substitution and closes on "12.7x compression, 92% saved". Those are characters, from the most favourable fixture, describing the technique that real tokenizers showed to be a net cost and which is off by default. Anyone arriving from npm was being sent to the numbers the rest of the page exists to retire.
+
+It now links the current demo: https://youtu.be/mow1lKr6TKw
+
+Both superseded video URLs are in the README link snapshot's `mustExclude` list, so neither can return to the page without failing the test suite.
+
 ## v1.36.2 — The Front Page Now Says What The Measurements Say
 
 No behaviour change. This release exists because `README.md` ships inside the npm package, so rewriting it is a package change and needs a version to reach anyone.
