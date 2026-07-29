@@ -5,3 +5,21 @@ dist/
 .vscode-test/
 *.vsix
 .glyphcompress/
+
+# Secrets — second line of defence.
+# The real credential store lives outside this tree (see docs/credentials.md),
+# precisely so it cannot be reached by `git add -A`. These patterns exist for the
+# case where something lands here anyway: a scratch .env, a token pasted into a
+# file during debugging, a key exported by a tool that did not ask.
+*.env
+.env*
+!.env.example
+*secret*
+*credential*
+# ...except the document that explains where the store is. It holds no values,
+# and the pattern above catches it by name alone — which is the rule working,
+# not a reason to weaken it.
+!docs/credentials.md
+*.pem
+*.key
+.glyph-secrets/
