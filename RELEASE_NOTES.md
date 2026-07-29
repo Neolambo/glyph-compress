@@ -1,3 +1,28 @@
+## v1.37.1 — `provider: auto` Was Never Resolved, So Every Default Install Ran The Raw Profile
+
+`glyphCompress.provider` ships as `"auto"`. The compressor does not know what that means — `normalizeProvider()` falls it through to `raw`. The proxy resolved it correctly all along, inferring the provider from the target URL in `normalizeProxyOptions`; the extension's own compressor did not, and passed the literal string straight through.
+
+So with default settings, every `Compress Selection`, `Ask LLM`, and `Compress Workspace` ran the **raw** compression profile — `balanced` strategy, raw's codeword and dictionary settings — instead of the profile for the provider actually in use. The provider-specific tuning that the profiles exist to deliver was silently inactive.
+
+### How it surfaced
+
+Only because 1.37.0 made pricing provider-derived. `raw` has no price by design, so the stats panel rendered an em dash where a figure belonged. Before that, the hardcoded $3/M applied to every provider and the misrouting was invisible in the UI. The bug is older than the release that exposed it — a wrong number is at least a number you can question; a silently wrong code path is not.
+
+### The fix
+
+The extension now resolves `auto` the way the proxy always has, importing `inferProviderFromTarget` rather than restating the inference:
+
+```
+auto + api.openai.com                    -> openai     $2.5000
+auto + generativelanguage.googleapis.com -> gemini     $0.3000
+auto + api.anthropic.com                 -> anthropic  $3.0000
+openai + (Gemini target)                 -> openai     $2.5000   explicit wins
+```
+
+An explicitly configured provider still overrides the inference — only `auto` consults the target URL.
+
+---
+
 ## v1.37.0 — The Dollar Figure Was A Hardcoded Guess
 
 The stats panel priced every saved token at $3 per million — the Claude Sonnet input rate — regardless of which provider was configured. A user on `gpt-4o-mini` ($0.15/M) was shown a saving **twenty times** the real one, under a label reading "Total Cost Saved". It was the one number in the product nobody could check against anything, and it was denominated in their money.
