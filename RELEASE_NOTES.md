@@ -1,3 +1,34 @@
+## v1.36.5 — 1.36.4 On npm Was The Wrong Package Entirely
+
+**If you installed `glyph-compress@1.36.4` from npm, upgrade.** That publish shipped the VS Code extension folder instead of the library.
+
+### What went wrong
+
+`vscode-ext/package.json` carries the same `name` as the root package, so `npm publish` run from inside that directory succeeds — and publishes the wrong thing. The 1.36.4 tarball contained `extension.js`, no `bin/`, no `src/`, and 3.7 MB of stale `.vsix` build artifacts going back to 1.13.0.
+
+The practical damage: `npx glyph-compress measure ...` — the command the README, the demo video and the npm page all tell people to run — did not exist on `latest`. Neither did `require('glyph-compress')`.
+
+The Marketplace was unaffected: `vsce` publishes the VSIX and that listing is correct at 1.36.4.
+
+### The guard
+
+`private: true` is the obvious fix and does not work — npm proceeds past it. The guard is a `prepublishOnly` script that exits non-zero and says where to publish from instead:
+
+```
+This is the VS Code extension manifest, not the npm package.
+Publishing from here ships extension.js and every stale .vsix instead of the
+library - no bin/, no src/, so npx glyph-compress breaks on latest.
+Run npm publish from the repository ROOT. Use vsce publish for the Marketplace.
+```
+
+Verified in both directions: `npm publish` from `vscode-ext/` now fails with that message, and `vsce package` still builds the extension normally. A metadata test asserts the guard is present and still names the repository root, so removing it fails the suite.
+
+### Verification
+
+1.36.5 was checked before release rather than after: 70 files, no `.vsix`, `bin/cli.js` and `src/` present.
+
+The lesson is one this project keeps relearning in different clothes — the thing that shipped and the thing that was verified have to be the same thing. Here nobody looked inside the tarball until a routine check of the npm page turned up a README that was 5 kB instead of 63 kB.
+
 ## v1.36.4 — The Storefront Says What The Tool Does
 
 No behaviour change. The Marketplace listing was the last surface still selling the technique that measurement retired, and a store listing only updates when a new VSIX is published.

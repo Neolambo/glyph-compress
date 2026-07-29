@@ -2,7 +2,8 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Cut Your LLM Token Bill",
   "description": "Cut the tokens your IDE-to-LLM coding session is billed for. Stops re-sending files the model already has, places provider cache breakpoints where they cover the request, and compresses what genuinely needs sending - measured against real tokenizers, not character counts.",
-  "version": "1.36.4",
+  "version": "1.36.5",
+  "private": true,
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",
   "repository": {
@@ -160,7 +161,8 @@
     }
   },
   "scripts": {
-    "test": "node ../test/integration.js"
+    "test": "node ../test/integration.js",
+    "prepublishOnly": "node -e \"console.error(String.raw`\n  This is the VS Code extension manifest, not the npm package.\n  Publishing from here ships extension.js and every stale .vsix instead of the\n  library - no bin/, no src/, so npx glyph-compress breaks on latest.\n  Run npm publish from the repository ROOT. Use vsce publish for the Marketplace.\n`); process.exit(1)\""
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0"

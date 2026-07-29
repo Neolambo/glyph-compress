@@ -83,4 +83,20 @@ assert(
   'server.json must pass the "mcp" positional argument — plain `npx glyph-compress` resolves to the CLI bin, not the MCP server, since both share the same package',
 );
 
+// The VS Code extension manifest carries the same `name` as the npm package,
+// so `npm publish` run from vscode-ext/ succeeds and ships the wrong thing:
+// extension.js plus every stale .vsix, with no bin/ and no src/. That happened
+// on 1.36.4 — `npx glyph-compress` was broken on latest until 1.36.5 replaced
+// it. npm's own `private: true` does not stop it (publish proceeds), so the
+// guard is a prepublishOnly script that exits non-zero, and this asserts the
+// guard is still there.
+assert(
+  extPkg.scripts && typeof extPkg.scripts.prepublishOnly === 'string',
+  'vscode-ext/package.json must keep a prepublishOnly guard: without it, npm publish from that directory ships the extension folder as the library',
+);
+assert(
+  /repository ROOT/i.test(extPkg.scripts.prepublishOnly),
+  'the prepublishOnly guard should tell the reader to publish from the repository root, since that is the whole point of it firing',
+);
+
 console.log('metadata suite ok');
