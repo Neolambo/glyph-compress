@@ -13,10 +13,16 @@
 </p>
 
 <p align="center">
-  <strong>Cut the tokens an IDE↔LLM session actually gets billed for — CLI, VS Code extension, and MCP server, measured against real provider tokenizers rather than a character count.</strong>
+  <strong>Your IDE sends the model the same file on every single turn.<br>You pay for it every single time.</strong>
 </p>
 <p align="center">
-  <strong>−78.5%</strong> billed on a 10-turn session that re-attaches the same file (<code>npm run measure:differential</code>, or <code>npx glyph-compress measure &lt;your-file&gt;</code> to run it on your own code), because the file is sent once instead of ten times. Compression of the content itself is a separate and smaller <strong>26%</strong> (<code>npm run benchmark</code>). Both figures are printed by commands in this repository; neither is a best case pulled from a favourable file.
+  GlyphCompress cuts what a coding session is actually <strong>billed</strong> — <strong>−78.5% over ten turns</strong> — and it gets there mostly by <em>not re-sending</em> what the model has already read.<br>
+  CLI · VS Code extension · MCP server · zero-config proxy.
+</p>
+
+<p align="center">
+  <code>npx glyph-compress measure src/your-biggest-file.ts</code><br>
+  <sub>Don't take the number on faith. Run it on your own code and get your own.</sub>
 </p>
 
 <p align="center">
@@ -32,13 +38,19 @@
   <a href="LICENSE">License</a>
 </p>
 
-GlyphCompress sits between your IDE and the model and reduces what the session costs, on four independent axes: it stops re-transmitting files the model has already been given, places provider cache breakpoints where they actually cover the request, compresses the content that does need sending, and condenses old turns once they stop earning their place. Each axis is measured separately, because they are worth very different amounts — and the one in the project's name is worth the least.
+GlyphCompress sits between your IDE and the model and attacks the bill on four fronts: it stops re-transmitting files the model already has, puts provider cache breakpoints where they actually cover the request, compresses the content that genuinely needs sending, and condenses old turns once they stop earning their keep.
 
-The name comes from a compositional radical-based encoding (inspired by Chinese logograms), introduced with a shared codebook in the system prompt. Measured against real tokenizers it turned out to *cost* tokens on real files rather than save them, so it is gated off by default. That result, and the rule that now enforces it, are described in [When to Use](#-when-to-use-glyphcompress-and-when-to-skip-it) and [Benchmarks](#-benchmarks).
+Each front is measured on its own — because they are worth wildly different amounts, and **the one this project is named after is worth the least.**
+
+> **We measured our own headline feature, and it lost.**
+>
+> The glyph encoding in the name is a compositional radical alphabet inspired by Chinese logograms. Against real provider tokenizers it turned out to *cost* tokens on real files instead of saving them: BPE already gives ordinary English words the shortest codes, so anything that *looks* like a code is more expensive, not less. It is off by default, held there by a rule that refuses any transformation sending more tokens than it received.
+>
+> We kept the name and dropped the technique. Every number below is what survived that standard.
 
 ### 🎬 See it in Action
 
-- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)**: A graphical animation of how the engine minifies and translates verbose code into dense semantic glyphs. It predates the tokenizer measurements above and shows the glyph path at its most favourable.
+- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)**: A graphical animation of how the engine minifies and translates verbose code into dense semantic glyphs. It shows the glyph path at its most favourable and predates the tokenizer measurements that put it behind a gate.
 
 ---
 
@@ -53,7 +65,7 @@ The name comes from a compositional radical-based encoding (inspired by Chinese 
 - [📋 Requirements](#-requirements)
 - [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
 - [🚀 Quick Start (Code & Extension)](#-quick-start)
-- [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy-v050)
+- [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy)
 - [🔌 MCP Server (Claude Code, Claude Desktop & other MCP clients)](#-mcp-server-claude-code-claude-desktop--other-mcp-clients)
 - [🎯 Context Budget Planner](#-context-budget-planner)
 - [🔤 The Glyph Protocol](#-the-glyph-protocol)
@@ -64,13 +76,15 @@ The name comes from a compositional radical-based encoding (inspired by Chinese 
 
 ## 🎯 The Problem
 
-Every IDE→LLM request carries massive, redundant context. As coding sessions grow longer, the **chat history** accumulates exponentially, causing token costs to explode, performance to lag, and LLMs to hit context window limits:
+**You are not paying for your questions. You are paying for the context wrapped around them.**
+
+Every request your IDE sends carries the same system prompt, the same open files, the same accumulated history — again. Turn 10 is not one message; it is the whole conversation, re-uploaded. The bill grows with the square of the session while the useful part stays flat:
 
 ```
 System prompt:             ~2,000 tokens (repeated every time)
 Open files:                ~3,000 tokens
 Errors/diagnostics:        ~500 tokens  
-Chat history (multi-turn): ~4,000 tokens (explodes exponentially)
+Chat history (multi-turn): ~4,000 tokens (the whole conversation, again)
 User prompt:               ~500 tokens
 ─────────────────────────────────────────
 TOTAL:                     ~10,000 tokens/request
@@ -80,9 +94,11 @@ At 50 requests/day → **500K tokens/day** → $8-15/day on Claude/GPT-4.
 
 ## ✨ The Solution
 
-**The bill is not the compression ratio.** Those two numbers come apart, and once you measure them separately it turns out the ratio is the smaller lever. GlyphCompress optimises the bill.
+**Everyone optimises the compression ratio. The compression ratio is not the bill.**
 
-The reason is in the problem above: the same file is re-attached on every turn, so most of a session's cumulative tokens are content the model has *already been given*. Making that content 25% smaller is worth 25% of it. Not sending it again is worth all of it. So the two largest measured wins in this project compress nothing at all:
+Measure the two separately and they come apart immediately. Making a file 25% smaller is worth 25% of it. **Not sending it again is worth all of it.**
+
+That is the whole idea, and it is why the two biggest wins here compress nothing at all:
 
 | What it does | Session effect | Reproduce |
 | --- | --- | --- |
@@ -90,17 +106,15 @@ The reason is in the problem above: the same file is re-attached on every turn, 
 | **Put the cache breakpoint where the prefix ends**, not on the biggest block | **−32.9%** effective cost at 42 turns, and it grows with session length | `npm run measure:cache` |
 | **Compress the content itself** (comment/whitespace removal, structural summaries, repeated-word dictionary) | **26%** aggregate; 0% on the three provider chat payloads, 71% on `ultra` code summarisation | `npm run benchmark` |
 
-Compression is the third row, and it is the one everyone reaches for first.
+Compression sits in third place — and it is the one everyone reaches for first. The glyph substitution ranks below even that: measured against real tokenizers it **costs** 5.8 to 10.5 percentage points rather than adding any, so it stays gated off.
 
-The glyph substitution this project is named after belongs even further down: measured against real tokenizers it **costs** 5.8 to 10.5 percentage points of savings on real files rather than adding any, because BPE already gives ordinary words short encodings while `◈₍1₎` is several tokens. It is gated off by a rule that refuses any transformation that would send more tokens than it received. The tool keeps the name and drops the technique where the measurement says to.
-
-These are one synthetic fixture, which is exactly the limitation of every published compression figure. Run it on your own code and get your own number:
+Those figures come from one synthetic fixture, which is the honest limitation of every compression number ever published in a README. **So don't take ours.** Take yours:
 
 ```bash
 npx glyph-compress measure src/your-largest-file.ts --turns 10
 ```
 
-What the shape looks like turn by turn, one file re-attached each time (real `js-tiktoken` counts, `standard`, OpenAI):
+Here is the shape, turn by turn, one file re-attached each time (real `js-tiktoken` counts, `standard`, OpenAI):
 
 ```
   turn    raw      GlyphCompress
@@ -111,9 +125,11 @@ What the shape looks like turn by turn, one file re-attached each time (real `js
      8  28,146 →   4,279     ← −84.8%
 ```
 
-The raw column grows linearly because every turn carries the whole file again. The right-hand column is close to flat: after turn 1 the file is a reference, and what still grows is only the conversation. Turn 1 being identical is the point of the guard, not a gap in it — with nothing repeated yet there is nothing to win, so nothing is risked.
+The left column climbs forever, because every turn carries the whole file again. The right one is almost flat: after turn 1 the file is a reference, and the only thing still growing is the conversation itself.
 
-Every number in this README is measured with `js-tiktoken` against the real encoding, never the internal estimator — which has been wrong by 40% before ([v1.30.0](https://github.com/Neolambo/glyph-compress/releases)) and is now used only as a fallback when the tokenizer is absent.
+Turn 1 is byte-for-byte identical, and that is the guard working, not failing. Nothing has repeated yet, so there is nothing to win — and nothing gets risked to chase it.
+
+**Every number in this README is measured with `js-tiktoken` against the real encoding**, never an internal heuristic. That rule exists because the heuristic here was once wrong by 40% while sounding perfectly precise; it now serves only as a fallback when the tokenizer is unavailable. The full account is in the [Releases](https://github.com/Neolambo/glyph-compress/releases).
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
@@ -195,7 +211,7 @@ GlyphCompress includes state-of-the-art context optimization layers designed for
 <details>
 <summary><strong>Show all 4 advanced features in detail</strong> (Holographic Folding, Intent Diffs, Attentional Decay, Team Codebook Registry)</summary>
 
-### 1. Holographic Context Folding (v1.15.0)
+### 1. Holographic Context Folding
 Holographic Folding analyzes import relationships across multiple files in your prompt. Instead of sending repetitive, boilerplated imports for each file, it extracts them into a single `Base` shared header and presents the files as structured overlays:
 * **How it works**: Detects mutual dependencies and group-folds files that share imports.
 * **Format**: `⟦Base: import A | import B⟧ ↷ [◈Ref struct ↷ ◈Ref struct]`
@@ -207,7 +223,7 @@ Holographic Folding analyzes import relationships across multiple files in your 
 > [!NOTE]
 > For example, when reading two dependent React component files, the middleware extracts the common React imports and groups their core declarations to avoid LLM token overhead on repeating boilerplate.
 
-### 2. Generative Intent Diffs (v1.15.0)
+### 2. Generative Intent Diffs
 Generative Intent Diffs intercept git/IDE unified diffs (which are traditionally very verbose and costly for LLMs) and translate them into a sequence of structural action lines:
 * **How it works**: Syntactically parses addition (`+`) and deletion (`-`) blocks to summarize added/deleted classes (`▲𝒞` / `▼𝒞`), functions (`▲ƒ` / `▼ƒ`), or packages (`▲📦` / `▼📦`).
 * **Format**: `⚡: ⊝₍1₎ ▼𝒞 OldClass | ⊝₍1₎ ▲𝒞 NewClass` (or `⚡: ◈ ±LineCount` for non-symbol changes).
@@ -219,7 +235,7 @@ Generative Intent Diffs intercept git/IDE unified diffs (which are traditionally
 > [!TIP]
 > This feature is exceptionally powerful when using git diffs in Cline, RooCode, or Cursor chats. The engine strips the massive `+` and `-` source lines, sending only the semantic intention of the refactor.
 
-### 3. Attentional Decay Compaction (ADC) (v1.14.0)
+### 3. Attentional Decay Compaction (ADC)
 Attentional Decay simulates human memory inside the multi-turn chat transcript. As the conversation progresses, older messages are progressively compacted into dense, emoji-tagged summaries while keeping the latest turns in high-fidelity full text.
 * **How it works**: Categorizes chat history into 4 decay zones based on distance from the current turn:
   * **Hot Zone** (turns 1-2): 100% full text.
@@ -231,7 +247,7 @@ Attentional Decay simulates human memory inside the multi-turn chat transcript. 
   * **CLI**: `--decay` (or `--experimental-decay`)
   * **VS Code**: Toggle `"glyphCompress.experimentalDecay": true` in settings.
 
-### 4. Team Codebook Registry (v1.18.0)
+### 4. Team Codebook Registry
 The per-session dynamic dictionary (and its cross-session cache) is per-machine — without this, two teammates working on the same repository independently learn different `§N` glyph assignments for the same identifiers, which both wastes the learning and defeats org-wide provider-side prompt caching (implicit caching keys off byte-identical prefixes, which requires the same word to produce the same glyph everywhere).
 * **How it works**: `glyphcompress.team.json` — a small, git-committable file at the workspace root (unlike the gitignored `.glyphcompress/` cache dir) — lists dictionary entries in priority order. Every `GlyphCompressor` instance seeds its `§N` indices from it before any per-session learning happens.
 * **Workflow**: `glyph-compress team-codebook sync` promotes this machine's locally-learned dictionary into the shared file; commit it to git so the whole team (and every CLI/MCP/proxy entry point) assigns the same glyph to the same word.
@@ -244,11 +260,11 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 
 ### 🆕 What's New
 
-Current release: **v1.36.1** — a patch for four defects that made CI red on the v1.36.0 release; the user-facing one was `measure` reporting `NaN` wherever the optional tokenizer is absent. v1.36.0 itself added `glyph-compress measure <file>`, which puts the headline number on your own code instead of this repository's, took the Context Router from finding the right file in 2 of 6 unambiguous queries to 5 of 6, and corrected a published cache figure downward after it stopped reproducing.
+Current release: **v1.36.1**.
 
-Recent work has concentrated on making every claim reproducible, and on the difference between the two things this project is easily confused about: compression is priced against real BPE counts rather than characters, the never-inflate guarantee is stated per session with its bounds measured, and the largest savings are now measured where they actually come from — content that is never sent, rather than content that is made smaller.
+The work lately has had one obsession: **make every claim on this page runnable.** `glyph-compress measure` puts the headline figure on your own code instead of ours. The Context Router finds the right file in 5 of 6 unambiguous queries. Compression is priced in real BPE tokens, not characters. And when a published number stopped reproducing, it was corrected downward and said so out loud.
 
-> **Full version history lives in [GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and [RELEASE_NOTES.md](RELEASE_NOTES.md) — deliberately not duplicated here, so this page stays about what the tool does rather than how it got here. See [ROADMAP.md](ROADMAP.md) for what is planned next.
+> **The full history lives in [GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** — deliberately not duplicated here, so this page stays about what the tool does rather than how it got here. [ROADMAP.md](ROADMAP.md) covers what is planned, and the ideas that were tried and killed.
 
 **[📄 CASE_STUDY.md](CASE_STUDY.md)** — where GlyphCompress actually helps (and where it honestly doesn't), with real numbers from `npm run benchmark:realistic`/`benchmark:alternatives`, reproducible on your own machine.
 
@@ -256,7 +272,7 @@ For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CON
 
 ### 📏 Benchmark Snapshot (v1.36.1)
 
-`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI when it measurably loses tokens (see "New in v1.17.0" above) did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
+`npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI where it measurably loses tokens did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
 ### 🧪 Realistic Benchmark Notes
 
@@ -385,10 +401,10 @@ npx glyph-compress [file|command] [options]
 | `inspect [query]` | Build `.glyphcompress/codebook.json`, detect intent, and rank relevant workspace files. | `npx glyph-compress inspect "fix auth error"` |
 | `doctor` | Check repository readiness plus optional local checks for installed extension version, Glyph settings, proxy config, and provider credentials. | `npx glyph-compress doctor` |
 | `benchmark` | Run the benchmark harness from the current repository. | `npx glyph-compress benchmark` |
-| `measure <file>` *(v1.36.0+)* | Measure what a session costs **on your own file**: simulate an IDE re-attaching it every turn and report tokens sent and tokens billed, raw vs compressed. Every other figure in this README comes from one codebase; this is how you get yours. | `npx glyph-compress measure src/app.ts --turns 10` |
-| `route <query>` *(v1.17.0+)* | Context Router: rank workspace files relevant to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
-| `team-codebook show` *(v1.18.0+)* | Print the shared team codebook (`glyphcompress.team.json`), if any. | `npx glyph-compress team-codebook show` |
-| `team-codebook sync` *(v1.18.0+)* | Promote this machine's locally-learned dynamic dictionary into `glyphcompress.team.json` for the whole team. | `npx glyph-compress team-codebook sync` |
+| `measure <file>` | Measure what a session costs **on your own file**: simulate an IDE re-attaching it every turn and report tokens sent and tokens billed, raw vs compressed. Every other figure in this README comes from one codebase; this is how you get yours. | `npx glyph-compress measure src/app.ts --turns 10` |
+| `route <query>` | Context Router: rank workspace files relevant to a query and compress as many as fit inside a token budget, instead of manually picking which files to send. | `npx glyph-compress route "fix the auth bug" --budget 2000` |
+| `team-codebook show` | Print the shared team codebook (`glyphcompress.team.json`), if any. | `npx glyph-compress team-codebook show` |
+| `team-codebook sync` | Promote this machine's locally-learned dynamic dictionary into `glyphcompress.team.json` for the whole team. | `npx glyph-compress team-codebook sync` |
 
 ### Command Line (CLI): Options
 
@@ -620,7 +636,7 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
 - proxy config in local Continue config files
 - provider credential env vars such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`
 
-## 👻 The Ultimate Magic: Zero-Command Transparent Proxy (v0.5.0+)
+## 👻 The Ultimate Magic: Zero-Command Transparent Proxy
 
 If you want **100% automatic, invisible** compression without pressing *any* shortcuts, you can use the GlyphProxy. It intercepts the API calls made by your IDE, compresses the prompt on the fly, and saves your API tokens.
 
@@ -727,7 +743,7 @@ The server communicates over stdio using the official `@modelcontextprotocol/sdk
 
 ## 🎯 Context Budget Planner
 
-You have a hard token budget. Which compression level should you use? Before v1.32.0 you had to guess. Now you state the budget and GlyphCompress picks the **least destructive level that fits**:
+You have a hard token budget. Which compression level should you use? You state the budget and GlyphCompress picks the **least destructive level that fits**:
 
 ```bash
 # Escalates light → standard → aggressive → ultra, stops at the first level that fits
@@ -800,7 +816,7 @@ STRUCTURE:  ✗ Error   ⚠ Warning   ∉ Type mismatch   ∅ Not found
 | **standard** | Prompt patterns, tech names, file paths, diagnostics, repeated identifiers | Default coding assistant payloads |
 | **aggressive** | Standard compression plus multi-language syntax minification inside code blocks | Debugging or review where code structure still matters |
 | **ultra** | Aggressive compression plus architectural code summaries and redundancy stripping | Maximum context savings when inner code logic is less important |
-| **auto** *(v1.16.0+)* | Picks light/standard/aggressive/ultra per request from content length and code density | You don't want to hand-pick a level per payload |
+| **auto** | Picks light/standard/aggressive/ultra per request from content length and code density | You don't want to hand-pick a level per payload |
 
 Use `sourceMap` or `--source-map` whenever you need to inspect or reverse the compressed references after the payload is sent.
 
