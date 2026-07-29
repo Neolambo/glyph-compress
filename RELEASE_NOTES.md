@@ -1,3 +1,43 @@
+## v1.37.2 — The Proxy Failed Silently When The Port Was Taken
+
+Four defects, all found by reading the extension's own output channel. The first explains a symptom users could not diagnose: **Start Zero-Command Proxy appearing to do nothing at all.**
+
+### The proxy could not report a failed bind
+
+`server.listen()` had no `'error'` handler. A failed bind is an *asynchronous* `error` event, and Node escalates an unhandled one to an uncaught exception — which arrives long after the `try/catch` around `startProxyServer()` has returned. So a port collision produced no "running" line, no error toast, and no proxy. Nothing in the UI distinguished it from a command that had never been invoked.
+
+The commonest cause is a previous proxy outliving the window that started it — as happened here, where a process from an earlier session still held 8080.
+
+```
+code: EADDRINUSE
+detail: port 8080 is already in use — another GlyphProxy (or another process)
+        is holding it. Stop it and retry, or start this one on a different port.
+```
+
+The server now reports through an `onError` option; the extension surfaces it, writes it to the output channel, and clears its handle so a retry is possible.
+
+### The Language Model API "hook" hooked nothing
+
+```js
+if (vscode.lm) {
+  outputChannel.appendLine('VS Code Language Model API detected — hooking in');
+  // The lm API manages context internally, but we can provide
+  // compressed context via chat participants
+}
+```
+
+There was no code under the comment — only an intention. A user reading the channel reasonably concluded their Language Model API traffic was being compressed. It was not, and nothing in the log contradicted them. The line now states plainly that the API is detected but not intercepted, and that only proxy traffic is compressed. Announcing an integration that does not exist is worse than staying silent about one that does.
+
+### Changing any setting silently undid 1.37.1
+
+The configuration-change listener rebuilt the compressor with a hand-written option object that had already drifted from the one in `activate()` — missing the price override and the provider resolution shipped one release earlier. Editing any GlyphCompress setting reverted the compressor to the raw profile until the next window reload. Both paths now call one `buildCompressorOptions()`; a construction that happens twice is a construction that will drift.
+
+### The startup log reported the setting, not the effect
+
+`Provider: auto` printed the raw configuration value, so the channel could not answer the one question worth asking of it — *which profile is actually running?* This is precisely how 1.37.1's bug stayed hidden: the log said `auto`, the compressor did something else, and the two statements looked consistent. It now prints the resolved provider and marks when it was inferred.
+
+---
+
 ## v1.37.1 — `provider: auto` Was Never Resolved, So Every Default Install Ran The Raw Profile
 
 `glyphCompress.provider` ships as `"auto"`. The compressor does not know what that means — `normalizeProvider()` falls it through to `raw`. The proxy resolved it correctly all along, inferring the provider from the target URL in `normalizeProxyOptions`; the extension's own compressor did not, and passed the literal string straight through.
