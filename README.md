@@ -50,7 +50,8 @@ Each front is measured on its own — because they are worth wildly different am
 
 ### 🎬 See it in Action
 
-- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)**: A graphical animation of how the engine minifies and translates verbose code into dense semantic glyphs. It shows the glyph path at its most favourable and predates the tokenizer measurements that put it behind a gate.
+- 🎬 **[70-second demo](assets/demo-video/glyphcompress-session-cost.mp4)** — the problem, the reframe, the measurement that killed our own headline feature, and the one command that gets you your own number. Every figure on screen is a token count a command in this repository prints. Render it yourself with `node scripts/render-demo-video.js`.
+- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)** — an earlier animation of the glyph encoding. It shows that path at its most favourable and predates the tokenizer measurements that put it behind a gate, so treat its figures as superseded by the ones above.
 
 ---
 

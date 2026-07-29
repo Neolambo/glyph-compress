@@ -1,23 +1,28 @@
-# GlyphCompress 75-Second Demo Video
+# GlyphCompress Demo Video
 
 This demo asset is designed for outreach posts, GitHub, Product Hunt, Hacker News, LinkedIn, X/Twitter, and AI tooling communities.
 
-> [!IMPORTANT]
-> **The rendered video and the script below describe the project's earlier positioning and have not been re-recorded.**
->
-> They lead on glyph substitution and quote "12.7x compression, 92% saved" — a **character** count, and a measurement of the one technique that real tokenizers later showed to be a net cost. That technique is now gated off by default, and the README leads on what a session is *billed* instead.
->
-> The script is kept as the record of what the published video actually says, so nobody re-derives copy from it by mistake. **[Positioning for a re-record](#positioning-for-a-re-record)** at the end of this file carries the current framing, including title and description text that can be updated on the existing upload without re-rendering anything.
+## Current Asset
 
-## Rendered Asset
-
-- Video file: `assets/demo-video/glyphcompress-demo-pro-75s.mp4`
-- Cover image: `assets/demo-video/glyphcompress-demo-pro-cover.png`
-- Duration: 75 seconds
+- **Video file: `assets/demo-video/glyphcompress-session-cost.mp4`**
+- Cover image: `assets/demo-video/glyphcompress-session-cost-cover.png`
+- Duration: 70 seconds, 6 scenes
 - Format: 1920x1080 MP4, H.264, silent audio track
-- Focus: installation plus one useful workflow using CLI compression, source maps, trust policies, VS Code, and proxy integration
+- Render with: `node scripts/render-demo-video.js`
 
-The repository also keeps the first simple render at `assets/demo-video/glyphcompress-demo-75s.mp4`; use the `pro` version for public outreach.
+Every figure on screen is a **token** count that a command in this repository prints, and each scene names the command that produces the number it shows. Nothing on screen is a character count.
+
+> [!IMPORTANT]
+> **This file is rendered but not yet uploaded.** The URL linked from the README still serves the previous cut, which leads on glyph substitution and quotes "12.7x compression, 92% saved" — characters, not tokens, measuring the one technique real tokenizers showed to be a net cost and which is now gated off by default.
+>
+> Until the upload is replaced, the two disagree. **[Positioning for a re-record](#positioning-for-a-re-record)** carries description text that corrects the worst of it on the existing upload without touching the video at all, which is the cheaper half of the fix.
+
+### Archived
+
+The superseded renders are kept for reference and should not be used for outreach:
+
+- `assets/demo-video/glyphcompress-demo-pro-75s.mp4` and its cover — the published cut
+- `assets/demo-video/glyphcompress-demo-75s.mp4` — the first simple render
 
 ## Render Command
 
@@ -40,6 +45,25 @@ Create a professional 16:9 launch key visual for GlyphCompress, a developer tool
 ```
 
 Do not claim this key visual is a real product screenshot; label it as launch artwork when used publicly.
+
+## Scene Script (current asset)
+
+The scenes are data at the top of `scripts/render-demo-video.js`; edit them there and re-render. Order is the argument, so it is worth stating why:
+
+| # | Beat | On screen | Where the number comes from |
+| --- | --- | --- | --- |
+| 1 | **The Problem** | Turn 1 / 4 / 8 at 3,499 / 14,062 / 28,146 tokens | The raw column of the re-attachment session |
+| 2 | **The Reframe** | "Making a file 25% smaller is worth 25% of it. Not sending it again is worth all of it." | — |
+| 3 | **What Actually Pays** | -78.5% billed, -32.9% at 42 turns, 26% aggregate | `measure:differential`, `measure:cache`, `npm run benchmark` |
+| 4 | **The Honest Part** | "We measured our own headline feature. It lost." | The tokenizer comparison that gated glyph substitution off |
+| 5 | **Proof You Can Run** | 283,525 -> 57,472 sent, 167,547 -> 34,304 billed | `npx glyph-compress measure` on this repository's own compressor |
+| 6 | **Where It Runs** | CLI, VS Code, MCP, proxy, licence | — |
+
+Scene 4 is the one that matters. Nothing else in the category admits that the technique in its own name was measured and lost, and it is what makes the numbers in scenes 3 and 5 worth believing.
+
+## Archived Script (previous cut, as published)
+
+> The section below describes the video currently on YouTube. It is kept verbatim as the record of what that upload says — editing it would make this file describe a video that does not exist. Do not derive new copy from it.
 
 ## Timeline And Voiceover
 
