@@ -8,7 +8,7 @@
     "https://github.com/Neolambo/glyph-compress/releases",
     "https://badgen.net/badge/License/AGPL-3.0-only/blue",
     "https://badgen.net/badge/Commercial%20License/required%20for%20proprietary%20use/red",
-    "https://youtu.be/XRwRYEsReJU"
+    "https://youtu.be/-8UbO2atFp8"
   ],
   "mustExclude": [
     "https://github.com/Neolambo/glyph-compress/releases/latest/download/",
@@ -19,6 +19,7 @@
     "https://img.shields.io/badge/VS%20Code%20Marketplace-available-blue.svg",
     "https://img.shields.io/github/v/release/Neolambo/glyph-compress",
     "https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg",
-    "https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg"
+    "https://img.shields.io/badge/Commercial%20License-required%20for%20proprietary%20use-red.svg",
+    "https://youtu.be/XRwRYEsReJU"
   ]
 }

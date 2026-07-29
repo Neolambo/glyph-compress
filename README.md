@@ -50,8 +50,9 @@ Each front is measured on its own — because they are worth wildly different am
 
 ### 🎬 See it in Action
 
-- 🎬 **[70-second demo](assets/demo-video/glyphcompress-session-cost.mp4)** — the problem, the reframe, the measurement that killed our own headline feature, and the one command that gets you your own number. Every figure on screen is a token count a command in this repository prints. Render it yourself with `node scripts/render-demo-video.js`.
-- ⚙️ **[Data Flow Architecture](https://youtu.be/XRwRYEsReJU)** — an earlier animation of the glyph encoding. It shows that path at its most favourable and predates the tokenizer measurements that put it behind a gate, so treat its figures as superseded by the ones above.
+**▶ [Watch the 70-second demo](https://youtu.be/-8UbO2atFp8)** — the problem, the reframe, the measurement that killed our own headline feature, and the one command that gets you your own number.
+
+Every figure on screen is a token count that a command in this repository prints; each scene names the command that produces it. Nothing is a character count. The source file is at [`assets/demo-video/`](assets/demo-video/glyphcompress-session-cost.mp4) and you can rebuild it yourself with `node scripts/render-demo-video.js`.
 
 ---
 

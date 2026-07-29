@@ -12,16 +12,13 @@ This demo asset is designed for outreach posts, GitHub, Product Hunt, Hacker New
 
 Every figure on screen is a **token** count that a command in this repository prints, and each scene names the command that produces the number it shows. Nothing on screen is a character count.
 
-> [!IMPORTANT]
-> **This file is rendered but not yet uploaded.** The URL linked from the README still serves the previous cut, which leads on glyph substitution and quotes "12.7x compression, 92% saved" — characters, not tokens, measuring the one technique real tokenizers showed to be a net cost and which is now gated off by default.
->
-> Until the upload is replaced, the two disagree. **[Positioning for a re-record](#positioning-for-a-re-record)** carries description text that corrects the worst of it on the existing upload without touching the video at all, which is the cheaper half of the fix.
+**Published: https://youtu.be/-8UbO2atFp8**
 
 ### Archived
 
-The superseded renders are kept for reference and should not be used for outreach:
+Superseded renders, kept for reference and not to be used for outreach:
 
-- `assets/demo-video/glyphcompress-demo-pro-75s.mp4` and its cover — the published cut
+- `assets/demo-video/glyphcompress-demo-pro-75s.mp4` and its cover — the cut this one replaced
 - `assets/demo-video/glyphcompress-demo-75s.mp4` — the first simple render
 
 ## Render Command
@@ -164,11 +161,11 @@ GitHub: https://github.com/Neolambo/glyph-compress
 Wiki: https://github.com/Neolambo/glyph-compress/wiki
 Feedback: https://github.com/Neolambo/glyph-compress/issues/1
 ```
-## Positioning For A Re-record
+## Why The Cut Changed
 
 The published video and the script above are kept as a record. This section is the current framing, and it is what any new copy should be derived from.
 
-### What changed, and why the old cut no longer represents the tool
+### What the previous cut got wrong
 
 The demo leads on glyph substitution, and closes on "12.7x compression, 92% saved". Both of those are now the wrong emphasis:
 
@@ -177,39 +174,9 @@ The demo leads on glyph substitution, and closes on "12.7x compression, 92% save
 
 A viewer who watches the current cut and installs the tool may see it decline to compress a short prompt and conclude it is broken. It is not — that is the never-inflate guard doing its job — but the video sets an expectation the tool deliberately does not meet.
 
-### The cheap fix, no re-render required
+### Published Metadata
 
-Title and description live on the upload and can be corrected today. Suggested replacements:
-
-**Title**
-
-```text
-GlyphCompress — stop paying to re-send the same file to your LLM
-```
-
-**Description**
-
-```text
-Your IDE re-sends the same open files to the model on every turn, and you are billed for them every time. GlyphCompress cuts what a coding session actually costs — measured against real provider tokenizers, not character counts.
-
-The two biggest wins compress nothing at all: transmitting a re-attached file once instead of ten times, and putting the provider cache breakpoint where it actually covers the request. Content compression is a third, smaller effect.
-
-Don't take the number on faith — run it on your own code:
-  npx glyph-compress measure src/your-biggest-file.ts
-
-Note: this video predates the tokenizer measurements described above. It leads on the glyph encoding in the project's name, which was measured against real tokenizers, turned out to cost tokens rather than save them, and is now off by default. The README has the current numbers and the commands that reproduce them.
-
-GitHub: https://github.com/Neolambo/glyph-compress
-Releases: https://github.com/Neolambo/glyph-compress/releases
-npm: https://www.npmjs.com/package/glyph-compress
-VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress
-```
-
-### Upload metadata, ready to use
-
-The video exists (`assets/demo-video/glyphcompress-session-cost.mp4`). What is missing is the upload, which needs a Google account consent that only the channel owner can give.
-
-Whichever route is used — the YouTube web uploader, the Data API, or a Composio `YOUTUBE_UPLOAD_VIDEO` call — these are the fields:
+What was used for the upload, kept so a re-upload or a second platform starts from the same copy:
 
 | Field | Value |
 | --- | --- |
@@ -250,9 +217,9 @@ Every workaround was tried and rejected on evidence: a public URL (the raw GitHu
 
 **A caveat if the Composio route is used:** `YOUTUBE_UPLOAD_VIDEO` takes `videoFilePath` as a path local to the *executing* environment. A path on a developer machine is not visible to a hosted runner, so the file has to be reachable from wherever the tool actually runs. Confirm that before assuming the API route is less work than dragging the file into the web uploader.
 
-### If and when it is re-recorded
+### The beats, and why they are in this order
 
-The new story is stronger material than the old one, so this is an opportunity rather than damage control. Beats, in order:
+The honest story is stronger material than the old one, which is why this was an opportunity rather than damage control:
 
 1. **The problem, felt.** A session counter climbing while the developer types nothing new. Turn 10 is not one message; it is the whole conversation, re-uploaded.
 2. **The reframe.** "Everyone optimises the compression ratio. The compression ratio is not the bill."

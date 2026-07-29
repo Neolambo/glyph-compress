@@ -12,7 +12,7 @@ GlyphCompress is semantic compression for IDE and LLM communication. It compress
 
 Short pitch:
 
-> GlyphCompress compresses IDE-to-LLM context by 80%+ using semantic glyphs, with npm, CLI, VS Code Marketplace support, source maps, privacy redaction, provider profiles, and explicit trust policies for lossless, reversible, privacy-first, or lossy compression.
+> GlyphCompress cuts what an IDE-to-LLM coding session is billed for — measured in real tokens, not characters. The two largest wins compress nothing: it stops re-transmitting files the model already has (-78.5% billed over ten turns) and places provider cache breakpoints where they actually cover the request. Ships as npm package, CLI, VS Code extension, MCP server and local proxy, with source maps, privacy redaction, provider profiles and explicit trust policies.
 
 ## Priority Audiences
 
@@ -90,8 +90,8 @@ Use these links consistently:
 - GitHub Wiki: `https://github.com/Neolambo/glyph-compress/wiki`
 - CLI Wiki: `https://github.com/Neolambo/glyph-compress/wiki/Command-Line-CLI`
 - Latest release: `https://github.com/Neolambo/glyph-compress/releases/tag/v1.8.0`
-- Published YouTube video: `https://www.youtube.com/watch?v=XRwRYEsReJU`
-- YouTube short link: `https://youtu.be/XRwRYEsReJU`
+- Published YouTube video: `https://www.youtube.com/watch?v=-8UbO2atFp8`
+- YouTube short link: `https://youtu.be/-8UbO2atFp8`
 - Distribution kit: `docs/youtube-distribution-kit.md`
 - Public feedback issue: `https://github.com/Neolambo/glyph-compress/issues/1`
 
@@ -148,7 +148,7 @@ The goal is simple: send richer coding context to LLMs while spending fewer toke
 
 GitHub: https://github.com/Neolambo/glyph-compress
 Wiki: https://github.com/Neolambo/glyph-compress/wiki
-Demo: https://youtu.be/XRwRYEsReJU
+Demo: https://youtu.be/-8UbO2atFp8
 ```
 
 ### Message To AI Tool Maintainers
@@ -175,7 +175,7 @@ It may be relevant to your coverage of coding agents, context engineering, LLM c
 
 GitHub: https://github.com/Neolambo/glyph-compress
 Wiki: https://github.com/Neolambo/glyph-compress/wiki
-Demo: https://youtu.be/XRwRYEsReJU
+Demo: https://youtu.be/-8UbO2atFp8
 ```
 
 ### Show HN Draft
