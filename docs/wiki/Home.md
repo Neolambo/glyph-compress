@@ -6,9 +6,12 @@ Current stable release: `v1.36.0`.
 
 ## What GlyphCompress Does
 
-- Compresses verbose IDE and repository context into compact semantic glyph payloads.
-- Injects a shared codebook so LLMs can decode compressed context back into normal development meaning.
-- Supports CLI usage, library usage, OpenAI and Anthropic wrappers, VS Code commands, and an OpenAI-compatible local proxy.
+- Stops re-transmitting files the model has already been given — the largest single saving, and it compresses nothing.
+- Places provider cache breakpoints where they actually cover the request, so repeated content is billed at the cached rate.
+- Compresses the content that does need sending: comment and whitespace removal, structural summaries, a repeated-word dictionary.
+- Condenses old turns once they stop earning their place in the context.
+- Prices every decision against real provider tokenizers rather than character counts, and refuses any transformation that would send more tokens than it received.
+- Supports CLI usage, library usage, OpenAI and Anthropic wrappers, VS Code commands, an MCP server, and an OpenAI-compatible local proxy.
 - Emits source maps for inspection, audit, and reversible references.
 - Provides explicit trust policies: `lossless`, `reversible`, `privacy`, and `lossy`.
 - Strips multilingual filler phrases (English, Italian, German, French) for international developer workflows.
