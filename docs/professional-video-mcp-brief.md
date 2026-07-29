@@ -56,7 +56,7 @@ npx glyph-compress README.md --level ultra --provider openai --trust reversible 
 Animate a quick install/use flow.
 
 0:19-0:31 Useful workflow:
-Show repeated project context, diagnostics, file paths, and identifiers being transformed into a compact semantic payload. Include readable callouts: "12.7x compression", "92% saved", "source-map aware".
+Show repeated project context, diagnostics, file paths, and identifiers being transformed into a compact semantic payload. Callouts must quote **token** figures that a command in the repository prints — e.g. "−78.5% billed over 10 turns", "measured with js-tiktoken", "source-map aware". Do **not** reuse "12.7x compression" or "92% saved": those are character counts of a best-case fixture, and they describe the glyph substitution, which real tokenizers showed to be a net cost and which is gated off by default. See `docs/demo-video.md` → Positioning For A Re-record.
 
 0:31-0:43 Auditability:
 Show source-map metadata and trust policy cards: lossless, reversible, privacy, lossy. Emphasize that reversible mode blocks risky transformations and keeps metadata inspectable.

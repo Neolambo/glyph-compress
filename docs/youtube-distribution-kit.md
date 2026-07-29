@@ -121,7 +121,7 @@ I published a video showing GlyphCompress, a tool I am building to reduce repeat
 Video: https://www.youtube.com/watch?v=XRwRYEsReJU
 GitHub: https://github.com/Neolambo/glyph-compress
 
-It compresses file paths, diagnostics, tech names, repeated identifiers, prompt intent, and code structure into compact semantic glyph payloads. The v1.8.0 release includes CLI, npm, VS Code Marketplace, source maps, privacy redaction, provider profiles, and explicit trust policies.
+It cuts what an IDE-to-LLM session is billed for: it stops re-transmitting files the model already has, places provider cache breakpoints where they cover the request, and compresses the content that genuinely needs sending. Ships as CLI, npm package, VS Code extension, MCP server, and an OpenAI-compatible local proxy, with source maps, privacy redaction, provider profiles, and explicit trust policies.
 
 I am looking for technical feedback, especially from people building or using coding agents.
 ```
