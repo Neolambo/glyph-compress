@@ -237,6 +237,8 @@ npm: https://www.npmjs.com/package/glyph-compress
 VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress
 ```
 
+**What the Composio route actually did, when tried:** the chain works up to the last step. OAuth connects, and `videoFilePath` accepts a public URL — the raw GitHub URL of the file in this repository was fetched successfully, so the "local path" in the schema is not the obstacle it looks like. The upload then failed at YouTube itself with HTTP 401, and the underlying cause was **`channelNotFound`**: the Google account that granted consent has no YouTube channel attached. Granted scopes were correct and included `youtube.upload`, so this is not a permissions problem. Connect the Google account that actually owns the channel, or create a channel on the one being used, and the same call should complete.
+
 **A caveat if the Composio route is used:** `YOUTUBE_UPLOAD_VIDEO` takes `videoFilePath` as a path local to the *executing* environment. A path on a developer machine is not visible to a hosted runner, so the file has to be reachable from wherever the tool actually runs. Confirm that before assuming the API route is less work than dragging the file into the web uploader.
 
 ### If and when it is re-recorded
