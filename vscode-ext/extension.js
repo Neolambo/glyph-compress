@@ -36,10 +36,23 @@ function activate(context) {
   const config = vscode.workspace.getConfiguration('glyphCompress');
   const folders = vscode.workspace.workspaceFolders;
   const workspacePath = folders && folders.length > 0 ? folders[0].uri.fsPath : null;
+  // 'auto' is the shipped default, and the compressor does not know what it
+  // means — normalizeProvider() falls it through to 'raw'. The proxy resolved
+  // it correctly all along (normalizeProxyOptions infers from the target URL)
+  // while this path did not, so the extension's own compressor ran the raw
+  // profile for every user on defaults: raw's strategy and codeword settings,
+  // not the configured provider's. Invisible until pricing was made
+  // provider-derived and the panel started rendering an em dash.
+  const { inferProviderFromTarget } = require('./proxy.js');
+  const configuredProvider = config.get('provider', 'auto');
+  const effectiveProvider = configuredProvider === 'auto'
+    ? inferProviderFromTarget(config.get('targetApiUrl', 'https://api.openai.com'))
+    : configuredProvider;
+
   compressor = new GlyphCompressor({
     enabled: config.get('enabled', true),
     level: config.get('compressionLevel', 'standard'),
-    provider: config.get('provider', 'auto'),
+    provider: effectiveProvider,
     trustPolicy: config.get('trustPolicy', 'auto'),
     // Unset is null here, not undefined — the compressor treats any
     // non-finite value as "no override" and falls back to the provider rate.

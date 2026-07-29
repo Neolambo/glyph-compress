@@ -1,4 +1,4 @@
 {
   "glyphCompress.compressionLevel": "aggressive",
-  "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com"
+  "glyphCompress.targetApiUrl": "https://api.openai.com"
 }
