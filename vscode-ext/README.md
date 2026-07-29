@@ -1,8 +1,16 @@
-# GlyphCompress — Semantic Token Compression
+# GlyphCompress — Cut Your LLM Token Bill
 
-Compress the context your IDE sends to an LLM — file contents, diagnostics, chat history, diffs — using a compositional glyph system, so you spend fewer tokens per request without losing the information the model needs to help you.
+**Your IDE re-sends the same open files to the model on every turn, and you pay for them every time.**
 
-A shared codebook is injected once into the system prompt so the model can decode the compressed glyphs back into full concepts. Compression is calibrated against real provider tokenizers (OpenAI's cl100k_base/o200k_base) rather than character-count heuristics, so reported savings are real, measured token reductions — not guesses.
+GlyphCompress cuts what a coding session is actually **billed** — measured against real provider tokenizers (OpenAI's `cl100k_base`/`o200k_base`), never a character count. It works on four fronts, and the two largest **compress nothing at all**: it stops re-transmitting files the model already has (**−78.5% billed** over ten turns), places provider cache breakpoints where they genuinely cover the request, compresses the content that does need sending (**26%** aggregate), and condenses old turns once they stop earning their keep.
+
+> **We measured the glyph encoding this project is named after, and it lost.** Against real tokenizers it *costs* tokens on real files instead of saving them, so it is off by default — held there by a rule that refuses any transformation that would send more tokens than it received.
+
+Don't take those numbers on faith. Get your own, from your own code:
+
+```bash
+npx glyph-compress measure src/your-biggest-file.ts --turns 10
+```
 
 ## What this extension does
 

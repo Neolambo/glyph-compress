@@ -1,8 +1,8 @@
 {
   "name": "glyph-compress",
-  "displayName": "GlyphCompress — Semantic Token Compression",
+  "displayName": "GlyphCompress — Cut Your LLM Token Bill",
   "description": "Cut the tokens your IDE-to-LLM coding session is billed for. Stops re-sending files the model already has, places provider cache breakpoints where they cover the request, and compresses what genuinely needs sending - measured against real tokenizers, not character counts.",
-  "version": "1.36.3",
+  "version": "1.36.4",
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",
   "repository": {

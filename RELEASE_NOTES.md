@@ -1,3 +1,23 @@
+## v1.36.4 — The Storefront Says What The Tool Does
+
+No behaviour change. The Marketplace listing was the last surface still selling the technique that measurement retired, and a store listing only updates when a new VSIX is published.
+
+### It advertised the disabled feature
+
+The description read *"Compress IDE↔LLM communication using semantic radicals"*. That encoding was measured against real provider tokenizers, found to **cost** tokens rather than save them, and has been gated off by default for several releases. The store was promising the one thing the extension deliberately no longer does — to the audience most likely to install on the strength of it.
+
+The listing name followed the same line and is now aligned: **GlyphCompress — Cut Your LLM Token Bill**.
+
+### The extension page led with glyphs too
+
+`vscode-ext/README.md` is what the Marketplace renders as the page body, and it opened on "a compositional glyph system". It now opens where the project's own README does: on the fact that your IDE re-sends the same files every turn, that the two largest savings compress nothing, and on the result against the project itself. It closes with the one command that gives a reader their own number instead of ours.
+
+Keywords were absent entirely, so the extension was discoverable only by name and category. Twelve added.
+
+### Also
+
+The **Realistic Session Showcase** in the main README still quoted "12.7x compression, 92% saved" without the caveat the benchmark table below it already carried. The unit is inferable from the character counts either side, but a reader skimming sees 92% as a share of their bill — the exact confusion the page was rewritten to remove. Now labelled: character counts, best cases, and not the 26% aggregate.
+
 ## v1.36.3 — The Registry Page Points At The Right Video
 
 No behaviour change, and no code change. `README.md` ships inside the package and is what npm renders as the landing page, so it can only be corrected by publishing.
