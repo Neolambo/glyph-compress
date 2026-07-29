@@ -50,7 +50,7 @@ Each front is measured on its own — because they are worth wildly different am
 
 ### 🎬 See it in Action
 
-**▶ [Watch the 70-second demo](https://youtu.be/-8UbO2atFp8)** — the problem, the reframe, the measurement that killed our own headline feature, and the one command that gets you your own number.
+**▶ [Watch the 70-second demo](https://youtu.be/mow1lKr6TKw)** — the problem, the reframe, the measurement that killed our own headline feature, and the one command that gets you your own number.
 
 Every figure on screen is a token count that a command in this repository prints; each scene names the command that produces it. Nothing is a character count. The source file is at [`assets/demo-video/`](assets/demo-video/glyphcompress-session-cost.mp4) and you can rebuild it yourself with `node scripts/render-demo-video.js`.
 

@@ -90,8 +90,8 @@ Use these links consistently:
 - GitHub Wiki: `https://github.com/Neolambo/glyph-compress/wiki`
 - CLI Wiki: `https://github.com/Neolambo/glyph-compress/wiki/Command-Line-CLI`
 - Latest release: `https://github.com/Neolambo/glyph-compress/releases/tag/v1.8.0`
-- Published YouTube video: `https://www.youtube.com/watch?v=-8UbO2atFp8`
-- YouTube short link: `https://youtu.be/-8UbO2atFp8`
+- Published YouTube video: `https://www.youtube.com/watch?v=mow1lKr6TKw`
+- YouTube short link: `https://youtu.be/mow1lKr6TKw`
 - Distribution kit: `docs/youtube-distribution-kit.md`
 - Public feedback issue: `https://github.com/Neolambo/glyph-compress/issues/1`
 
@@ -148,7 +148,7 @@ The goal is simple: send richer coding context to LLMs while spending fewer toke
 
 GitHub: https://github.com/Neolambo/glyph-compress
 Wiki: https://github.com/Neolambo/glyph-compress/wiki
-Demo: https://youtu.be/-8UbO2atFp8
+Demo: https://youtu.be/mow1lKr6TKw
 ```
 
 ### Message To AI Tool Maintainers
@@ -175,7 +175,7 @@ It may be relevant to your coverage of coding agents, context engineering, LLM c
 
 GitHub: https://github.com/Neolambo/glyph-compress
 Wiki: https://github.com/Neolambo/glyph-compress/wiki
-Demo: https://youtu.be/-8UbO2atFp8
+Demo: https://youtu.be/mow1lKr6TKw
 ```
 
 ### Show HN Draft

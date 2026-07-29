@@ -4,8 +4,8 @@ Use this kit to distribute the published GlyphCompress video as the main public 
 
 ## Primary Video
 
-- YouTube: `https://www.youtube.com/watch?v=-8UbO2atFp8`
-- Short link: `https://youtu.be/-8UbO2atFp8`
+- YouTube: `https://www.youtube.com/watch?v=mow1lKr6TKw`
+- Short link: `https://youtu.be/mow1lKr6TKw`
 - GitHub: `https://github.com/Neolambo/glyph-compress`
 - Wiki: `https://github.com/Neolambo/glyph-compress/wiki`
 - npm: `https://www.npmjs.com/package/glyph-compress`
@@ -52,7 +52,7 @@ Your IDE re-sends the same file to the model on every turn, and you pay for it e
 
 New 70-second video on what a coding session actually gets billed, measured against real tokenizers instead of character counts. Includes the part most tools leave out: we measured the technique in our own project's name, it lost, and it is off by default.
 
-Video: https://www.youtube.com/watch?v=-8UbO2atFp8
+Video: https://www.youtube.com/watch?v=mow1lKr6TKw
 GitHub: https://github.com/Neolambo/glyph-compress
 ```
 
@@ -68,7 +68,7 @@ That is what GlyphCompress does, and the two biggest wins compress nothing at al
 The video also includes the uncomfortable part, which I think is the most useful thing in it: I measured the glyph encoding this project is named after against real provider tokenizers. It costs tokens rather than saving them, so it is off by default.
 
 Watch the video:
-https://www.youtube.com/watch?v=-8UbO2atFp8
+https://www.youtube.com/watch?v=mow1lKr6TKw
 
 GitHub:
 https://github.com/Neolambo/glyph-compress
@@ -82,7 +82,7 @@ I am looking for feedback from AI engineers, coding-agent builders, VS Code exte
 1/ Your IDE sends the model the same file on every single turn. You pay for it every single time.
 
 Video:
-https://www.youtube.com/watch?v=-8UbO2atFp8
+https://www.youtube.com/watch?v=mow1lKr6TKw
 
 2/ Everyone optimises the compression ratio. The compression ratio is not the bill.
 
@@ -108,7 +108,7 @@ Show HN: GlyphCompress - cut what an IDE-to-LLM session is billed, not its compr
 
 Short video on the thing I got wrong for several releases: I was optimising how small a payload is, when what costs money is how often the same payload is sent again. An IDE re-attaches open files to every request, so most of a session's cumulative tokens are content the model already has.
 
-Video: https://www.youtube.com/watch?v=-8UbO2atFp8
+Video: https://www.youtube.com/watch?v=mow1lKr6TKw
 GitHub: https://github.com/Neolambo/glyph-compress
 
 The two largest measured wins compress nothing: transmitting a re-attached file once instead of ten times (-78.5% billed over ten turns, js-tiktoken), and placing the Anthropic cache breakpoint at the end of the prefix rather than on the largest block. Content compression is a third, smaller effect at 26% aggregate.
@@ -125,7 +125,7 @@ Title: GlyphCompress: semantic compression for IDE-to-LLM context
 
 I published a video showing GlyphCompress, a tool I am building to reduce repeated context sent from IDEs and coding agents to LLMs.
 
-Video: https://www.youtube.com/watch?v=-8UbO2atFp8
+Video: https://www.youtube.com/watch?v=mow1lKr6TKw
 GitHub: https://github.com/Neolambo/glyph-compress
 
 It cuts what an IDE-to-LLM session is billed for: it stops re-transmitting files the model already has, places provider cache breakpoints where they cover the request, and compresses the content that genuinely needs sending. Ships as CLI, npm package, VS Code extension, MCP server, and an OpenAI-compatible local proxy, with source maps, privacy redaction, provider profiles, and explicit trust policies.
@@ -142,7 +142,7 @@ The angle that may interest your readers is not the compression: it is that the 
 
 The video also reports a result against the project itself: the glyph encoding it is named after was measured against real provider tokenizers, turned out to cost tokens rather than save them, and is off by default.
 
-Video: https://www.youtube.com/watch?v=-8UbO2atFp8
+Video: https://www.youtube.com/watch?v=mow1lKr6TKw
 GitHub: https://github.com/Neolambo/glyph-compress
 
 It may be relevant for your coverage of coding agents, context engineering, developer tools, and LLM cost optimization.
@@ -164,7 +164,7 @@ It may be relevant for your coverage of coding agents, context engineering, deve
 Use this prompt after `/distribute-glyphcompress-with-composio` starts:
 
 ```text
-Check which connected Composio tools are available for community outreach. I want to promote this YouTube video responsibly: https://www.youtube.com/watch?v=-8UbO2atFp8. Start by preparing a Hacker News Show HN submission and tailored posts for AI Engineer, LangChain, LlamaIndex, Continue, Cline/Roo Code, and Reddit communities. Do not publish anything until I confirm the channel and final text.
+Check which connected Composio tools are available for community outreach. I want to promote this YouTube video responsibly: https://www.youtube.com/watch?v=mow1lKr6TKw. Start by preparing a Hacker News Show HN submission and tailored posts for AI Engineer, LangChain, LlamaIndex, Continue, Cline/Roo Code, and Reddit communities. Do not publish anything until I confirm the channel and final text.
 ```
 
 ## Posting Cadence
@@ -182,5 +182,5 @@ Track every post in a simple table:
 
 | Date | Channel | URL | Views | Replies | Stars | Notes |
 |---|---|---|---:|---:|---:|---|
-| 2026-04-26 | YouTube | https://www.youtube.com/watch?v=-8UbO2atFp8 | | | | Primary video asset |
+| 2026-04-26 | YouTube | https://www.youtube.com/watch?v=mow1lKr6TKw | | | | Primary video asset |
 | 2026-04-26 | Slack `#tutta-glipho` | slack://channel?team=T0B0BS2CHA5&id=C0AVAT5A05U | | | | Posted via Composio after approval; ts `1777238429.488239` |

@@ -12,7 +12,7 @@ This demo asset is designed for outreach posts, GitHub, Product Hunt, Hacker New
 
 Every figure on screen is a **token** count that a command in this repository prints, and each scene names the command that produces the number it shows. Nothing on screen is a character count.
 
-**Published: https://youtu.be/-8UbO2atFp8**
+**Published: https://youtu.be/mow1lKr6TKw**
 
 ### Archived
 
