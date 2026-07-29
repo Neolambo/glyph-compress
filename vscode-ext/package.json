@@ -1,7 +1,7 @@
 {
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Semantic Token Compression",
-  "description": "Compress IDE↔LLM communication using semantic radicals, with a Context Router and team-shared dictionaries. Supports OpenAI, Claude, Gemini, and Antigravity.",
+  "description": "Cut the tokens your IDE-to-LLM coding session is billed for. Stops re-sending files the model already has, places provider cache breakpoints where they cover the request, and compresses what genuinely needs sending - measured against real tokenizers, not character counts.",
   "version": "1.36.3",
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",
@@ -164,5 +164,19 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0"
-  }
+  },
+  "keywords": [
+    "llm",
+    "tokens",
+    "openai",
+    "anthropic",
+    "claude",
+    "gemini",
+    "prompt caching",
+    "context",
+    "cost",
+    "copilot",
+    "mcp",
+    "proxy"
+  ]
 }
