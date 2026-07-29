@@ -30,10 +30,15 @@
  */
 import { encodingForModel } from 'js-tiktoken';
 import { GlyphCompressor } from '../src/glyph-middleware.js';
+import { CACHED_INPUT_RATES } from '../src/session-measure.js';
 
 // OpenAI bills cached input at 0.5x. Gemini implicit caching is ~0.25x, so the
-// same prefix loss costs more there, not less.
-const CACHED_INPUT_RATE = 0.5;
+// same prefix loss costs more there, not less — which is the entire point this
+// script exists to show, and which a single shared rate silently erased: both
+// provider tables came out byte-identical, halving the cost of a destroyed
+// prefix on exactly the provider where it hurts most. The rates live in
+// src/session-measure.js and are imported rather than restated here, because a
+// constant that exists twice is a constant that will disagree with itself.
 
 const enc = encodingForModel('gpt-4o');
 const tokens = (text) => (text ? enc.encode(text).length : 0);
@@ -72,7 +77,7 @@ function commonPrefixLength(a, b) {
   return i;
 }
 
-function runSession(followUpPairs, compress, provider) {
+function runSession(followUpPairs, compress, provider, cachedRate) {
   const turns = buildSession(followUpPairs);
   const compressor = compress ? new GlyphCompressor({ level: 'standard', provider }) : null;
   let previous = null;
@@ -90,7 +95,7 @@ function runSession(followUpPairs, compress, provider) {
 
     const cached = tokens(text.slice(0, shared));
     const fresh = tokens(text) - cached;
-    billed += cached * CACHED_INPUT_RATE + fresh;
+    billed += cached * cachedRate + fresh;
     sent += tokens(text);
     previous = text;
   }
@@ -99,11 +104,17 @@ function runSession(followUpPairs, compress, provider) {
 }
 
 for (const provider of ['openai', 'gemini']) {
-  console.log(`\n${provider} — implicit prefix caching, cached input at ${CACHED_INPUT_RATE}x`);
+  const cachedRate = CACHED_INPUT_RATES[provider];
+  // A provider with no published rate would silently fall back to undefined and
+  // turn every billed total into NaN, which prints as a confident 0.0%.
+  if (!Number.isFinite(cachedRate)) {
+    throw new Error(`no cached-input rate for '${provider}' — refusing to report a measurement built on it`);
+  }
+  console.log(`\n${provider} — implicit prefix caching, cached input at ${cachedRate}x`);
   console.log('  turns | tokens sent (raw -> glyph) | billed with cache (raw -> glyph) | prefix truncations');
   for (const pairs of [0, 3, 8, 20]) {
-    const raw = runSession(pairs, false, provider);
-    const glyph = runSession(pairs, true, provider);
+    const raw = runSession(pairs, false, provider, cachedRate);
+    const glyph = runSession(pairs, true, provider, cachedRate);
     const sentDelta = ((glyph.sent - raw.sent) / raw.sent) * 100;
     const billedDelta = ((glyph.billed - raw.billed) / raw.billed) * 100;
     const sign = (n) => (n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1));

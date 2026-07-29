@@ -33,6 +33,7 @@ __export(glyph_middleware_exports, {
   DOMAIN_GLYPHS: () => DOMAIN_GLYPHS,
   GlyphCompressor: () => GlyphCompressor,
   PROVIDER_COMPRESSION_PROFILES: () => PROVIDER_COMPRESSION_PROFILES,
+  PROVIDER_INPUT_PRICE_PER_MILLION: () => PROVIDER_INPUT_PRICE_PER_MILLION,
   TECH_GLYPHS: () => TECH_GLYPHS,
   TRUST_POLICY_PROFILES: () => TRUST_POLICY_PROFILES,
   buildTrustWarnings: () => buildTrustWarnings,
@@ -488,6 +489,18 @@ var PRIVACY_REDACTION_PATTERNS = [
   { kind: "email", label: "email address", pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi },
   { kind: "ipv4", label: "IPv4 address", pattern: /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g }
 ];
+var PROVIDER_INPUT_PRICE_PER_MILLION = {
+  raw: null,
+  // no upstream provider — nothing to price
+  openai: 2.5,
+  // gpt-4o (gpt-4o-mini is $0.15 — override if that is the model)
+  anthropic: 3,
+  // Claude Sonnet 5
+  gemini: 0.3,
+  // Gemini 2.5 Flash
+  local: 0
+  // self-hosted — the tokens are free, the electricity is not
+};
 var PROVIDER_COMPRESSION_PROFILES = {
   raw: {
     provider: "raw",
@@ -733,6 +746,7 @@ var GlyphCompressor = class {
     this._seedTeamCodebook();
     this.cacheFile = null;
     this._initCache();
+    this.inputPricePerMillion = Number.isFinite(options.inputPricePerMillion) && options.inputPricePerMillion >= 0 ? options.inputPricePerMillion : null;
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
     this.codewordDictionaryExplicit = options.codewordDictionary !== void 0;
     this.codewordDictionary = this.codewordDictionaryExplicit ? options.codewordDictionary === true : this.providerProfile.codewords === true;
@@ -1411,7 +1425,8 @@ ${parsed.dynamicLine}`
   getStats() {
     const s = this.stats;
     const saved = s.totalOriginalTokens - s.totalCompressedTokens;
-    const costPerToken = 3 / 1e6;
+    const pricePerMillion = this.getInputPricePerMillion();
+    const estimatedCostSaved = pricePerMillion === null ? null : `$${(saved * (pricePerMillion / 1e6)).toFixed(4)}`;
     return {
       messagesProcessed: s.messagesProcessed,
       totalOriginalTokens: s.totalOriginalTokens,
@@ -1419,9 +1434,21 @@ ${parsed.dynamicLine}`
       totalSavedTokens: saved,
       overallRatio: s.totalOriginalTokens > 0 ? (s.totalOriginalTokens / Math.max(1, s.totalCompressedTokens)).toFixed(1) + "x" : "0x",
       overallSavedPct: s.totalOriginalTokens > 0 ? ((1 - s.totalCompressedTokens / s.totalOriginalTokens) * 100).toFixed(0) + "%" : "0%",
-      estimatedCostSaved: `$${(saved * costPerToken).toFixed(4)}`,
+      estimatedCostSaved,
+      inputPricePerMillion: pricePerMillion,
       sessionDuration: Math.round((Date.now() - s.sessionStarted) / 6e4) + " min"
     };
+  }
+  /**
+   * The input-token price this compressor prices savings at, in USD per
+   * million: an explicit override if the caller set one, otherwise the
+   * provider's representative-model default. Null means unknown — see
+   * PROVIDER_INPUT_PRICE_PER_MILLION.
+   */
+  getInputPricePerMillion() {
+    if (this.inputPricePerMillion !== null) return this.inputPricePerMillion;
+    const fromProvider = PROVIDER_INPUT_PRICE_PER_MILLION[this.provider];
+    return fromProvider === void 0 ? null : fromProvider;
   }
   /**
    * Reset file index (when changing projects).
@@ -1571,7 +1598,7 @@ ${parsed.dynamicLine}`
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? this.sourceMap?.privacy || [] : [],
-      version: "1.36.5",
+      version: "1.37.0",
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -2648,6 +2675,7 @@ if (typeof module !== "undefined" && module.exports) {
     DOMAIN_GLYPHS,
     TECH_GLYPHS,
     PROVIDER_COMPRESSION_PROFILES,
+    PROVIDER_INPUT_PRICE_PER_MILLION,
     TRUST_POLICY_PROFILES,
     selectCompressionLevel,
     planCompressionForBudget,
@@ -2660,6 +2688,7 @@ if (typeof module !== "undefined" && module.exports) {
   DOMAIN_GLYPHS,
   GlyphCompressor,
   PROVIDER_COMPRESSION_PROFILES,
+  PROVIDER_INPUT_PRICE_PER_MILLION,
   TECH_GLYPHS,
   TRUST_POLICY_PROFILES,
   buildTrustWarnings,

@@ -41,6 +41,9 @@ function activate(context) {
     level: config.get('compressionLevel', 'standard'),
     provider: config.get('provider', 'auto'),
     trustPolicy: config.get('trustPolicy', 'auto'),
+    // Unset is null here, not undefined — the compressor treats any
+    // non-finite value as "no override" and falls back to the provider rate.
+    inputPricePerMillion: config.get('inputPricePerMillion'),
     workspacePath,
     attentionalDecay: config.get('experimentalDecay', false),
     holographicFolding: config.get('holographicFolding', false),
@@ -85,13 +88,15 @@ function activate(context) {
     vscode.commands.registerCommand('glyphCompress.showStats', () => {
       const stats = compressor.getStats();
       const lifetimeSaved = globalState.get('lifetimeTokensSaved', 0);
-      const lifetimeCost = `$${(lifetimeSaved * (3 / 1000000)).toFixed(2)}`;
 
       const panel = vscode.window.createWebviewPanel(
         'glyphStats', 'GlyphCompress Stats', vscode.ViewColumn.Beside,
         { enableScripts: false }
       );
-      panel.webview.html = generateStatsHTML(stats, lifetimeSaved, lifetimeCost);
+      // The price travels with the stats rather than being recomputed here:
+      // the previous shape passed a `lifetimeCost` the template never read and
+      // restated the rate inline instead, so the two could disagree — and did.
+      panel.webview.html = generateStatsHTML(stats, lifetimeSaved);
     })
   );
 
@@ -378,13 +383,24 @@ function updateStatusBar() {
       `Messages: ${stats.messagesProcessed}`,
       `Tokens saved: ${stats.totalSavedTokens}`,
       `Compression: ${stats.overallRatio} (${stats.overallSavedPct})`,
-      `Cost saved: ${stats.estimatedCostSaved}`,
+      `Cost saved: ${stats.estimatedCostSaved || '—'}`,
       `Session: ${stats.sessionDuration}`,
     ].join('\n');
   }
 }
 
-function generateStatsHTML(stats, lifetimeSaved, lifetimeCost) {
+function generateStatsHTML(stats, lifetimeSaved) {
+  const price = stats.inputPricePerMillion;
+  const known = typeof price === 'number';
+  // A dash beats a fabricated dollar figure: the reader can see the tool does
+  // not know the rate, which is true, instead of trusting a number it invented.
+  const lifetimeCost = known
+    ? `$${((lifetimeSaved + stats.totalSavedTokens) * (price / 1000000)).toFixed(2)}`
+    : '—';
+  const sessionCost = stats.estimatedCostSaved || '—';
+  const priceNote = known
+    ? `priced at $${price}/M input tokens`
+    : 'set glyphCompress.inputPricePerMillion to price these savings';
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -417,7 +433,7 @@ function generateStatsHTML(stats, lifetimeSaved, lifetimeCost) {
       <div class="stat-label">Reduction</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${stats.estimatedCostSaved}</div>
+      <div class="stat-value">${sessionCost}</div>
       <div class="stat-label">Cost Saved (est.)</div>
     </div>
   </div>
@@ -429,8 +445,8 @@ function generateStatsHTML(stats, lifetimeSaved, lifetimeCost) {
       <div class="stat-label">Total Tokens Saved</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value gold">$${((lifetimeSaved + stats.totalSavedTokens) * (3 / 1000000)).toFixed(2)}</div>
-      <div class="stat-label">Total Cost Saved (est.)</div>
+      <div class="stat-value gold">${lifetimeCost}</div>
+      <div class="stat-label">Total Cost Saved (est.)<br><small>${priceNote}</small></div>
     </div>
   </div>
 </body>

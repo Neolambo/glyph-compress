@@ -140,7 +140,7 @@ const totals = results.reduce((acc, item) => {
   hallucinatedFileRefs: 0,
 });
 
-console.log('\nGlyphCompress Benchmark v1.36.5');
+console.log('\nGlyphCompress Benchmark v1.37.0');
 console.log('='.repeat(72));
 console.log('Scenario | Provider | Level | Payload | Saved | Fidelity | Edit OK | Bad refs');
 console.log('-'.repeat(72));

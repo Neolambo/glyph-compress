@@ -1,4 +1,4 @@
 {
-  "glyphCompress.compressionLevel": "ultra",
+  "glyphCompress.compressionLevel": "aggressive",
   "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com"
 }
