@@ -237,7 +237,16 @@ npm: https://www.npmjs.com/package/glyph-compress
 VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress
 ```
 
-**What the Composio route actually did, when tried:** the chain works up to the last step. OAuth connects, and `videoFilePath` accepts a public URL — the raw GitHub URL of the file in this repository was fetched successfully, so the "local path" in the schema is not the obstacle it looks like. The upload then failed at YouTube itself with HTTP 401, and the underlying cause was **`channelNotFound`**: the Google account that granted consent has no YouTube channel attached. Granted scopes were correct and included `youtube.upload`, so this is not a permissions problem. Connect the Google account that actually owns the channel, or create a channel on the one being used, and the same call should complete.
+**The Composio route does not work for this upload, and the reason is worth recording.**
+
+Tried end to end with a valid API key. OAuth connects and the channel becomes visible — `YOUTUBE_LIST_USER_PLAYLISTS` succeeds against `@dcorrendo77`. The upload then fails, and not for any of the reasons that first appear:
+
+1. The first attempt returned HTTP 401 with a message about channel verification. The real cause was `channelNotFound`: the Google account that granted consent did not own the channel. Consent from the owning account fixes that — if the channel is a Brand Account, it must be picked explicitly in Google's account chooser.
+2. With the right account connected, the upload fails with `[Errno 2] No such file or directory`. `videoFilePath` is declared as a plain string — no `file_uploadable` flag — and the tool opens that path on **Composio's own executor**, not on the machine holding the file.
+
+Every workaround was tried and rejected on evidence: a public URL (the raw GitHub URL of the file in this repository) is treated as a literal path and fails; uploading the file to Composio's own presigned store via `POST /api/v3/files/upload/request` succeeds (HTTP 200, 920,309 bytes), but neither the returned S3 key, nor an `s3://` form, nor a file-reference object is accepted — the object form is rejected by the schema, the string forms by the filesystem.
+
+**So the upload is manual.** The metadata above is written out precisely so that dragging the file into the YouTube web uploader and pasting the fields is a two-minute job. An earlier version of this note claimed the URL form worked; that was inferred from a run whose 401 fired before the file was ever read, and it was wrong.
 
 **A caveat if the Composio route is used:** `YOUTUBE_UPLOAD_VIDEO` takes `videoFilePath` as a path local to the *executing* environment. A path on a developer machine is not visible to a hosted runner, so the file has to be reachable from wherever the tool actually runs. Confirm that before assuming the API route is less work than dragging the file into the web uploader.
 
