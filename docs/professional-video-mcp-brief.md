@@ -120,7 +120,7 @@ Using the fal-ai MCP server, generate a 75-second 16:9 professional launch video
 
 The repository already includes a local rendered fallback that does not require external API keys:
 
-- `assets/demo-video/glyphcompress-demo-pro-75s.mp4`
+- `assets/demo-video/glyphcompress-session-cost.mp4`
 - `assets/demo-video/glyphcompress-demo-pro-cover.png`
 
 Use MCP-generated media as the final public version once API access is available.

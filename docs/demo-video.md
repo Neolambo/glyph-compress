@@ -14,12 +14,9 @@ Every figure on screen is a **token** count that a command in this repository pr
 
 **Published: https://youtu.be/mow1lKr6TKw**
 
-### Archived
+### Superseded renders
 
-Superseded renders, kept for reference and not to be used for outreach:
-
-- `assets/demo-video/glyphcompress-demo-pro-75s.mp4` and its cover — the cut this one replaced
-- `assets/demo-video/glyphcompress-demo-75s.mp4` — the first simple render
+The earlier cuts (`glyphcompress-demo-pro-75s.mp4`, `glyphcompress-demo-75s.mp4` and their cover) were removed from the working tree — they are 1.9 MB every clone had to download for files nobody should use, and git history still has them if one is ever needed. The script for the published one is kept below as the record of what that upload says.
 
 ## Render Command
 
