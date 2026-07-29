@@ -2,7 +2,7 @@
   "name": "glyph-compress",
   "displayName": "GlyphCompress — Cut Your LLM Token Bill",
   "description": "Cut the tokens your IDE-to-LLM coding session is billed for. Stops re-sending files the model already has, places provider cache breakpoints where they cover the request, and compresses what genuinely needs sending - measured against real tokenizers, not character counts.",
-  "version": "1.36.5",
+  "version": "1.37.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "publisher": "Neolambo",
@@ -126,6 +126,11 @@
           ],
           "default": "auto",
           "description": "Trust policy that controls which compression transformations are allowed"
+        },
+        "glyphCompress.inputPricePerMillion": {
+          "type": "number",
+          "default": null,
+          "description": "USD per million input tokens, used to price the savings shown in the stats panel. Leave unset to use a representative model for the configured provider (OpenAI $2.50/gpt-4o, Anthropic $3.00/Sonnet, Gemini $0.30/2.5 Flash). Set it to your actual model's rate — gpt-4o-mini, for instance, is $0.15."
         },
         "glyphCompress.showStatusBar": {
           "type": "boolean",

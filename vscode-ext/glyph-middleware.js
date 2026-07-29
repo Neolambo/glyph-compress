@@ -400,6 +400,32 @@ const PRIVACY_REDACTION_PATTERNS = [
  * raw and local stay on `§N` as diagnostic and offline profiles, where the
  * marker being unmistakable is worth more than the token it costs.
  */
+/**
+ * Input-token list price in USD per million tokens, per provider.
+ *
+ * The stats panel used to price every saved token at a hardcoded $3/M — the
+ * Claude Sonnet rate — no matter which provider was configured. A user on
+ * gpt-4o-mini ($0.15/M) was shown a figure twenty times the real saving, and
+ * the number carried the product's own credibility on a claim it had not
+ * measured. Pricing is per *model*, not per provider, so a provider-level
+ * default can only ever be a representative model: each entry names the one it
+ * assumes, so the assumption is falsifiable rather than folklore.
+ *
+ * `raw` is null on purpose — it is the diagnostic profile with no upstream
+ * provider, so there is no price to assume. Callers render null as "—" rather
+ * than substituting a number.
+ *
+ * Checked 2026-07-29 against the published pricing pages. These move; a user
+ * on a different model sets `glyphCompress.inputPricePerMillion` to override.
+ */
+const PROVIDER_INPUT_PRICE_PER_MILLION = {
+  raw: null,           // no upstream provider — nothing to price
+  openai: 2.50,        // gpt-4o (gpt-4o-mini is $0.15 — override if that is the model)
+  anthropic: 3.00,     // Claude Sonnet 5
+  gemini: 0.30,        // Gemini 2.5 Flash
+  local: 0,            // self-hosted — the tokens are free, the electricity is not
+};
+
 const PROVIDER_COMPRESSION_PROFILES = {
   raw: {
     provider: 'raw',
@@ -644,6 +670,13 @@ class GlyphCompressor {
     this._seedTeamCodebook();
     this.cacheFile = null;
     this._initCache();
+    // An explicit override always wins over the provider default, including 0
+    // (a self-hosted user pricing at zero) — so the guard is "is it a usable
+    // number", not truthiness, which would silently discard 0.
+    this.inputPricePerMillion = Number.isFinite(options.inputPricePerMillion)
+      && options.inputPricePerMillion >= 0
+      ? options.inputPricePerMillion
+      : null;
     this.attentionalDecay = options.attentionalDecay === true || options.decay === true;
     // Substitute repeated identifiers with ordinary single-token words
     // (`zebra`) instead of `§N`, halving the codeword cost from 2 real tokens
@@ -1594,7 +1627,14 @@ class GlyphCompressor {
   getStats() {
     const s = this.stats;
     const saved = s.totalOriginalTokens - s.totalCompressedTokens;
-    const costPerToken = 3 / 1_000_000; // Claude Sonnet ~$3/M input
+    const pricePerMillion = this.getInputPricePerMillion();
+    // null price means "we do not know what this costs" — report null rather
+    // than a dollar figure derived from a guess. A wrong number here is worse
+    // than no number: it is the one output a user cannot check against
+    // anything, and it is denominated in their money.
+    const estimatedCostSaved = pricePerMillion === null
+      ? null
+      : `$${(saved * (pricePerMillion / 1_000_000)).toFixed(4)}`;
     return {
       messagesProcessed: s.messagesProcessed,
       totalOriginalTokens: s.totalOriginalTokens,
@@ -1606,9 +1646,22 @@ class GlyphCompressor {
       overallSavedPct: s.totalOriginalTokens > 0
         ? ((1 - s.totalCompressedTokens / s.totalOriginalTokens) * 100).toFixed(0) + '%'
         : '0%',
-      estimatedCostSaved: `$${(saved * costPerToken).toFixed(4)}`,
+      estimatedCostSaved,
+      inputPricePerMillion: pricePerMillion,
       sessionDuration: Math.round((Date.now() - s.sessionStarted) / 60000) + ' min',
     };
+  }
+
+  /**
+   * The input-token price this compressor prices savings at, in USD per
+   * million: an explicit override if the caller set one, otherwise the
+   * provider's representative-model default. Null means unknown — see
+   * PROVIDER_INPUT_PRICE_PER_MILLION.
+   */
+  getInputPricePerMillion() {
+    if (this.inputPricePerMillion !== null) return this.inputPricePerMillion;
+    const fromProvider = PROVIDER_INPUT_PRICE_PER_MILLION[this.provider];
+    return fromProvider === undefined ? null : fromProvider;
   }
 
   /**
@@ -1778,7 +1831,7 @@ class GlyphCompressor {
   _createSourceMap(preservePrivacy = false) {
     return {
       privacy: preservePrivacy ? (this.sourceMap?.privacy || []) : [],
-      version: '1.36.5',
+      version: '1.37.0',
       level: this.level,
       provider: this.provider,
       profile: this.providerProfile,
@@ -3231,6 +3284,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DOMAIN_GLYPHS,
     TECH_GLYPHS,
     PROVIDER_COMPRESSION_PROFILES,
+    PROVIDER_INPUT_PRICE_PER_MILLION,
     TRUST_POLICY_PROFILES,
     selectCompressionLevel,
     planCompressionForBudget,
@@ -3239,4 +3293,4 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // ESM export for modern usage
-export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, TRUST_POLICY_PROFILES, selectCompressionLevel, planCompressionForBudget, buildTrustWarnings };
+export { GlyphCompressor, wrapOpenAI, wrapAnthropic, CODEBOOK_PROMPT, DOMAIN_GLYPHS, TECH_GLYPHS, PROVIDER_COMPRESSION_PROFILES, PROVIDER_INPUT_PRICE_PER_MILLION, TRUST_POLICY_PROFILES, selectCompressionLevel, planCompressionForBudget, buildTrustWarnings };

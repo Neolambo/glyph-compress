@@ -7,7 +7,7 @@
       "compressed": "Fix ⊝₍1₎. 'email'∉User.",
       "sourceMap": {
         "privacy": [],
-        "version": "1.36.5",
+        "version": "1.37.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -107,7 +107,7 @@
             "placeholder": "⟦IPV4_4⟧"
           }
         ],
-        "version": "1.36.5",
+        "version": "1.37.0",
         "level": "standard",
         "provider": "raw",
         "profile": {
@@ -198,7 +198,7 @@
       ],
       "sourceMap": {
         "privacy": [],
-        "version": "1.36.5",
+        "version": "1.37.0",
         "level": "standard",
         "provider": "openai",
         "profile": {
@@ -263,7 +263,7 @@
       ],
       "sourceMap": {
         "privacy": [],
-        "version": "1.36.5",
+        "version": "1.37.0",
         "level": "standard",
         "provider": "anthropic",
         "profile": {

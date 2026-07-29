@@ -1,3 +1,55 @@
+## v1.37.0 — The Dollar Figure Was A Hardcoded Guess
+
+The stats panel priced every saved token at $3 per million — the Claude Sonnet input rate — regardless of which provider was configured. A user on `gpt-4o-mini` ($0.15/M) was shown a saving **twenty times** the real one, under a label reading "Total Cost Saved". It was the one number in the product nobody could check against anything, and it was denominated in their money.
+
+### What changed
+
+The rate now comes from the configured provider, and each default names the model it assumes so the assumption is falsifiable rather than folklore:
+
+| provider | default | model assumed |
+|---|---|---|
+| `openai` | $2.50/M | gpt-4o |
+| `anthropic` | $3.00/M | Claude Sonnet 5 |
+| `gemini` | $0.30/M | Gemini 2.5 Flash |
+| `local` | $0 | self-hosted |
+| `raw` | — | no upstream provider |
+
+Pricing is per *model*, not per provider, so a provider-level default can only ever be a representative model. `glyphCompress.inputPricePerMillion` overrides it — set it to what you actually pay.
+
+`raw` reports no figure at all rather than a substituted one. The panel renders `—`. A dash the reader can interpret beats a number the tool invented.
+
+### The export that silently did not exist
+
+Adding `PROVIDER_INPUT_PRICE_PER_MILLION` to the ESM `export {}` list was not enough: the symbol still came back `undefined` from the built `.cjs`. `vscode-ext/glyph-middleware.js` ends with a hand-written CommonJS block that **reassigns `module.exports`** after esbuild's own, and that block lists its symbols by hand. Every export added to only the ESM line is dropped from the bundle the extension actually loads.
+
+This was invisible from the feature's own behavior — `getStats()` worked fine, because it reads the constant in-module. Only a direct `require()` of the built artifact showed it. Both export surfaces are now verified separately.
+
+### Dead code that had already drifted
+
+`lifetimeCost` was computed in `showStats`, passed into `generateStatsHTML`, and never read — the template restated the same formula inline. Two copies of one rate, one of them unreachable. The formula now exists once and travels with the stats.
+
+### `measure:implicit-cache` was not measuring Gemini
+
+The script's own comment said Gemini's implicit cache is ~0.25x, then hardcoded `CACHED_INPUT_RATE = 0.5` and applied it to both providers — while `src/session-measure.js` already exported the correct per-provider rates without this script importing them. The two tables came out byte-identical, which was the symptom.
+
+It halved the cost of a destroyed prefix on the one provider the script exists to show it hurts most. The rates are now imported, and a provider with no published rate throws instead of propagating `undefined` into a total that prints as a confident `0.0%`.
+
+### Workspace default
+
+`.vscode/settings.json` shipped `compressionLevel: ultra`. Graded on questions with one correct symbol each, against live models on two providers:
+
+| level | vs direct | correct |
+|---|---|---|
+| `standard` (shipped default) | −65% | 5/5 |
+| `aggressive` | −72% to −76% | 5/5 |
+| `ultra` | −98% | **1/5** |
+
+`ultra` does not fail by admitting it lacks the code — it invents plausible identifiers (`rankWorkspaceFiles` for `selectRelevantFiles`). The same four probes fail with the same invented names on both OpenAI and Gemini, which puts the fault in the compression rather than in any one model. The workspace now uses `aggressive`.
+
+The extension's own shipped default was always `standard`, so this never reached users — but the repository was demonstrating a setting that quietly costs you correct answers.
+
+---
+
 ## v1.36.5 — 1.36.4 On npm Was The Wrong Package Entirely
 
 **If you installed `glyph-compress@1.36.4` from npm, upgrade.** That publish shipped the VS Code extension folder instead of the library.

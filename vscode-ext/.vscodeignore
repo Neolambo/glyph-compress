@@ -1,1 +1,11 @@
 node_modules/**
+
+# Build artifacts must never ride along inside the extension. vsce excludes
+# *.vsix on its own but nothing else, so a stray archive in this directory is
+# packaged as extension content: 1.37.0 first built at 212 KB, of which 105 KB
+# was a glyph-compress-1.36.5.zip sitting next to the source. Shipping a
+# previous build inside the current one is how 1.36.4 went wrong, in a
+# different costume.
+*.zip
+*.vsix
+*.tgz
