@@ -205,6 +205,40 @@ npm: https://www.npmjs.com/package/glyph-compress
 VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress
 ```
 
+### Upload metadata, ready to use
+
+The video exists (`assets/demo-video/glyphcompress-session-cost.mp4`). What is missing is the upload, which needs a Google account consent that only the channel owner can give.
+
+Whichever route is used — the YouTube web uploader, the Data API, or a Composio `YOUTUBE_UPLOAD_VIDEO` call — these are the fields:
+
+| Field | Value |
+| --- | --- |
+| `title` | GlyphCompress — stop paying to re-send the same file to your LLM |
+| `categoryId` | `28` (Science & Technology) |
+| `privacyStatus` | `unlisted` first, then `public` once the frames have been checked on the platform |
+| `tags` | `llm`, `tokens`, `openai`, `anthropic`, `prompt caching`, `developer tools`, `vscode`, `mcp`, `cli`, `cost optimization` |
+| `videoFilePath` | `assets/demo-video/glyphcompress-session-cost.mp4` |
+
+`description`:
+
+```text
+Your IDE re-sends the same open files to the model on every turn, and you are billed for them every time. GlyphCompress cuts what a coding session actually costs, measured against real provider tokenizers rather than character counts.
+
+The two biggest wins compress nothing at all: transmitting a re-attached file once instead of ten times (-78.5% billed over ten turns), and putting the provider cache breakpoint where it actually covers the request (-32.9% at 42 turns). Compressing the content itself is a third, smaller effect at 26%.
+
+We also measured the glyph encoding this project is named after. It cost tokens instead of saving them, so it is off by default.
+
+Don't take our number. Run it on your own code:
+  npx glyph-compress measure src/your-biggest-file.ts --turns 10
+
+GitHub: https://github.com/Neolambo/glyph-compress
+Releases: https://github.com/Neolambo/glyph-compress/releases
+npm: https://www.npmjs.com/package/glyph-compress
+VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress
+```
+
+**A caveat if the Composio route is used:** `YOUTUBE_UPLOAD_VIDEO` takes `videoFilePath` as a path local to the *executing* environment. A path on a developer machine is not visible to a hosted runner, so the file has to be reachable from wherever the tool actually runs. Confirm that before assuming the API route is less work than dragging the file into the web uploader.
+
 ### If and when it is re-recorded
 
 The new story is stronger material than the old one, so this is an opportunity rather than damage control. Beats, in order:
