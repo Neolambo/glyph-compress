@@ -1,3 +1,32 @@
+## v1.36.2 — The Front Page Now Says What The Measurements Say
+
+No behaviour change. This release exists because `README.md` ships inside the npm package, so rewriting it is a package change and needs a version to reach anyone.
+
+### The opening led with a character count
+
+The first concrete number a reader met was `1,734 chars → 137 chars, 12.7x compression, 92% saved`. Characters, not tokens — and describing the glyph substitution, the one technique here that measurement showed to be a net cost and that is gated off by default. The page was selling the weakest axis in the wrong unit.
+
+It now leads with what a session is billed, invites the reader to distrust that number and run `glyph-compress measure` on their own code, and states the uncomfortable result in a pull quote rather than a footnote: the encoding this project is named after was measured, lost, and was switched off. That admission is the strongest thing on the page.
+
+### Twenty pieces of changelog removed from a page that should describe the present
+
+Feature headings carried `(v1.15.0)`. CLI table rows carried `(v1.18.0+)`. The proxy section heading carried `(v0.5.0+)` — and its anchor embedded the version number, so removing it meant updating every link that pointed there.
+
+All gone. Version history lives in [Releases](https://github.com/Neolambo/glyph-compress/releases) and nowhere else; the only version left on the page identifies which release a reader is looking at.
+
+### Two more test defects, found after the previous release was tagged
+
+The CI jobs added for the shipped configuration kept earning their place. Both failures were the same mistake in different files: a test that passes because of what the developer's machine happens to have.
+
+- **`npm-pack-smoke` required the extracted tarball by path** while being named for `require("glyph-compress")`. A path resolves a directory and reads `main` — the ESM entry — where a bare specifier goes through `exports.require` and reaches the CommonJS one. Node 20 and 22 tolerate `require(ESM)`, so it passed; Node 18 does not. The extracted package is now placed under `node_modules/` and required by name, so both the root entry and the `./middleware` sub-export resolve exactly as a consumer's `require()` does.
+- **The dictionary amortisation control used a 28-character word.** With `js-tiktoken` it is priced at its real BPE cost and repays a substitution; without it, at the conservative `floor(length / 8)` — the same 3 tokens as the glyph replacing it — so it saves nothing per occurrence and can never repay its own definition. That is the fallback being deliberately pessimistic, and it is why a VSIX admits 1 dictionary entry where an npm install admits 33. The fixture now clears amortisation under either counter.
+
+Recorded rather than hidden: the mutation that pair was written to catch does not bite without the tokenizer, because the conservative estimate rejects the word either way. The guard is verified where it governs; what governs the shipped fallback is the never-inflate assertion in the same suite.
+
+### Also corrected
+
+The token-budget illustration claimed chat history "explodes exponentially". A conversation re-sent in full each turn grows **quadratically**. On a page whose entire argument is that the usual numbers are imprecise, that word could not stay.
+
 ## v1.36.1 — Four Red Builds, Three Of Them Self-Inflicted
 
 v1.36.0 shipped with CI failing. Every failure was real, and one of them reached users.
