@@ -267,7 +267,7 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 
 ### 🆕 What's New
 
-Current release: **v1.37.2**.
+Current release: **v1.37.3**.
 
 The work lately has had one obsession: **make every claim on this page runnable.** `glyph-compress measure` puts the headline figure on your own code instead of ours. The Context Router finds the right file in 5 of 6 unambiguous queries. Compression is priced in real BPE tokens, not characters. And when a published number stopped reproducing, it was corrected downward and said so out loud.
 
@@ -277,7 +277,7 @@ The work lately has had one obsession: **make every claim on this page runnable.
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.37.2)
+### 📏 Benchmark Snapshot (v1.37.3)
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI where it measurably loses tokens did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -594,7 +594,7 @@ console.log(stats);      // → { ratio, savedPct, fallback, selectedLevel } —
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-   code.cmd --install-extension .\glyph-compress-1.37.2.vsix --force
+   code.cmd --install-extension .\glyph-compress-1.37.3.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
    Run **Developer: Reload Window** afterwards — VS Code keeps the previously loaded extension code until it does.
@@ -734,7 +734,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/stats
 
 **2. The proxy will not start — the port is already taken.**
 
-Usually a proxy from an earlier window that outlived it. Since v1.37.2 this reports itself instead of failing silently; the message names the port. Find and stop the holder:
+Usually a proxy from an earlier window that outlived it. Since v1.37.3 this reports itself instead of failing silently; the message names the port. Find and stop the holder:
 
 ```powershell
 # Windows

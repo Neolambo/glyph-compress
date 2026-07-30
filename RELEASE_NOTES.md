@@ -1,3 +1,39 @@
+## v1.37.3 — The Documented Continue Config Could Not Load
+
+Documentation only. No code changes.
+
+**1.37.2 shipped the fixes but not the docs for them.** The publish was cut from the tree before the documentation commit landed, so the code corrections reached npm and the Marketplace while the README on the npm page stayed at its previous revision — with a Continue example that cannot work.
+
+### The example was invalid
+
+```diff
+-  - title: Gemini 2.5 Flash (Glyph Proxy)
++  - name: Gemini 2.5 Flash (Glyph Proxy)
+```
+
+Continue's `config.yaml` schema requires `name`, `model`, and `provider`, and does not accept `title` — that key belonged to the older `config.json` format. Verified against the schema shipped inside `continue.continue-2.0.0`. The entry failed validation silently and the model never appeared in the picker.
+
+The same example also left the least obvious rule unstated: **`provider` stays `openai` whatever the upstream is.** It describes the wire format the client speaks *to the proxy*, not the company at the far end. Setting `provider: gemini` makes the client send Gemini-native requests the proxy is not expecting. There is now a table mapping upstream to `targetApiUrl` and model id.
+
+### What the README was missing
+
+Every item added here was hit in a real setup session, in the order it was hit:
+
+- **`Connection error` means the proxy is not running.** Nothing said it had to be started first, and the section immediately after the integration steps opened with *"Done! You don't need to do anything else."*
+- **A port collision.** Silent before 1.37.2, now reported — documented with the commands to find and stop the holder.
+- **One proxy has one upstream.** Mentioned in passing under Cursor and nowhere as a rule, so a client listing both an OpenAI and a Gemini model half-works and the failing half looks like a credential problem.
+- **Two counters.** The stats panel reads the extension's compressor; only a palette-started proxy shares it. A terminal-started proxy reports to the dashboard and leaves the panel at zero, which looks broken and is not.
+
+### Expectation-setting on savings
+
+The headline ratios come from sessions that re-attach the same file every turn — that repetition is what the largest win removes. A payload that is large but *not* repetitive has nothing to elide and measures **3–8%** on real traffic. Both numbers are real and describe different conversation shapes, but only one was on the page, so the first honest measurement a user takes looks like a defect.
+
+### Also
+
+The Marketplace listing draws from the extension's own README, which carried the same optimism in one line — *"Point your IDE's API base URL at `http://localhost:8080` and nothing else changes"* — and now carries the two setup notes instead. The install snippet pinned a `.vsix` from twenty releases ago and omitted the reload step; the settings block was missing `inputPricePerMillion` from 1.37.0.
+
+---
+
 ## v1.37.2 — The Proxy Failed Silently When The Port Was Taken
 
 Four defects, all found by reading the extension's own output channel. The first explains a symptom users could not diagnose: **Start Zero-Command Proxy appearing to do nothing at all.**
