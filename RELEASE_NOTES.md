@@ -1,3 +1,41 @@
+## v1.37.4 — A Measured Sample Of Real Traffic, Instead Of A Range
+
+Documentation only. No code changes.
+
+1.37.3 replaced the headline ratios with an honest caveat — *"3–8% on real Continue traffic"* — but a range with no sample behind it is still a claim the reader has to take on trust. This release replaces it with the actual counter readings.
+
+### The sample
+
+Six consecutive requests from a Continue session against OpenAI at `aggressive`, read from the extension proxy's own counter. No selection, no smoothing:
+
+| request | original | compressed | saved |
+|---|---:|---:|---:|
+| 1 | 3,056 | 3,056 | 0% |
+| 2 | 5,027 | 3,647 | 27% |
+| 3 | 12,238 | 9,595 | 22% |
+| 4 | 3,161 | 3,161 | 0% |
+| 5 | 1,161 | 1,007 | 13% |
+| 6 | 9,881 | 9,881 | 0% |
+| **aggregate** | **34,524** | **30,347** | **12%** |
+
+**Three of six saved nothing.** Below the breakeven the guard forwards the payload unchanged rather than pay for a codebook that would cost more than it saves — a 0% row is the guard working, not failing, and the page now says so where a reader will hit it.
+
+Against that, sessions that *do* re-attach one fenced file every turn, measured live on both providers: **63.5%** on OpenAI over five turns, **75.7%** on Gemini. Both figures are real. Conversation shape is the variable that matters — not the model and not the level.
+
+The section also states plainly that a sample of six is a sample of six. It illustrates the spread; it is not a headline to quote back.
+
+### An anchor that was going to break on every release
+
+Two in-page links pointed at `#-benchmark-snapshot-v1361` — the version was baked into the heading, and the anchor had been stale since 1.36.1, six releases. `npm run check:links` validates link *targets*, not in-page anchors, so nothing caught it.
+
+The heading is now version-free, so the anchor is stable by construction rather than needing maintenance at every bump. All 26 in-page anchors were then verified to resolve, which took two corrections to the checking script before it was measuring GitHub's slug rules rather than an approximation of them.
+
+### Also
+
+Adds `.continue/rules/glyph-compress.md` — the workspace rules Continue 2.0 loads from `.continue/rules/`, describing the traps this repository has actually shipped: which file is the compressor source versus a build output, the hand-written CommonJS export block that drops ESM-only exports from the bundle, and why measurement claims need their conditions attached.
+
+---
+
 ## v1.37.3 — The Documented Continue Config Could Not Load
 
 Documentation only. No code changes.

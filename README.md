@@ -137,7 +137,7 @@ Turn 1 is byte-for-byte identical, and that is the guard working, not failing. N
 
 ## 🧭 When to Use GlyphCompress (and When to Skip It)
 
-This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot-v1361) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
+This project reports honest numbers, not just best cases — so here's the direct answer on fit, backed by the measurements in [📏 Benchmark Snapshot](#-benchmark-snapshot) and [🧪 Realistic Benchmark Notes](#-realistic-benchmark-notes) below.
 
 **Good fit:**
 - **Code-heavy payloads** — source files, diffs, diagnostics. `ultra` shows real, structural token savings here (up to ~1.2x on this repository's own source), and identifiers/imports/structure survive intact via the source map.
@@ -267,7 +267,7 @@ The per-session dynamic dictionary (and its cross-session cache) is per-machine 
 
 ### 🆕 What's New
 
-Current release: **v1.37.3**.
+Current release: **v1.37.4**.
 
 The work lately has had one obsession: **make every claim on this page runnable.** `glyph-compress measure` puts the headline figure on your own code instead of ours. The Context Router finds the right file in 5 of 6 unambiguous queries. Compression is priced in real BPE tokens, not characters. And when a published number stopped reproducing, it was corrected downward and said so out loud.
 
@@ -277,7 +277,7 @@ The work lately has had one obsession: **make every claim on this page runnable.
 
 For contribution, licensing, and operational guidance, see [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [docs/licensing.md](docs/licensing.md), [docs/release.md](docs/release.md), [docs/architecture.md](docs/architecture.md), [docs/benchmark-methodology.md](docs/benchmark-methodology.md), [SECURITY.md](SECURITY.md), [PRIVACY.md](PRIVACY.md), and [ENTERPRISE.md](ENTERPRISE.md).
 
-### 📏 Benchmark Snapshot (v1.37.3)
+### 📏 Benchmark Snapshot
 
 `npm run benchmark` currently reports an aggregate payload compression ratio of **1.3x**, **26% genuine token savings**, **100% context fidelity score**, **100% edit success proxy**, and **0 hallucinated file references** across representative fixtures. These numbers are calibrated with Unicode token penalties and per-glyph breakeven logic — every reported saving is a real, net-positive token reduction. Disabling `TECH_GLYPHS` substitution on OpenAI where it measurably loses tokens did not move this number on these fixtures — it removes a systematic source of hidden waste with no observed downside, rather than trading it against measured savings.
 
@@ -321,7 +321,7 @@ The third command exists because this trade goes the wrong way often enough to n
 ### Compression ratio
 
 > [!NOTE]
-> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot-v1361) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content.
+> The table below measures the five curated per-scenario examples shown in [Realistic Session Showcase](#-realistic-session-showcase), in raw characters — it is a best-case illustration of what a well-suited payload can achieve, not the typical or aggregate result. For the honestly-reported, provider-token-aware aggregate across a representative fixture set, see [📏 Benchmark Snapshot](#-benchmark-snapshot) below (`npm run benchmark`: **1.3x ratio, 26% genuine savings**) and the [Realistic Benchmark Notes](#-realistic-benchmark-notes) (`npm run benchmark:realistic`) for real-repository and chat-payload numbers, which are more modest and sometimes break-even or negative on prose-heavy content. For a sample of genuine IDE traffic rather than a fixture, see [What to expect from your own traffic](#-what-to-expect-from-your-own-traffic) — **12% aggregate over six consecutive requests**, individual requests between 0% and 27%.
 
 | Scenario | Original | Compressed | Ratio | Savings |
 |---|---|---|---|---|
@@ -594,7 +594,7 @@ console.log(stats);      // → { ratio, savedPct, fallback, selectedLevel } —
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-   code.cmd --install-extension .\glyph-compress-1.37.3.vsix --force
+   code.cmd --install-extension .\glyph-compress-1.37.4.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
    Run **Developer: Reload Window** afterwards — VS Code keeps the previously loaded extension code until it does.
@@ -734,7 +734,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/stats
 
 **2. The proxy will not start — the port is already taken.**
 
-Usually a proxy from an earlier window that outlived it. Since v1.37.3 this reports itself instead of failing silently; the message names the port. Find and stop the holder:
+Usually a proxy from an earlier window that outlived it. Since v1.37.4 this reports itself instead of failing silently; the message names the port. Find and stop the holder:
 
 ```powershell
 # Windows
@@ -758,9 +758,25 @@ The proxy forwards everything to a single `targetApiUrl`. If your client lists b
 
 The headline ratios on this page come from sessions where an IDE re-attaches the same file turn after turn — that repetition is what the biggest win removes, and it is the dominant cost in a long chat about one file.
 
-A payload that is *large but not repetitive* — many different files, each sent once — has nothing to elide, and only glyph substitution applies. Measured on real Continue traffic that is **3–8%**, not 60–90%. Both numbers are real; they describe different conversation shapes.
+A payload that is *large but not repetitive* — many different files, each sent once — has nothing to elide, and only glyph substitution applies.
 
-Check which shape you have before drawing conclusions:
+Here is a real sample, taken from the extension's own proxy counter during a Continue session against OpenAI at `aggressive`. Six consecutive requests, no selection or smoothing:
+
+| request | original | compressed | saved |
+|---|---:|---:|---:|
+| 1 | 3,056 | 3,056 | 0% |
+| 2 | 5,027 | 3,647 | 27% |
+| 3 | 12,238 | 9,595 | 22% |
+| 4 | 3,161 | 3,161 | 0% |
+| 5 | 1,161 | 1,007 | 13% |
+| 6 | 9,881 | 9,881 | 0% |
+| **aggregate** | **34,524** | **30,347** | **12%** |
+
+**12% aggregate, individual requests between 0% and 27%.** Three of six saved nothing: below the breakeven the guard forwards the payload unchanged rather than pay for a codebook that would cost more than it saves. A 0% row is the guard working, not failing.
+
+Against that, the same proxy measured on sessions that *do* re-attach one fenced file every turn, live on both providers: **63.5%** on OpenAI over five turns, **75.7%** on Gemini. Every number on this page is real. They describe different conversation shapes, and the shape is the variable that matters — not the model, not the level.
+
+A sample of six is a sample of six. Treat the table as an illustration of the spread, and measure your own:
 
 ```bash
 curl -s http://localhost:8080/stats
