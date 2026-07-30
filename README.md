@@ -68,6 +68,8 @@ Every figure on screen is a token count that a command in this repository prints
 - [🚀 Usage: Command Line (CLI)](#-usage-command-line-cli)
 - [🚀 Quick Start (Code & Extension)](#-quick-start)
 - [👻 The Ultimate Magic: Zero-Command Transparent Proxy](#-the-ultimate-magic-zero-command-transparent-proxy)
+  - [🚑 First run: the four things that actually go wrong](#-first-run-the-four-things-that-actually-go-wrong)
+  - [📉 What to expect from your own traffic](#-what-to-expect-from-your-own-traffic)
 - [🔌 MCP Server (Claude Code, Claude Desktop & other MCP clients)](#-mcp-server-claude-code-claude-desktop--other-mcp-clients)
 - [🎯 Context Budget Planner](#-context-budget-planner)
 - [🔤 The Glyph Protocol](#-the-glyph-protocol)
@@ -592,9 +594,10 @@ console.log(stats);      // → { ratio, savedPct, fallback, selectedLevel } —
 1. Install from the **[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=neolambo.glyph-compress)** with extension id `neolambo.glyph-compress`.
 2. For the exact latest GitHub release build, download `glyph-compress-<version>.vsix` from **[GitHub Releases](https://github.com/Neolambo/glyph-compress/releases)** and install it locally:
    ```powershell
-    code.cmd --install-extension .\glyph-compress-1.17.0.vsix --force
+   code.cmd --install-extension .\glyph-compress-1.37.2.vsix --force
    code.cmd --list-extensions --show-versions | Select-String -Pattern 'neolambo.glyph-compress'
    ```
+   Run **Developer: Reload Window** afterwards — VS Code keeps the previously loaded extension code until it does.
 3. See live compression stats in the status bar: `⚡ GC: 3.5x | -1200 tok`
 
 The Marketplace listing exists publicly; GitHub Releases are also published for users who need a specific VSIX version immediately after each release.
@@ -628,6 +631,10 @@ GlyphCompress provides a fluid workflow for native IDE chats. The extension can 
   "glyphCompress.showStatusBar": true,
   "glyphCompress.autoUpdateWorkspaceRules": false,
   "glyphCompress.targetApiUrl": "https://generativelanguage.googleapis.com",
+  // Prices the savings shown in the stats panel. Unset uses a representative
+  // model for the provider (OpenAI $2.50, Anthropic $3.00, Gemini $0.30 per
+  // million input tokens). Set your model's real rate — gpt-4o-mini is $0.15.
+  "glyphCompress.inputPricePerMillion": null,
   "glyphCompress.experimentalDecay": false,
   "glyphCompress.holographicFolding": false,
   "glyphCompress.intentDiffs": false
@@ -684,20 +691,82 @@ If you want **100% automatic, invisible** compression without pressing *any* sho
 2. Add or edit your model configuration:
 ```yaml
 models:
-  - title: Gemini 2.5 Flash (Glyph Proxy)
-    provider: openai
+  - name: Gemini 2.5 Flash (Glyph Proxy)
+    provider: openai          # always openai — see below
     model: gemini-2.5-flash
     apiKey: YOUR_REAL_API_KEY
     apiBase: http://localhost:8080/v1
 ```
 
-If you prefer an OpenAI upstream, keep the same `apiBase` and swap only the upstream API key, model id, and GlyphCompress provider/target settings. For an Anthropic upstream, do the same but also set `glyphCompress.targetApiUrl = https://api.anthropic.com` and use a real Anthropic model id — the proxy translates the request/response shape for you (v1.24.0+).
+> `name` is required by Continue's `config.yaml` schema (`name`, `model`, `provider`). The older `config.json` format used `title`; a `config.yaml` entry with `title` fails validation and the model does not appear.
+
+**`provider` stays `openai` whatever the upstream is.** It describes the wire format Continue speaks *to the proxy*, not the company at the far end — the proxy receives an OpenAI-shaped request and translates it for the real upstream. Setting `provider: gemini` makes Continue send Gemini-native requests, which the proxy is not expecting.
+
+Choosing the upstream is a GlyphCompress setting, not a Continue one:
+
+| Upstream | `glyphCompress.targetApiUrl` | `model` in Continue |
+|---|---|---|
+| OpenAI | `https://api.openai.com` | `gpt-4o`, `gpt-4o-mini`, … |
+| Gemini | `https://generativelanguage.googleapis.com` | `gemini-2.5-flash`, … |
+| Anthropic | `https://api.anthropic.com` | a real Anthropic model id (v1.24.0+) |
+
+The `apiKey` must be a real key for whichever upstream you chose — the proxy forwards your credentials, it does not supply any.
 
 **GitHub Copilot Chat**
 *Note: Microsoft locks the API URL for the official Copilot extension for security reasons. To use GlyphCompress with the official Copilot, please use the `Ctrl+Alt+G` (One-Click Ask) shortcut provided by the GlyphCompress VS Code Extension.*
 
-### 3. Done! 
-You don't need to do anything else. When your IDE sends huge blocks of code to the LLM, the proxy intercepts the JSON request, minifies the code blocks, injects the codebook, and forwards the heavily compressed request to the real LLM API. 
+### 3. Done!
+Once the proxy is running and your client points at it, compression is automatic: the proxy intercepts the JSON request, elides attachments the model has already been sent, minifies code blocks, injects the codebook, and forwards the result to the real API.
+
+### 🚑 First run: the four things that actually go wrong
+
+These are the failures people hit in the first five minutes, in the order they hit them.
+
+**1. `Connection error` in your IDE — the proxy is not running.**
+
+Nothing compresses until the proxy is listening, and no client tells you that clearly; Continue reports a bare "Connection error", Cline a request failure. Check before debugging anything else:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/stats
+```
+
+`200` means it is up. `000` means nothing is listening — start it (`GlyphCompress: Start Zero-Command Proxy`, or `npx glyph-compress --proxy 8080`).
+
+**2. The proxy will not start — the port is already taken.**
+
+Usually a proxy from an earlier window that outlived it. Since v1.37.2 this reports itself instead of failing silently; the message names the port. Find and stop the holder:
+
+```powershell
+# Windows
+netstat -ano | Select-String ":8080.*LISTENING"
+Stop-Process -Id <PID> -Force
+```
+```bash
+# macOS / Linux
+lsof -ti:8080 | xargs kill
+```
+
+**3. Only OpenAI-shaped models work, or only Gemini ones — one proxy has one upstream.**
+
+The proxy forwards everything to a single `targetApiUrl`. If your client lists both an OpenAI and a Gemini model against `localhost:8080`, only the family matching the current target will work; the other returns an upstream error that looks like a credential problem and is not. Change `glyphCompress.targetApiUrl` and restart the proxy to switch families — or run two proxies on different ports.
+
+**4. The stats panel shows zeros while the dashboard shows data — there are two counters.**
+
+`GlyphCompress: Show Compression Stats` reads the *extension's* compressor. Only a proxy started from the Command Palette shares it. A proxy started from a terminal keeps its own counter: its numbers appear at `http://localhost:8080/dashboard` and the panel stays at zero. Both are working; they are measuring different objects. Start the proxy from the palette if you want the panel to move.
+
+### 📉 What to expect from your own traffic
+
+The headline ratios on this page come from sessions where an IDE re-attaches the same file turn after turn — that repetition is what the biggest win removes, and it is the dominant cost in a long chat about one file.
+
+A payload that is *large but not repetitive* — many different files, each sent once — has nothing to elide, and only glyph substitution applies. Measured on real Continue traffic that is **3–8%**, not 60–90%. Both numbers are real; they describe different conversation shapes.
+
+Check which shape you have before drawing conclusions:
+
+```bash
+curl -s http://localhost:8080/stats
+```
+
+`totals.pct` is your actual ratio. If it is low, look at whether your client re-sends the same attachment each turn — and note that tokens *sent* and tokens *billed* can diverge, because re-compressing history changes the bytes a provider's prompt cache was matching on. `npm run measure:cache` and `npm run measure:differential` price both axes.
 
 ## 🔌 MCP Server (Claude Code, Claude Desktop & other MCP clients)
 
