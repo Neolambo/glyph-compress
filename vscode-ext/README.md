@@ -16,10 +16,22 @@ npx glyph-compress measure src/your-biggest-file.ts --turns 10
 
 - **Compress Selection**: compress the currently selected text/code and copy the result to your clipboard.
 - **Ask LLM (Auto-Compress)**: automatically compress context before it reaches VS Code's built-in Language Model API (Copilot Chat and compatible extensions), with zero manual steps.
-- **Zero-Command Transparent Proxy**: a local proxy that sits between your IDE (Cursor, Continue, Cline, and other OpenAI/Anthropic/Gemini-compatible tools) and the real provider API, compressing every request automatically. Point your IDE's API base URL at `http://localhost:8080` and nothing else changes.
+- **Zero-Command Transparent Proxy**: a local proxy that sits between your IDE (Cursor, Continue, Cline, and other OpenAI/Anthropic/Gemini-compatible tools) and the real provider API, compressing every request automatically. Point your IDE's API base URL at `http://localhost:8080`, then see the two setup notes below.
 - **Build Project Codebook**: scan your workspace to rank files by relevance to a task and build a persistent index used by the Context Router.
 - **Compress Entire Workspace**: batch-compress every open/relevant file at once.
 - **Show Compression Stats** / status bar: live token-savings numbers for your current session.
+
+## Using the proxy: two things that are easy to miss
+
+**Start it first.** Nothing is compressed until the proxy is listening, and clients do not say so helpfully — Continue reports a bare `Connection error`. Run **GlyphCompress: Start Zero-Command Proxy** from the Command Palette, then check:
+
+```
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/stats
+```
+
+`200` means it is up; `000` means nothing is listening. Starting it from the palette (rather than a terminal) is also what makes **Show Compression Stats** move — a terminal-started proxy keeps a separate counter and reports to `http://localhost:8080/dashboard` instead.
+
+**One proxy forwards to one upstream.** `glyphCompress.targetApiUrl` picks it. If your client lists both an OpenAI model and a Gemini model against `localhost:8080`, only the family matching the current target will work, and the other fails with an upstream error that looks like a credential problem. Your client's own `provider` field should stay `openai` regardless — it describes the format spoken to the proxy, not the company at the far end.
 
 ## Providers and trust policies
 

@@ -8,13 +8,13 @@
     "url": "https://github.com/Neolambo/glyph-compress",
     "source": "github"
   },
-  "version": "1.37.2",
+  "version": "1.37.3",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "glyph-compress",
-      "version": "1.37.2",
+      "version": "1.37.3",
       "transport": {
         "type": "stdio"
       },
